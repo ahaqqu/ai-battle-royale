@@ -1,12 +1,13 @@
-//! abr-runner: local CLI (PLAN §5.2). Runs bot-vs-bot matches headless with
-//! the reference bots, writes replays, and verifies replays byte-identically.
+//! abr-runner: local CLI (PLAN §5.2, §6.2). Runs bot-vs-bot matches headless
+//! with the reference bots, writes + verifies replays, and serves the web
+//! viewer + replay library.
 
 use abr_core::bots::{self, RefBot};
 use abr_core::config::MatchConfig;
 use abr_core::engine::MatchEngine;
 use abr_core::events::Event;
 use abr_core::map::load_map;
-use abr_core::replay::{build_summary, Replay, ReplayRecorder};
+use abr_core::replay::{build_summary, verify_replay, Replay, ReplayRecorder};
 use clap::{Parser, Subcommand};
 use std::time::Instant;
 
@@ -29,7 +30,7 @@ enum Cmd {
         preset: Option<String>,
         #[arg(long, default_value_t = 1)]
         seed: u64,
-        #[arg(long, default_value = "replay.json")]
+        #[arg(long, default_value = "replays/match.json")]
         out: String,
         /// Log kills and zone events as they happen.
         #[arg(long)]
@@ -40,6 +41,17 @@ enum Cmd {
     },
     /// Re-simulate a replay and check it reproduces byte-identically.
     Verify { path: String },
+    /// Serve the viewer + replay library over HTTP.
+    Serve {
+        #[arg(long, default_value_t = 8321)]
+        port: u16,
+        /// Built viewer directory (viewer/dist).
+        #[arg(long, default_value = "viewer/dist")]
+        viewer: String,
+        /// Replay library directory.
+        #[arg(long, default_value = "replays")]
+        replays: String,
+    },
     /// List the available reference bots.
     Bots,
 }
@@ -66,6 +78,11 @@ fn main() {
             run(names, seed, out, verbose, full_info_dump);
         }
         Cmd::Verify { path } => verify(&path),
+        Cmd::Serve {
+            port,
+            viewer,
+            replays,
+        } => serve(port, &viewer, &replays),
         Cmd::Bots => {
             println!("available reference bots:");
             for n in bots::BOT_NAMES {
@@ -76,7 +93,7 @@ fn main() {
 }
 
 fn run(names: Vec<String>, seed: u64, out: String, verbose: bool, full_info_dump: bool) {
-    let config = MatchConfig::default();
+    let config = MatchConfig::standard();
     let mut engine = MatchEngine::new(config, seed, &names);
     for (b, name) in names.iter().enumerate() {
         let uses_companion = bots::create(name, b as u32)
@@ -147,6 +164,9 @@ fn run(names: Vec<String>, seed: u64, out: String, verbose: bool, full_info_dump
 
     let summary = build_summary(&engine, &names);
     let json = recorder.to_json();
+    if let Some(parent) = std::path::Path::new(&out).parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
     std::fs::write(&out, &json).expect("write replay");
     let bytes = json.len();
 
@@ -186,7 +206,7 @@ fn verify(path: &str) {
     let replay: Replay =
         serde_json::from_slice(&data).unwrap_or_else(|e| panic!("parse replay: {e}"));
     let t0 = Instant::now();
-    match abr_core::replay::verify_replay(&replay) {
+    match verify_replay(&replay) {
         Ok(summary) => {
             println!(
                 "OK: {} ticks re-simulated byte-identically in {:.0}ms; winner: bot {:?}",
@@ -200,4 +220,67 @@ fn verify(path: &str) {
             std::process::exit(1);
         }
     }
+}
+
+fn serve(port: u16, viewer_dir: &str, replays_dir: &str) {
+    use axum::response::IntoResponse;
+    use axum::routing::get;
+    use tower_http::services::{ServeDir, ServeFile};
+
+    let viewer_path = std::path::PathBuf::from(viewer_dir);
+    let index = viewer_path.join("index.html");
+    if !index.exists() {
+        eprintln!("viewer build not found at {index:?}. Build it: (cd viewer && npm install && npm run build)");
+        std::process::exit(1);
+    }
+    let replays = std::path::PathBuf::from(replays_dir);
+    std::fs::create_dir_all(&replays).ok();
+    let replays_for_list = replays.clone();
+
+    let app = axum::Router::new()
+        .route(
+            "/api/replays",
+            get(move || async move {
+                let mut items = vec![];
+                if let Ok(rd) = std::fs::read_dir(&replays_for_list) {
+                    for entry in rd.flatten() {
+                        let path = entry.path();
+                        if path.extension().is_some_and(|e| e == "json") {
+                            let name = path
+                                .file_name()
+                                .map(|n| n.to_string_lossy().to_string())
+                                .unwrap_or_default();
+                            let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                            items.push(serde_json::json!({
+                                "name": name,
+                                "url": format!("/replays/{name}"),
+                                "size_kb": size as f64 / 1024.0,
+                            }));
+                        }
+                    }
+                }
+                items.sort_by(|a, b| b["name"].as_str().cmp(&a["name"].as_str()));
+                axum::Json(items).into_response()
+            }),
+        )
+        .nest_service(
+            "/replays",
+            ServeDir::new(&replays).append_index_html_on_directories(false),
+        )
+        .fallback_service(ServeDir::new(&viewer_path).not_found_service(ServeFile::new(index)));
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("tokio runtime");
+    println!("▶ AI Battle Royale viewer: http://127.0.0.1:{port}");
+    println!("  replay library: {replays_dir:?} → /replays/<file>.json");
+    runtime
+        .block_on(async move {
+            let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
+                .await
+                .expect("bind");
+            axum::serve(listener, app).await
+        })
+        .expect("server");
 }

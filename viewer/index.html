@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Battle Royale — Replay Viewer</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="stage-host"></div>
+
+    <!-- top HUD -->
+    <div id="topbar" class="hidden">
+      <div id="match-title">
+        <span id="match-name">AI BATTLE ROYALE</span>
+        <span id="match-sub"></span>
+      </div>
+      <div id="match-stats">
+        <div class="stat"><span class="stat-label">ALIVE</span><span id="stat-alive">16</span></div>
+        <div class="stat"><span class="stat-label">ZONE</span><span id="stat-zone">—</span></div>
+        <div class="stat"><span class="stat-label">T+</span><span id="stat-time">0:00</span></div>
+      </div>
+    </div>
+
+    <!-- kill feed -->
+    <div id="killfeed" class="hidden"></div>
+
+    <!-- bot legend -->
+    <div id="legend" class="hidden"></div>
+
+    <!-- bottom timeline -->
+    <div id="bottombar" class="hidden">
+      <button id="btn-play" title="Space">▶</button>
+      <span id="tick-label">t0</span>
+      <div id="timeline-wrap">
+        <div id="timeline-track"></div>
+        <div id="timeline-progress"></div>
+        <div id="timeline-markers"></div>
+        <input id="timeline" type="range" min="0" max="1000" value="0" step="1" />
+      </div>
+      <div id="speed-group">
+        <button class="speed" data-speed="0.5">.5×</button>
+        <button class="speed active" data-speed="1">1×</button>
+        <button class="speed" data-speed="2">2×</button>
+        <button class="speed" data-speed="4">4×</button>
+      </div>
+      <select id="cam-select"></select>
+    </div>
+
+    <!-- winner modal -->
+    <div id="winner-modal" class="hidden">
+      <div class="modal-card">
+        <div class="crown">♛</div>
+        <div id="winner-name">—</div>
+        <div id="winner-sub">last main standing</div>
+        <ol id="podium"></ol>
+      </div>
+    </div>
+
+    <!-- loading overlay -->
+    <div id="loading">
+      <div class="load-card">
+        <div class="logo">AI<span>BATTLE</span>ROYALE</div>
+        <div id="load-status">connecting…</div>
+        <div class="bar"><div id="load-bar"></div></div>
+      </div>
+    </div>
+
+    <!-- replay picker -->
+    <div id="picker" class="hidden">
+      <div class="picker-card">
+        <div class="logo small">AI<span>BATTLE</span>ROYALE</div>
+        <div id="picker-list"></div>
+        <label class="upload">or open a replay file…<input type="file" id="file-input" accept=".json" /></label>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
