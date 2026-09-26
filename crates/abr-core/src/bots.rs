@@ -420,7 +420,7 @@ impl RefBot for Berserker {
         if obs.you.main.hp < 20.0 {
             self.sprinting = false;
         }
-        if self.sprinting != obs.you.main.status.contains(&"sprint") {
+        if self.sprinting != obs.you.main.status.contains(&"sprint".to_string()) {
             action = Some(UnitAction::Sprint { on: self.sprinting });
         }
         let mut inp = base_input(m, action);

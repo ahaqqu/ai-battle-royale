@@ -143,15 +143,15 @@ pub fn verify_replay(replay: &Replay) -> Result<ReplaySummary, String> {
 
 pub fn build_summary(engine: &MatchEngine, bot_names: &[String]) -> ReplaySummary {
     let st = &engine.state;
-    let mut placements = st.placements.clone();
-    if placements.is_empty() {
-        // Never finished: rank by current placement then bot id.
-        let mut order: Vec<(u32, Option<u32>)> =
-            (0..st.bots).map(|b| (b, st.main(b).placement)).collect();
-        order.sort_by_key(|(b, p)| (*p, *b));
-        placements = order.into_iter().map(|(b, _)| b).collect();
-    }
-    let placements = placements
+    // Rank ALL entrants: dead bots recorded their placement at death time,
+    // survivors at match end. Every bot appears exactly once.
+    let mut order: Vec<(u32, Option<u32>)> =
+        (0..st.bots).map(|b| (b, st.main(b).placement)).collect();
+    order.sort_by_key(|(b, p)| (*p, *b));
+    let placements = order
+        .into_iter()
+        .map(|(b, _)| b)
+        .collect::<Vec<u32>>()
         .into_iter()
         .map(|b| {
             let m = st.main(b);

@@ -1,0 +1,23 @@
+[package]
+name = "abr-server"
+description = "Match gateway + ladder: bot WebSocket hosting, match queue, ELO, replay store (PLAN §8)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+abr-core = { path = "../abr-core" }
+axum = { version = "0.8", features = ["ws", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "sync", "time", "signal"] }
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+tower-http = { version = "0.6", features = ["fs"] }
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"

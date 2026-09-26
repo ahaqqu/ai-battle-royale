@@ -7,13 +7,13 @@ use crate::fixed::{self, Fix};
 use crate::params::SimParams;
 use crate::state::{SoundKind, WorldState};
 use crate::types::Vec2;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 fn f(v: Fix) -> f64 {
     fixed::to_f64(v)
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Observation {
     pub apiversion: u32,
     pub tick: u64,
@@ -24,13 +24,13 @@ pub struct Observation {
     pub global: Global,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct You {
     pub main: OwnUnit,
     pub companion: OwnUnit,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct OwnUnit {
     pub id: u32,
     pub alive: bool,
@@ -42,26 +42,26 @@ pub struct OwnUnit {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mods: Option<Mods>,
     pub cooldown: OwnCooldown,
-    pub status: Vec<&'static str>,
+    pub status: Vec<String>,
     /// Companion only: seconds until respawn.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub respawn_in_s: Option<f64>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Mods {
     pub fire_cooldown_pct: i32,
     pub projectile_speed_pct: i32,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct OwnCooldown {
     pub fire: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sonar: Option<f64>,
 }
 
-#[derive(Serialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Seen {
     pub players: Vec<SeenPlayer>,
     pub companions: Vec<SeenCompanion>,
@@ -69,12 +69,12 @@ pub struct Seen {
     pub pickups: Vec<SeenPickup>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SeenPlayer {
     pub id: u32,
     pub pos: [f64; 2],
     pub range: f64,
-    pub detail: &'static str,
+    pub detail: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vel: Option<[f64; 2]>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -82,48 +82,48 @@ pub struct SeenPlayer {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hp: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub status: Option<Vec<&'static str>>,
+    pub status: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub via_sonar: Option<bool>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SeenCompanion {
     pub id: u32,
     pub owner: u32,
     pub pos: [f64; 2],
     pub range: f64,
-    pub detail: &'static str,
+    pub detail: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub via_sonar: Option<bool>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SeenProjectile {
     pub id: u32,
     pub pos: [f64; 2],
     pub vel: [f64; 2],
     pub owner: u32,
-    pub owner_kind: &'static str,
+    pub owner_kind: String,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SeenPickup {
     pub id: u32,
     pub pos: [f64; 2],
-    pub kind: &'static str,
+    pub kind: String,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Heard {
     pub tick: u64,
-    pub kind: &'static str,
+    pub kind: String,
     /// Degrees from north, quantized (15°).
     pub bearing: u16,
-    pub band: &'static str,
+    pub band: String,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Global {
     pub bots: u32,
     pub alive: u32,
@@ -133,14 +133,14 @@ pub struct Global {
     pub match_time_left_s: f64,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct KillEntryJson {
     pub tick: u64,
     pub killer: Option<u32>,
     pub victim: u32,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ZoneJson {
     pub center: [f64; 2],
     pub radius: f64,
@@ -148,7 +148,7 @@ pub struct ZoneJson {
     pub next: Option<NextZone>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NextZone {
     pub center: [f64; 2],
     pub radius: f64,
@@ -237,7 +237,11 @@ pub fn observe(
                 id: u.id,
                 pos: [f(u.pos.x), f(u.pos.y)],
                 range: f(range),
-                detail: if detail_full { "full" } else { "silhouette" },
+                detail: if detail_full {
+                    "full".to_string()
+                } else {
+                    "silhouette".to_string()
+                },
                 vel: detail_full.then(|| [f(u.vel.x), f(u.vel.y)]),
                 facing: detail_full.then_some(u.facing),
                 hp: detail_full.then(|| f(u.hp)),
@@ -250,7 +254,11 @@ pub fn observe(
                 owner: u.bot,
                 pos: [f(u.pos.x), f(u.pos.y)],
                 range: f(range),
-                detail: if detail_full { "full" } else { "silhouette" },
+                detail: if detail_full {
+                    "full".to_string()
+                } else {
+                    "silhouette".to_string()
+                },
                 via_sonar: (best.is_none()).then_some(true),
             });
         }
@@ -265,7 +273,7 @@ pub fn observe(
                 pos: [f(pr.pos.x), f(pr.pos.y)],
                 vel: [f(pr.vel.x), f(pr.vel.y)],
                 owner: pr.bot,
-                owner_kind: "main",
+                owner_kind: "main".to_string(),
             });
             continue;
         }
@@ -277,7 +285,7 @@ pub fn observe(
                     pos: [f(pr.pos.x), f(pr.pos.y)],
                     vel: [f(pr.vel.x), f(pr.vel.y)],
                     owner: pr.bot,
-                    owner_kind: "main",
+                    owner_kind: "main".to_string(),
                 });
                 break;
             }
@@ -295,7 +303,7 @@ pub fn observe(
                 seen.pickups.push(SeenPickup {
                     id: pk.id,
                     pos: [f(pk.pos.x), f(pk.pos.y)],
-                    kind: pickup_kind_str(pk.kind),
+                    kind: pickup_kind_str(pk.kind).to_string(),
                 });
                 break;
             }
@@ -323,9 +331,9 @@ pub fn observe(
         let bearing = (((bearing_raw.rem_euclid(360) + q / 2) / q) * q) % 360;
         heard.push(Heard {
             tick: state.tick,
-            kind: sound_kind_str(snd.kind),
+            kind: sound_kind_str(snd.kind).to_string(),
             bearing: bearing as u16,
-            band: band_str(d),
+            band: band_str(d).to_string(),
         });
         if heard.len() >= 64 {
             break;
@@ -419,16 +427,16 @@ fn own_unit(u: &crate::state::Unit, p: &SimParams, companion: bool, tick: u64) -
     }
 }
 
-fn unit_status(u: &crate::state::Unit) -> Vec<&'static str> {
+fn unit_status(u: &crate::state::Unit) -> Vec<String> {
     let mut v = Vec::with_capacity(3);
     if u.sprint {
-        v.push("sprint");
+        v.push("sprint".to_string());
     }
     if u.dashing > 0 {
-        v.push("dashing");
+        v.push("dashing".to_string());
     }
     if u.shielding > 0 {
-        v.push("shielding");
+        v.push("shielding".to_string());
     }
     v
 }
@@ -467,7 +475,7 @@ fn pickup_kind_str(k: crate::loot::PickupKind) -> &'static str {
 // This is what live viewers and replays render.
 // ---------------------------------------------------------------------------
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SpectatorFrame {
     pub tick: u64,
     pub units: Vec<SpecUnit>,
@@ -483,11 +491,11 @@ pub struct SpectatorFrame {
     pub minds: std::collections::BTreeMap<u32, MindView>,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SpecUnit {
     pub id: u32,
     pub bot: u32,
-    pub kind: &'static str,
+    pub kind: String,
     pub pos: [f64; 2],
     pub vel: [f64; 2],
     pub facing: u16,
@@ -501,7 +509,7 @@ pub struct SpecUnit {
     pub kills: u32,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct MindView {
     pub intent: Option<String>,
     /// 64×64 = 4096 bytes, row-major from north-west.
@@ -525,7 +533,11 @@ pub fn spectator_frame(
             .map(|u| SpecUnit {
                 id: u.id,
                 bot: u.bot,
-                kind: if u.is_main() { "main" } else { "companion" },
+                kind: if u.is_main() {
+                    "main".to_string()
+                } else {
+                    "companion".to_string()
+                },
                 pos: [f(u.pos.x), f(u.pos.y)],
                 vel: [f(u.vel.x), f(u.vel.y)],
                 facing: u.facing,
@@ -547,7 +559,7 @@ pub fn spectator_frame(
                 pos: [f(pr.pos.x), f(pr.pos.y)],
                 vel: [f(pr.vel.x), f(pr.vel.y)],
                 owner: pr.bot,
-                owner_kind: "main",
+                owner_kind: "main".to_string(),
             })
             .collect(),
         pickups: state
@@ -557,7 +569,7 @@ pub fn spectator_frame(
             .map(|pk| SeenPickup {
                 id: pk.id,
                 pos: [f(pk.pos.x), f(pk.pos.y)],
-                kind: pickup_kind_str(pk.kind),
+                kind: pickup_kind_str(pk.kind).to_string(),
             })
             .collect(),
         zone: ZoneJson {
