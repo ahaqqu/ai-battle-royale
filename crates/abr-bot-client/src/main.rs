@@ -3,7 +3,6 @@
 //! living example of the bot protocol.
 
 use abr_core::bots::{self, RefBot};
-use abr_core::config::MatchConfig;
 use abr_core::map::load_map;
 use abr_core::observe::Observation;
 use abr_core::types::BotInput;
