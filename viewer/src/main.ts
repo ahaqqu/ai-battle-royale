@@ -1,13 +1,17 @@
-/** Viewer entrypoint: replay loading, playback state, render loop. */
+/** Viewer entrypoint: replay playback, auto-director, mind-cam, and the
+ * hybrid human play client (humans join the same queue as AI bots). */
 
-import { CamMode, Frame, ReplayData } from "./types.js";
+import { Graphics } from "pixi.js";
+import { CamMode, Frame, MapData, ReplayData, botColor } from "./types.js";
 import { buildPlayerCam, LoadedReplay, loadReplay } from "./sim.js";
+import { PlayClient } from "./play.js";
 import { Stage } from "./render/stage.js";
 import { drawArena } from "./render/arena.js";
 import { UnitViews } from "./render/units.js";
 import { Fx } from "./render/fx.js";
 import { PickupLayer, ProjectileLayer, ZoneLayerView } from "./render/world.js";
 import { FogView } from "./render/fog.js";
+import { MindCam } from "./render/mindcam.js";
 import { Director } from "./render/director.js";
 import { Hud } from "./ui/hud.js";
 import { Timeline } from "./ui/timeline.js";
@@ -36,6 +40,10 @@ let pickups: PickupLayer | null = null;
 let zoneView: ZoneLayerView | null = null;
 let fx: Fx | null = null;
 let fog: FogView | null = null;
+let mindcam: MindCam | null = null;
+let mapCache: MapData | null = null;
+let mindHeat: import("pixi.js").Graphics | null = null;
+let mindBubbles: import("pixi.js").Graphics | null = null;
 
 let idx = 0;            // fractional frame cursor
 let playing = true;
@@ -45,6 +53,8 @@ let firedEvents = new Set<number>();
 let camData: { bot: number; frames: unknown[] } | null = null;
 let placementsFinal: number[] = [];
 let winnerShown = false;
+/** Juice: freeze/slow the timeline on big moments (PLAN §7.3). */
+let hitstopUntil = 0;
 
 function setProgress(p: number, label: string): void {
   loadBar.style.width = `${Math.min(100, p * 100)}%`;
@@ -56,6 +66,8 @@ async function boot(): Promise<void> {
   const replayParam = params.get("replay");
   if (replayParam) {
     await startReplayUrl(replayParam);
+  } else if (params.has("play")) {
+    await startPlay((params.get("name") || "human").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human");
   } else {
     await showPicker();
   }
@@ -88,6 +100,38 @@ async function showPicker(): Promise<void> {
     const text = await f.text();
     await startReplay(text, f.name);
   });
+
+  // Hybrid play: humans enter the same queue as the AI bots.
+  const playBtn = document.getElementById("play-btn") as HTMLButtonElement | null;
+  const nameInput = document.getElementById("play-name") as HTMLInputElement | null;
+  if (playBtn && nameInput) {
+    playBtn.addEventListener("click", () => {
+      const name = (nameInput.value || "human").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
+      location.href = "?play=1&name=" + encodeURIComponent(name);
+    });
+  }
+}
+
+async function ensureStage(): Promise<void> {
+  await stage.init(document.getElementById("stage-host")!, (s) => setProgress(0.005, s));
+  if (!mindcam && stage.didInit) {
+    mindHeat = new Graphics();
+    mindBubbles = new Graphics();
+    stage.fogLayer.addChild(mindHeat, mindBubbles);
+    mindcam = new MindCam(mindHeat, mindBubbles);
+  }
+}
+
+async function fetchMap(mapId: string): Promise<MapData> {
+  if (mapCache && (mapCache as any).id === mapId) return mapCache;
+  try {
+    const res = await fetch(`./api/map/${mapId}`);
+    if (res.ok) {
+      mapCache = await res.json();
+      return mapCache!;
+    }
+  } catch { /* offline */ }
+  return { id: mapId, size: 3200, walls: [], spawns: [] };
 }
 
 async function startReplayUrl(url: string): Promise<void> {
@@ -101,7 +145,7 @@ async function startReplay(json: string, name: string): Promise<void> {
   picker.classList.add("hidden");
   loading.classList.remove("hidden");
   setProgress(0.01, "loading replay…");
-  await stage.init(document.getElementById("stage-host")!, (s) => setProgress(0.005, s));
+  await ensureStage();
   replay = await loadReplay(json, setProgress);
   const data = replay.data;
 
@@ -143,7 +187,6 @@ async function startReplay(json: string, name: string): Promise<void> {
     timeline.camSelect.value = "global";
   };
 
-  // placements for the podium: derive from kill feed order + winner.
   placementsFinal = computePlacements(data);
 
   requestAnimationFrame(loop);
@@ -196,7 +239,11 @@ function loop(ts: number): void {
   const total = data.totalTicks;
 
   if (playing) {
-    idx += dt * TICK_RATE * speed;
+    // Slow-mo kill cam: the final seconds play at 30% speed (PLAN §6.2).
+    const effSpeed = idx > total - 25 ? speed * 0.3 : speed;
+    if (ts >= hitstopUntil) {
+      idx += dt * TICK_RATE * effSpeed;
+    }
     if (idx >= total - 1) {
       idx = total - 1;
       playing = false;
@@ -222,6 +269,8 @@ function loop(ts: number): void {
         hud.legendDead(bot);
         hud.legendElim(bot, `t${frameB.tick}`);
         hud.kill((e.killer as number | null) ?? null, bot, data.botNames);
+        // Hitstop on every elimination: 90ms freeze (PLAN §7.3 juice).
+        hitstopUntil = ts + 90;
       }
     }
   }
@@ -234,9 +283,26 @@ function loop(ts: number): void {
     (x, y, color, intense) => fx!.tracer(x, y, color, intense),
   );
   pickups!.update(frameA.pickups, frameA.pickupCount, frameA.tick);
-  const shrinking = frameA.zone[5] > 0 && frameA.zone[5] < frameA.zone[2] + 1 && frameA.zone[5] > 0 &&
-    Math.abs(frameB.zone[2] - frameA.zone[2]) > 0.0001;
+  const shrinking = Math.abs(frameB.zone[2] - frameA.zone[2]) > 0.0001;
   zoneView!.update(frameA.zone, shrinking, frameA.zone[5] > 0);
+
+  // Dash afterimages: dashing mains leave a glowing wake.
+  for (let s = 0; s < frameA.unitCount; s++) {
+    const o = s * 11;
+    if ((frameA.units[o + 9] & 4) !== 0) {
+      const bot = frameA.units[o + 1];
+      fx!.tracer(frameA.units[o + 3], frameA.units[o + 4], parseInt(botColor(bot).slice(1), 16), false);
+    }
+  }
+
+  // Mind-cam overlay (M toggles).
+  const botPositions = new Map<number, { x: number; y: number }>();
+  for (let s = 0; s < frameA.unitCount; s += 2) {
+    if ((frameA.units[s * 11 + 9] & 1) !== 0) {
+      botPositions.set(frameA.units[s * 11 + 1], { x: frameA.units[s * 11 + 3], y: frameA.units[s * 11 + 4] });
+    }
+  }
+  mindcam?.update(frameA.minds, Math.floor(frameA.tick / 5), botPositions);
 
   // Fog (player-cam).
   const mode = director.mode as CamMode;
@@ -252,7 +318,6 @@ function loop(ts: number): void {
     : mode.startsWith("cam:") ? Number(mode.slice(4)) : null;
   let botPos: { x: number; y: number } | null = null;
   if (camBot !== null && camBot * 2 < frameA.unitCount) {
-    // main of bot = slot bot*2 in the interleaved layout; stride 11, x@3, y@4
     const o = (camBot * 2) * 11;
     botPos = { x: frameA.units[o + 3], y: frameA.units[o + 4] };
   }
@@ -267,7 +332,6 @@ function loop(ts: number): void {
 }
 
 function zonePhaseOf(frame: Frame): number {
-  // Derive the phase label from the current radius vs the standard ladder.
   const r = frame.zone[2];
   const ladder = [1600, 1200, 850, 550, 300, 0];
   for (let i = 0; i < ladder.length; i++) {
@@ -276,12 +340,171 @@ function zonePhaseOf(frame: Frame): number {
   return ladder.length - 1;
 }
 
-// Keyboard shortcuts.
+// ---------------------------------------------------------------------------
+// Hybrid play: a human enters the same bot queue as the AI (PLAN §4.1).
+// The page loads fresh via ?play=1&name=<name> so no replay state lingers.
+// ---------------------------------------------------------------------------
+
+let playClient: PlayClient | null = null;
+let playUnits: UnitViews | null = null;
+let playZone: ZoneLayerView | null = null;
+let playFx: Fx | null = null;
+let playFog: FogView | null = null;
+let playLoopRunning = false;
+let playEntrants: string[] = [];
+let playYouIndex = 0;
+
+function setPlayStatus(s: string, detail?: string): void {
+  const el = document.getElementById("play-status")!;
+  el.textContent = detail ? s + " — " + detail : s;
+  document.getElementById("play-hud")!.classList.remove("hidden");
+}
+
+async function startPlay(name: string): Promise<void> {
+  picker.classList.add("hidden");
+  await ensureStage();
+  loading.classList.add("hidden");
+
+  const map = await fetchMap("arena-1");
+  drawArena(stage, map);
+  playZone = new ZoneLayerView(stage);
+  playFx = new Fx(stage);
+  playFog = new FogView(stage);
+
+  document.getElementById("topbar")!.classList.remove("hidden");
+  document.getElementById("play-hud")!.classList.remove("hidden");
+  setPlayStatus("connecting…");
+
+  playClient = new PlayClient(name, {
+    onStatus: setPlayStatus,
+    onStart: (youIndex, entrants) => {
+      playEntrants = entrants;
+      playYouIndex = youIndex;
+      const realNames = entrants.map((n, i) => (i === youIndex ? n + " (YOU)" : n));
+      playUnits = new UnitViews(stage, realNames);
+      hud.setHeader(realNames, "live match", 0);
+      setPlayStatus("in match — good luck");
+    },
+    onObs: () => {
+      if (!playLoopRunning) {
+        playLoopRunning = true;
+        requestAnimationFrame(playLoop);
+      }
+    },
+    onOver: (place, replayUrl) => {
+      setPlayStatus("match over — place " + place, replayUrl ? "replay: " + replayUrl : undefined);
+      if (replayUrl) {
+        const link = document.getElementById("play-replay")!;
+        link.innerHTML = "<a href='" + replayUrl + "' target='_blank'>▶ watch replay</a> · next match starting…";
+      }
+    },
+  });
+
+  const wsProto = location.protocol === "https:" ? "wss" : "ws";
+  playClient.attachInput(document.getElementById("stage-host")!, (x, y) => stage.screenToWorld(x, y));
+  playClient.connect(wsProto + "://" + location.host + "/ws/bot");
+  requestAnimationFrame(playLoop);
+}
+
+function playLoop(ts: number): void {
+  if (!playClient) { playLoopRunning = false; return; }
+  requestAnimationFrame(playLoop);
+  const dt = Math.min(0.1, (ts - lastTs) / 1000);
+  lastTs = ts;
+  const obs = playClient.lastObs;
+  if (!obs || !playEntrants.length) {
+    playFx?.update(dt);
+    return;
+  }
+  if (!playUnits) return;
+  const bots = obs.global.bots;
+
+  // Frame-shaped float view: self from obs.you, enemies through fog.
+  const units = new Float32Array(bots * 2 * 11);
+  const setUnit = (slot: number, id: number, bot: number, kind: number, u: { pos: [number, number]; facing?: number; hp?: number; alive: boolean; status?: string[]; maxhp: number }) => {
+    const o = slot * 11;
+    units[o] = id; units[o + 1] = bot; units[o + 2] = kind;
+    units[o + 3] = u.pos[0]; units[o + 4] = u.pos[1];
+    units[o + 7] = u.facing ?? 0;
+    units[o + 8] = (u.hp ?? 0) / u.maxhp;
+    units[o + 9] = (u.alive ? 1 : 0) | (u.status?.includes("sprint") ? 2 : 0) | (u.status?.includes("shielding") ? 8 : 0);
+    units[o + 10] = u.maxhp;
+  };
+  setUnit(playYouIndex * 2, 1 + playYouIndex, playYouIndex, 0, {
+    pos: obs.you.main.pos, facing: obs.you.main.facing, hp: obs.you.main.hp,
+    alive: obs.you.main.alive, status: obs.you.main.status, maxhp: 100,
+  });
+  if (obs.you.companion.pos && obs.you.companion.alive) {
+    setUnit(playYouIndex * 2 + 1, 101 + playYouIndex, playYouIndex, 1, {
+      pos: obs.you.companion.pos, hp: obs.you.companion.hp, alive: true, maxhp: 30,
+    });
+  }
+  for (const p of obs.seen.players) {
+    const bot = p.id - 1;
+    if (bot === playYouIndex || bot < 0 || bot >= bots) continue;
+    setUnit(bot * 2, p.id, bot, 0, { pos: p.pos, hp: p.hp, alive: true, maxhp: 100 });
+  }
+  playUnits.update(units, bots * 2, true);
+
+  const zoneArr = Float32Array.of(
+    obs.global.zone.center[0], obs.global.zone.center[1], obs.global.zone.radius,
+    obs.global.zone.next?.center[0] ?? 0, obs.global.zone.next?.center[1] ?? 0,
+    obs.global.zone.next?.radius ?? 0, obs.global.alive,
+  );
+  playZone!.update(zoneArr, false, !!obs.global.zone.next);
+
+  // The human always sees through the fog.
+  playFog!.show();
+  playFog!.update({
+    me: {
+      main: { pos: obs.you.main.pos, alive: obs.you.main.alive },
+      comp: { pos: obs.you.companion.pos, alive: obs.you.companion.alive },
+    },
+    seenPlayers: obs.seen.players,
+    seenCompanions: obs.seen.companions,
+    seenProjectiles: obs.seen.projectiles,
+    seenPickups: obs.seen.pickups,
+    heard: obs.heard,
+    zone: { center: obs.global.zone.center, radius: obs.global.zone.radius, next: obs.global.zone.next },
+  }, playYouIndex);
+
+  // Camera rides the player.
+  stage.setTarget(obs.you.main.pos[0], obs.you.main.pos[1], 1.05);
+
+  hud.stats(obs.tick, obs.global.alive, zonePhaseOfFloat(obs.global.zone.radius), false);
+  const fireCd = obs.you.main.cooldown.fire ?? 0;
+  const hpColor = obs.you.main.hp > 55 ? "#58ff9b" : obs.you.main.hp > 25 ? "#ffd54f" : "#ff4f6d";
+  const dead = obs.you.main.alive
+    ? ""
+    : `<div class="pcd"><b style="color:#ff4f6d">ELIMINATED — riding it out until match end</b></div>`;
+  document.getElementById("play-bars")!.innerHTML = `
+    <div class="pbar"><span>HP ${Math.round(obs.you.main.hp)}</span><div><i style="width:${Math.max(0, obs.you.main.hp)}%;background:${hpColor}"></i></div></div>
+    <div class="pbar"><span>EN ${Math.round(obs.you.main.energy)}</span><div><i style="width:${obs.you.main.energy}%;background:#59c2ff"></i></div></div>
+    <div class="pcd">fire ${fireCd > 0 ? fireCd.toFixed(1) + "s" : "ready"} · sprint ${playClient.sprinting ? "ON" : "off"}</div>
+    ${dead}`;
+
+  playFx!.update(dt);
+}
+
+function zonePhaseOfFloat(r: number): number {
+  const ladder = [1600, 1200, 850, 550, 300, 0];
+  for (let i = 0; i < ladder.length; i++) {
+    if (r > ladder[i] - 1) return i;
+  }
+  return ladder.length - 1;
+}
+
+// Keyboard shortcuts (replay mode only — play mode uses its own handlers).
 window.addEventListener("keydown", (e) => {
+  if (playClient?.playing) {
+    if (e.code === "KeyM") mindcam?.toggle();
+    return;
+  }
   if (e.code === "Space") { playing = !playing; e.preventDefault(); }
   if (e.code === "ArrowRight" && replay) { idx = Math.min(replay.data.totalTicks - 1, idx + TICK_RATE); }
   if (e.code === "ArrowLeft" && replay) { idx = Math.max(0, idx - TICK_RATE); }
-  if (e.code === "Escape") { hud.hideWinner(); setCamMode("auto"); }
+  if (e.code === "KeyM") mindcam?.toggle();
+  if (e.code === "Escape") { hud.hideWinner(); if (replay) setCamMode("auto"); }
 });
 
 boot();

@@ -1,6 +1,6 @@
 # AI Battle Royale — Design Plan
 
-**Status:** Design document. No implementation yet.
+**Status:** M1–M4 implemented (sim core, web viewer, gateway + ladder, mind-cam + hybrid human play). See README.md.
 **Date:** 2026-09-26
 **Deliverable this document describes:** A real-time battle royale game where every entrant is a player-written AI, with strict fog of war, built for spectating as much as for competing.
 

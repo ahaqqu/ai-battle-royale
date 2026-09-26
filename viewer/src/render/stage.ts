@@ -24,6 +24,7 @@ export function makeGlowTexture(_renderer: Renderer | null, size = 128, inner = 
 
 export class Stage {
   app: Application = new Application();
+  didInit = false;
   world = new Container();
   bgLayer = new Container();
   wallLayer = new Container();
@@ -48,6 +49,8 @@ export class Stage {
   onDrag?: (dx: number, dy: number) => void;
 
   async init(host: HTMLElement, status?: (s: string) => void): Promise<void> {
+    if (this.didInit) return;
+    this.didInit = true;
     const mark = (m: string) => { try { status?.(m); } catch { /* noop */ } };
     mark('creating renderer…');
     this.app = new Application();

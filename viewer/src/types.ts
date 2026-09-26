@@ -34,6 +34,8 @@ export interface Frame {
   events: FrameEvent[];
   finished: boolean;
   winner: number | null;
+  /** Mind-cam debug channel per bot (PLAN §6.3). */
+  minds: Record<string, { intent?: string | null; belief?: number[] | null }>;
 }
 
 export interface FrameEvent {

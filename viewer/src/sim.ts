@@ -11,9 +11,15 @@ import {
 
 let inited = false;
 
-async function ensureWasm(): Promise<void> {
+async function ensureWasm(onProgress?: (label: string) => void): Promise<void> {
   if (!inited) {
-    await init(wasmUrl);
+    const mark = (m: string) => { try { onProgress?.(m); } catch { /* noop */ } };
+    mark('fetching simulation engine…');
+    const res = await fetch(wasmUrl);
+    const bytes = await res.arrayBuffer();
+    mark('compiling simulation engine…');
+    await init(bytes);
+    mark('wasm ready');
     inited = true;
   }
 }
@@ -33,6 +39,7 @@ interface RawFrame {
   finished: boolean;
   winner: number | null;
   kill_feed: { tick: number; killer: number | null; victim: number }[];
+  minds: Record<string, { intent?: string | null; belief?: number[] | null }>;
 }
 
 function kindIdx(kind: string): number {
@@ -124,6 +131,7 @@ function buildFrame(raw: RawFrame): Frame {
     events: normalizeEvents(raw.events),
     finished: raw.finished,
     winner: raw.winner,
+    minds: raw.minds ?? {},
   };
 }
 
@@ -134,8 +142,8 @@ export interface LoadedReplay {
 
 /** Fetch + pre-simulate a replay. onProgress(0..1). */
 export async function loadReplay(json: string, onProgress: (p: number, label: string) => void): Promise<LoadedReplay> {
-  await ensureWasm();
-  onProgress(0.02, "wasm ready — parsing replay…");
+  await ensureWasm((label) => onProgress(0.02, label));
+  onProgress(0.03, "parsing replay…");
   const sim = new ReplaySim(json);
 
   const map: MapData = JSON.parse(sim.map_json());

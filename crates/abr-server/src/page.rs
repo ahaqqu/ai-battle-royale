@@ -27,7 +27,7 @@ pub fn ladder_html(db: &Db) -> String {
         .iter()
         .map(|m| {
             format!(
-                r#"<tr><td>{}</td><td class="name" style="color:#7cff4f">{}</td><td>{}</td><td><a href="/viewer/?replay={}" target="_blank">▶ watch</a></td></tr>"#,
+                r#"<tr><td>{}</td><td class="name" style="color:#7cff4f">{}</td><td>{}</td><td><a href="/?replay={}" target="_blank">▶ watch</a></td></tr>"#,
                 html_escape(&m.ended_at),
                 html_escape(m.winner.as_deref().unwrap_or("—")),
                 m.num_bots,
