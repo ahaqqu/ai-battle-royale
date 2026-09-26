@@ -1,0 +1,13 @@
+[workspace]
+members = ["crates/abr-core", "crates/abr-runner"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/ahaqqu/ai-battle-royale"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
