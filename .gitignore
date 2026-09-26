@@ -1,0 +1,18 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Node / viewer
+node_modules/
+viewer/dist/
+.vite/
+
+# Replays produced locally during testing
+/replays/
+*.local.json
+
+# Environment / OS
+.env
+.DS_Store
+*.log
