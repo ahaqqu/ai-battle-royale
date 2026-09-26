@@ -107,6 +107,12 @@ impl MatchEngine {
     }
 
     pub fn forfeit(&mut self, bot: u32, reason: &'static str) {
+        if !self.forfeited[bot as usize] {
+            eprintln!(
+                "bot {} forfeited at tick {}: {}",
+                bot, self.state.tick, reason
+            );
+        }
         self.forfeited[bot as usize] = true;
         // A forfeited bot stops acting; its main is eliminated.
         let st = &mut self.state;

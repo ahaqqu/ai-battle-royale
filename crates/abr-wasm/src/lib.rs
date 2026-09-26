@@ -112,7 +112,7 @@ impl ReplaySim {
 
     /// Static map geometry (public knowledge, PLAN §2.4) for rendering.
     pub fn map_json(&self) -> String {
-        serde_json::to_string(&self.engine.map).expect("map serializes")
+        serde_json::to_string(&self.engine.map.to_wire()).expect("map serializes")
     }
 
     pub fn seed(&self) -> f64 {

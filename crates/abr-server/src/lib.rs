@@ -385,6 +385,15 @@ async fn start_axum(server: Arc<Server>) -> anyhow::Result<()> {
             }),
         )
         .route(
+            "/api/map/{id}",
+            get(|AxPath(id): AxPath<String>| async move {
+                match abr_core::map::load_map(&id) {
+                    Some(m) => axum::Json(m.to_wire()).into_response(),
+                    None => "not found".into_response(),
+                }
+            }),
+        )
+        .route(
             "/api/matches",
             get(|State(s): State<Arc<Server>>| async move {
                 axum::Json(s.db.recent_matches(50)).into_response()
