@@ -157,7 +157,11 @@ impl MatchEngine {
             if !on_decision_tick {
                 // Between decision ticks: last action repeats (§4.2).
             } else if self.pending[b].is_none() {
-                self.timeouts[b].record(None);
+                // Start-of-match grace: handshakes and reconnections never
+                // count as missed deadlines (30 ticks ≈ 3s).
+                if tick > 30 {
+                    self.timeouts[b].record(None);
+                }
             } else {
                 self.last_inputs[b] = self.pending[b].take();
             }
