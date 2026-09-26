@@ -21,7 +21,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests (debug)
         run: cargo test --workspace
-      - name: Tests (release — M1 acceptance: 16 bots < 1s, replay byte-identical)
+      - name: "Tests (release — M1 acceptance: 16 bots < 1s, replay byte-identical)"
         run: cargo test --release --workspace
 
   viewer:
