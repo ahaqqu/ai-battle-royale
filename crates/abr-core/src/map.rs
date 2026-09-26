@@ -111,6 +111,22 @@ pub fn arena1() -> GameMap {
     }
 }
 
+impl GameMap {
+    /// Wire format: f64 arrays for coordinates (game state stays Fix).
+    pub fn to_wire(&self) -> serde_json::Value {
+        serde_json::json!({
+            "id": self.id,
+            "size": fixed::to_f64(self.size),
+            "walls": self.walls.iter().map(|w| serde_json::json!({
+                "min": [fixed::to_f64(w.min.x), fixed::to_f64(w.min.y)],
+                "max": [fixed::to_f64(w.max.x), fixed::to_f64(w.max.y)],
+                "kind": w.kind,
+            })).collect::<Vec<_>>(),
+            "spawns": self.spawns.iter().map(|p| [fixed::to_f64(p.x), fixed::to_f64(p.y)]).collect::<Vec<_>>(),
+        })
+    }
+}
+
 /// Load a map by id (embedded layouts for v1).
 pub fn load_map(id: &str) -> Option<GameMap> {
     match id {

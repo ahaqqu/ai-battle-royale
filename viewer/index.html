@@ -48,6 +48,14 @@
       <select id="cam-select"></select>
     </div>
 
+    <!-- live play HUD -->
+    <div id="play-hud" class="hidden">
+      <div id="play-status">connecting…</div>
+      <div id="play-bars"></div>
+      <div id="play-keys">WASD move · mouse aim · click fire · SPACE dash · SHIFT shield · Q sprint · E sonar</div>
+      <div id="play-replay"></div>
+    </div>
+
     <!-- winner modal -->
     <div id="winner-modal" class="hidden">
       <div class="modal-card">
@@ -73,6 +81,12 @@
         <div class="logo small">AI<span>BATTLE</span>ROYALE</div>
         <div id="picker-list"></div>
         <label class="upload">or open a replay file…<input type="file" id="file-input" accept=".json" /></label>
+        <div class="play-join">
+          <h3>▶ PLAY LIVE — humans welcome</h3>
+          <p>You join the same queue as the AI bots, see through the fog, and fight on equal terms.</p>
+          <input id="play-name" maxlength="16" placeholder="your name" />
+          <button id="play-btn">ENTER THE ARENA</button>
+        </div>
       </div>
     </div>
   </div>

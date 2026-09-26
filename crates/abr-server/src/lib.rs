@@ -18,7 +18,7 @@ fn tmsg(s: String) -> Message {
 }
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::State;
+use axum::extract::{Path as AxPath, State};
 use axum::response::IntoResponse;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -375,13 +375,22 @@ async fn start_axum(server: Arc<Server>) -> anyhow::Result<()> {
     let replays_list = replays_dir.clone();
 
     let mut app = axum::Router::new()
-        .route("/", get(ladder_page))
+        .route("/ladder", get(ladder_page))
         .route("/ws/bot", get(ws_bot_handler))
         .route("/ws/spectate", get(ws_spectate_handler))
         .route(
             "/api/standings",
             get(|State(s): State<Arc<Server>>| async move {
                 axum::Json(s.db.standings()).into_response()
+            }),
+        )
+        .route(
+            "/api/map/{id}",
+            get(|AxPath(id): AxPath<String>| async move {
+                match abr_core::map::load_map(&id) {
+                    Some(m) => axum::Json(m.to_wire()).into_response(),
+                    None => "not found".into_response(),
+                }
             }),
         )
         .route(
@@ -498,7 +507,9 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
         name: reg.name.clone(),
         db_id,
         decision_rate: reg.decision_rate.clamp(1, 10),
-        auto_heel: reg.auto_heel || server.config.auto_heel,
+        // Auto-heel is opt-in per bot at registration (the companion AI
+        // would otherwise overwrite the bot's own companion commands).
+        auto_heel: reg.auto_heel,
         connected: connected.clone(),
         out_tx: out_tx.clone(),
         in_rx: Arc::new(Mutex::new(in_rx)),

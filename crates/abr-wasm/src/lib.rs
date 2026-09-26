@@ -56,6 +56,11 @@ impl ReplaySim {
         let rt = &self.ticks[self.cursor];
         for (b, inp) in rt.inputs.iter().enumerate() {
             if let Some(inp) = inp {
+                if inp.intent.is_some() || inp.belief.is_some() {
+                    // Mind-cam debug channel rides the recorded inputs.
+                    self.engine
+                        .submit_mind(b as u32, inp.intent.clone(), inp.belief.clone());
+                }
                 self.engine.submit(b as u32, inp.clone(), 0);
             }
         }
@@ -107,7 +112,7 @@ impl ReplaySim {
 
     /// Static map geometry (public knowledge, PLAN §2.4) for rendering.
     pub fn map_json(&self) -> String {
-        serde_json::to_string(&self.engine.map).expect("map serializes")
+        serde_json::to_string(&self.engine.map.to_wire()).expect("map serializes")
     }
 
     pub fn seed(&self) -> f64 {
