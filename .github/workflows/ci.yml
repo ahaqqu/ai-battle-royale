@@ -17,11 +17,29 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Format check
-        run: cargo fmt --check || true
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests (debug)
         run: cargo test --workspace
       - name: Tests (release — M1 acceptance: 16 bots < 1s, replay byte-identical)
         run: cargo test --release --workspace
+
+  viewer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            crates/*
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+      - name: Build WASM sim
+        run: wasm-pack build crates/abr-wasm --target web --release --out-dir ../../viewer/src/wasm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build viewer
+        working-directory: viewer
+        run: npm install && npm run build

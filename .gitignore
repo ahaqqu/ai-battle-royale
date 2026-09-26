@@ -1,12 +1,11 @@
 # Rust
 /target
 **/*.rs.bk
-Cargo.lock.orig
 
 # Node / viewer
 node_modules/
 viewer/dist/
-.vite/
+viewer/src/wasm/
 
 # Replays produced locally during testing
 /replays/

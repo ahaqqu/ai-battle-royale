@@ -6,7 +6,7 @@
 //! `inputs` is indexed per **unit**: `[bot*2]` = main, `[bot*2 + 1]` =
 //! companion. The engine fills these (momentum, auto-heel) before calling.
 
-use crate::events::Event;
+use crate::events::{pa, Event};
 use crate::fixed::{self, Fix, ONE};
 use crate::loot::PickupKind;
 use crate::map::GameMap;
@@ -193,7 +193,7 @@ pub fn step(
             events.push(Event::Dash {
                 bot: unit.bot,
                 unit_id: unit.id,
-                at: unit.pos,
+                at: pa(unit.pos),
                 dir: unit.facing,
             });
         }
@@ -240,7 +240,7 @@ pub fn step(
             events.push(Event::Shot {
                 bot: unit.bot,
                 unit_id: unit.id,
-                from: unit.pos,
+                from: pa(unit.pos),
                 dir: unit.facing,
             });
         }
@@ -259,7 +259,7 @@ pub fn step(
             let at = lerp_point(old, new, t);
             events.push(Event::ProjectileEnd {
                 id: proj.id,
-                at,
+                at: [fixed::to_f64(at.x), fixed::to_f64(at.y)],
                 wall: true,
             });
             dead = true;
@@ -290,7 +290,7 @@ pub fn step(
                 events.push(Event::Hit {
                     unit_id: victim.id,
                     bot: victim.bot,
-                    at,
+                    at: [fixed::to_f64(at.x), fixed::to_f64(at.y)],
                     damage: fixed::to_f64(dmg) as f32,
                     hp_after: fixed::to_f64(victim.hp) as f32,
                 });
@@ -301,7 +301,7 @@ pub fn step(
                 if proj.remaining <= 0 {
                     events.push(Event::ProjectileEnd {
                         id: proj.id,
-                        at: proj.pos,
+                        at: [fixed::to_f64(proj.pos.x), fixed::to_f64(proj.pos.y)],
                         wall: false,
                     });
                     dead = true;
@@ -327,7 +327,7 @@ pub fn step(
                     events.push(Event::Shield {
                         bot: unit.bot,
                         unit_id: unit.id,
-                        at: unit.pos,
+                        at: pa(unit.pos),
                     });
                 }
             }
@@ -352,7 +352,7 @@ pub fn step(
                 events.push(Event::Sonar {
                     bot: unit.bot,
                     unit_id: unit.id,
-                    at: unit.pos,
+                    at: pa(unit.pos),
                 });
             }
             _ => {}
@@ -402,7 +402,7 @@ pub fn step(
                     bot: ubot,
                     pickup_id: pid,
                     kind,
-                    at: ppos,
+                    at: pa(ppos),
                 });
                 break;
             }
@@ -457,7 +457,7 @@ pub fn step(
             events.push(Event::Death {
                 bot,
                 unit_id: uid,
-                at: pos,
+                at: pa(pos),
                 killer,
             });
             // Elimination takes the companion with it.
@@ -471,7 +471,7 @@ pub fn step(
             events.push(Event::CompanionDown {
                 bot,
                 unit_id: uid,
-                at: pos,
+                at: pa(pos),
             });
         }
     }
@@ -504,7 +504,7 @@ pub fn step(
         events.push(Event::CompanionBack {
             bot,
             unit_id: cid,
-            at: cpos,
+            at: pa(cpos),
         });
     }
 
@@ -524,7 +524,7 @@ pub fn step(
         if tick == nxt.shrink_start_tick {
             events.push(Event::ZoneShrinkStarted {
                 phase: cur_zone.phase + 1,
-                center: nxt.center,
+                center: pa(nxt.center),
                 radius: fixed::to_f64(nxt.radius) as f32,
             });
         }
