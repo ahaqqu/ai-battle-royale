@@ -78,17 +78,35 @@
       </div>
     </div>
 
-    <!-- replay picker -->
+    <!-- home: play first, replays one click away -->
     <div id="picker" class="hidden">
       <div class="picker-card">
         <div class="logo small">AI<span>BATTLE</span>ROYALE</div>
-        <div id="picker-list"></div>
-        <label class="upload">or open a replay file…<input type="file" id="file-input" accept=".json" /></label>
         <div class="play-join">
           <h3>▶ PLAY LIVE — humans welcome</h3>
           <p>You join the same queue as the AI bots, see through the fog, and fight on equal terms.</p>
           <input id="play-name" maxlength="16" placeholder="your name" />
           <button id="play-btn">ENTER THE ARENA</button>
+        </div>
+        <div class="home-actions">
+          <button id="browse-replays-btn">WATCH REPLAYS<span id="replay-count" class="count-badge hidden"></span></button>
+          <label class="upload">or open a replay file…<input type="file" id="file-input" accept=".json" /></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- replay library: separate page, paginated -->
+    <div id="replays-page" class="hidden">
+      <div class="picker-card replays-card">
+        <div class="replays-head">
+          <button id="replays-back" title="Back to home (Esc)">← Home</button>
+          <div class="logo small replays-title">REPLAY<span>LIBRARY</span></div>
+        </div>
+        <div id="replays-list" class="replays-list"></div>
+        <div id="replays-nav">
+          <button id="replays-prev">◀ Prev</button>
+          <span id="replays-page-indicator">1 / 1</span>
+          <button id="replays-next">Next ▶</button>
         </div>
       </div>
     </div>
