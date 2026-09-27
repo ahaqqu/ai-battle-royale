@@ -1,7 +1,7 @@
 # AI Battle Royale
 
 A real-time battle royale where every entrant is an AI program — or a human
-playing through the same protocol. 16 entrants, strict fog of war, 10Hz
+playing through the same protocol. 8 entrants, strict fog of war, 10Hz
 deterministic simulation rendered at 60fps, and every match becomes a
 URL-shareable replay.
 
@@ -21,9 +21,9 @@ See [PLAN.md](PLAN.md) for the full design document.
 ## Quickstart
 
 ```bash
-# 1. run a 16-bot match headless and write a replay (~0.3s of engine time)
+# 1. run an 8-bot match headless and write a replay (~0.3s of engine time)
 cargo build --release -p abr-runner
-./target/release/abr-runner run --preset default16 --seed 42 --out replays/demo.json
+./target/release/abr-runner run --preset default8 --seed 42 --out replays/demo.json
 
 # 2. verify a replay re-simulates byte-identically
 ./target/release/abr-runner verify replays/demo.json

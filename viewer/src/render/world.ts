@@ -1,12 +1,13 @@
-/** Projectiles + pickups + zone rings, redrawn per frame. */
+/** Projectiles + pickups + zone rings, redrawn per frame. Fall Guys styling:
+ * candy-pellet projectiles, candy-box pickups, bubblegum slime zone. */
 
 import { Container, Graphics, Sprite, Text } from "pixi.js";
-import { botColor, KIND_COLORS, K, P, PICKUP_STRIDE, PROJ_STRIDE, Z } from "../types.js";
-import { Stage } from "./stage.js";
+import { botColor, FONT, INK, KIND_COLORS, K, P, PICKUP_STRIDE, PROJ_STRIDE, Z } from "../types.js";
+import { drawOutsideOverlay, Stage } from "./stage.js";
 
 export class ProjectileLayer {
   private container: Container;
-  private sprites = new Map<number, { line: Graphics; glow: Sprite; bot: number }>();
+  private sprites = new Map<number, { ball: Graphics; glow: Sprite; bot: number }>();
 
   constructor(stage: Stage) {
     this.container = stage.projLayer;
@@ -28,7 +29,6 @@ export class ProjectileLayer {
       const id = a[i * PROJ_STRIDE + P.ID];
       const bot = a[i * PROJ_STRIDE + P.BOT];
       const ax = a[i * PROJ_STRIDE + P.X], ay = a[i * PROJ_STRIDE + P.Y];
-      const avx = a[i * PROJ_STRIDE + P.VX], avy = a[i * PROJ_STRIDE + P.VY];
       const bi = mapB.get(id);
       let x = ax, y = ay;
       if (bi !== undefined) {
@@ -38,39 +38,42 @@ export class ProjectileLayer {
       seen.add(id);
       let s = this.sprites.get(id);
       if (!s) {
-        const line = new Graphics();
+        const ball = new Graphics();
         const glow = new Sprite(this.glowTex);
         glow.anchor.set(0.5);
         glow.blendMode = "add";
-        this.container.addChild(line, glow);
-        s = { line, glow, bot: -1 };
+        glow.alpha = 0.35;
+        this.container.addChild(glow, ball);
+        s = { ball, glow, bot: -1 };
         this.sprites.set(id, s);
       }
       if (s.bot !== bot) {
         const col = parseInt(botColor(bot).slice(1), 16);
-        s.line.clear();
-        s.line.moveTo(0, 0).lineTo(16, 0).stroke({ width: 2.6, color: col });
+        s.ball.clear();
+        // Candy pellet: colored core, white glaze ring, thin ink edge.
+        s.ball.circle(0, 0, 5.4).fill({ color: 0xffffff });
+        s.ball.circle(0, 0, 4).fill({ color: col }).stroke({ width: 1.4, color: INK, alpha: 0.7 });
+        s.ball.circle(-1.4, -1.4, 1.3).fill({ color: 0xffffff, alpha: 0.9 });
         s.glow.tint = col;
+        s.glow.scale.set(0.16);
         s.bot = bot;
       }
-      s.line.position.set(x, y);
-      s.line.rotation = Math.atan2(avy, avx);
+      s.ball.position.set(x, y);
       s.glow.position.set(x, y);
-      s.glow.scale.set(0.22);
-      s.line.visible = true;
+      s.ball.visible = true;
       s.glow.visible = true;
       onTrail(x, y, parseInt(botColor(bot).slice(1), 16), true);
     }
     // Hide vanished, show current.
     for (const [id, s] of this.sprites) {
       const vis = seen.has(id);
-      s.line.visible = vis;
+      s.ball.visible = vis;
       s.glow.visible = vis;
     }
   }
 }
 
-/** Pickups + zone rings. */
+/** Pickups: bobbing candy boxes with a glaze shine. */
 export class PickupLayer {
   private container: Container;
   private sprites = new Map<number, { root: Container; kind: number }>();
@@ -81,7 +84,7 @@ export class PickupLayer {
 
   update(pickups: Float32Array, count: number, tick: number): void {
     const seen = new Set<number>();
-    const pulse = 1 + Math.sin(tick / 5) * 0.12;
+    const pulse = 1 + Math.sin(tick / 5) * 0.1;
     for (let i = 0; i < count; i++) {
       const id = pickups[i * PICKUP_STRIDE + K.ID];
       const kind = pickups[i * PICKUP_STRIDE + K.KIND];
@@ -96,19 +99,20 @@ export class PickupLayer {
         const glow = new Sprite(this.stage.glowTex);
         glow.anchor.set(0.5);
         glow.tint = col;
-        glow.alpha = 0.4;
+        glow.alpha = 0.3;
         glow.blendMode = "add";
         glow.scale.set(0.5);
         const g = new Graphics();
-        g.moveTo(0, -8).lineTo(8, 0).lineTo(0, 8).lineTo(-8, 0).closePath()
-          .fill({ color: 0x0c1220, alpha: 0.9 })
-          .stroke({ width: 1.8, color: col });
+        // Rounded candy tin + ink edge + glaze shine.
+        g.roundRect(-9, -9, 18, 18, 7).fill({ color: col }).stroke({ width: 2.2, color: INK, alpha: 0.85 });
+        g.roundRect(-5.5, -6, 11, 5, 2.5).fill({ color: 0xffffff, alpha: 0.6 });
         root.addChild(glow, g);
         this.container.addChild(root);
         s = { root, kind };
         this.sprites.set(id, s);
       }
-      s.root.position.set(x, y);
+      const bob = Math.sin(tick / 4 + id * 1.3) * 3;
+      s.root.position.set(x, y + bob);
       s.root.scale.set(pulse);
       s.root.visible = true;
     }
@@ -119,21 +123,23 @@ export class PickupLayer {
   }
 }
 
-/** Zone: dark red outside-overlay + glowing current ring + dashed next ring. */
+/** Zone: bubblegum-slime outside-overlay + chunky white current ring +
+ * dashed next ring. */
 export class ZoneLayerView {
   private overlay = new Graphics();
-  private holes = new Graphics();
   private ring = new Graphics();
   private nextRing = new Graphics();
   private label: Text;
 
   constructor(stage: Stage) {
-    this.overlay.blendMode = "normal";
-    this.holes.blendMode = "erase";
-    stage.zoneLayer.addChild(this.overlay, this.holes, this.ring, this.nextRing);
+    stage.zoneLayer.addChild(this.overlay, this.ring, this.nextRing);
     this.label = new Text({
       text: "",
-      style: { fontFamily: "Inter, sans-serif", fontSize: 15, fontWeight: "800", fill: "#ff8fa3", letterSpacing: 3 },
+      style: {
+        fontFamily: FONT, fontSize: 17, fontWeight: "800",
+        fill: 0xffffff, letterSpacing: 2,
+        stroke: { color: "#e0457f", width: 5, join: "round" },
+      },
     });
     this.label.anchor.set(0.5);
     stage.zoneLayer.addChild(this.label);
@@ -141,15 +147,14 @@ export class ZoneLayerView {
 
   update(zone: Float32Array, shrinking: boolean, nextVisible: boolean): void {
     const cx = zone[Z.CX], cy = zone[Z.CY], r = zone[Z.R];
-    // Outside-darkening via erase hole (works in WebGL/WebGPU).
+    // Pink slime tide closing in — fan mesh around the safe circle (no
+    // blend tricks: they punch through to black on an opaque canvas).
     this.overlay.clear();
-    this.overlay.rect(-2000, -2000, 7200, 7200).fill({ color: 0x30091a, alpha: shrinking ? 0.4 : 0.26 });
-    this.holes.clear();
-    this.holes.circle(cx, cy, r).fill({ color: 0xffffff });
+    drawOutsideOverlay(this.overlay, -2000, -2000, 7200, 7200, cx, cy, () => r, 0xff5fae, shrinking ? 0.5 : 0.3);
 
     this.ring.clear();
-    this.ring.circle(cx, cy, r).stroke({ width: 3, color: 0xff5d7d, alpha: 0.85 });
-    this.ring.circle(cx, cy, Math.max(1, r - 7)).stroke({ width: 1, color: 0xff8fa3, alpha: 0.35 });
+    this.ring.circle(cx, cy, r).stroke({ width: 6, color: 0xffffff, alpha: 0.95 });
+    this.ring.circle(cx, cy, Math.max(1, r - 9)).stroke({ width: 2, color: 0xff5fae, alpha: 0.8 });
 
     this.nextRing.clear();
     if (nextVisible) {
@@ -161,13 +166,13 @@ export class ZoneLayerView {
         const a1 = ((i + 1) / segs) * Math.PI * 2;
         this.nextRing.moveTo(nx + Math.cos(a0) * nr, ny + Math.sin(a0) * nr)
           .lineTo(nx + Math.cos(a1) * nr, ny + Math.sin(a1) * nr)
-          .stroke({ width: 1.6, color: 0x9fd8ff, alpha: 0.6 });
+          .stroke({ width: 2.2, color: 0xffffff, alpha: 0.75 });
       }
     }
 
     if (shrinking) {
-      this.label.position.set(cx, cy - r - 18);
-      this.label.text = "⚠ ZONE SHRINKING";
+      this.label.position.set(cx, cy - r - 20);
+      this.label.text = "⚠ SLIME RISING!";
       this.label.visible = true;
       this.label.alpha = 0.6 + 0.4 * Math.sin(performance.now() / 180);
     } else {
@@ -175,3 +180,4 @@ export class ZoneLayerView {
     }
   }
 }
+

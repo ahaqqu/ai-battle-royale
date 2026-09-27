@@ -84,16 +84,46 @@ export interface PlayerCam {
   frames: (CamFrame | null)[];
 }
 
-/** The 16-bot neon palette. Distinct hues, tuned to read on dark bg and
- * survive stream compression (PLAN §7.3). */
+/** The 16-slot candy palette — Fall Guys-style vivid candy hues, tuned to
+ * read on a bright pastel floor and survive stream compression (PLAN §7.3).
+ * The first 8 are the standard lineup: maximally distinct hues. */
 export const BOT_COLORS = [
-  "#00e5ff", "#ff4fd8", "#7cff4f", "#ffd54f", "#ff6b3d", "#4f7cff",
-  "#b44fff", "#4fffb0", "#ff4f4f", "#e8ff4f", "#4fd8ff", "#ff9ff3",
-  "#9dff4f", "#ffb84f", "#4fff6b", "#c04fff",
+  "#ff5f7e", // 0 watermelon
+  "#35c1f0", // 1 sky
+  "#ffd93b", // 2 banana
+  "#8a5cff", // 3 grape
+  "#43d66e", // 4 green apple
+  "#ff9d3b", // 5 tangerine
+  "#ff5fd0", // 6 bubblegum
+  "#f2f6ff", // 7 cloud white
+  "#a8e04c", // 8 lime
+  "#35d6b5", // 9 mint
+  "#4f7dff", // 10 blueberry
+  "#c06bff", // 11 lavender
+  "#c97a4a", // 12 cocoa
+  "#e6455f", // 13 cherry
+  "#ff8fb8", // 14 rose
+  "#00e0c8", // 15 turquoise
 ];
 
-export const KIND_COLORS = ["#58ff9b", "#59c2ff", "#e59bff", "#e59bff"];
+export const KIND_COLORS = ["#43d66e", "#35c1f0", "#c06bff", "#ffa03c"];
 export const KIND_LABELS = ["HP KIT", "ENERGY", "COOLDOWN MOD", "SPEED MOD"];
+
+/** Chunky rounded display font used everywhere (HUD + in-canvas text). */
+export const FONT = '"Baloo 2", "Fredoka", "Trebuchet MS", "Inter", sans-serif';
+
+/** Dark grape outline "ink" every sprite is drawn with — the thick cartoon
+ * outline that makes candy colors pop on the pastel floor. */
+export const INK = 0x3a2c5a;
+export const INK_HEX = "#3a2c5a";
+
+/** Multiply a 0xRRGGBB color's channels by `f` (f<1 darkens, f>1 lightens). */
+export function shade(col: number, f: number): number {
+  const r = Math.min(255, Math.round(((col >> 16) & 0xff) * f));
+  const g = Math.min(255, Math.round(((col >> 8) & 0xff) * f));
+  const b = Math.min(255, Math.round((col & 0xff) * f));
+  return (r << 16) | (g << 8) | b;
+}
 
 export function botColor(bot: number): string {
   return BOT_COLORS[bot % BOT_COLORS.length];

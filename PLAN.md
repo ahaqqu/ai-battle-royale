@@ -8,7 +8,7 @@
 
 ## 1. Vision
 
-A 16-bot battle royale. Every "player" is an AI program someone wrote, connected from their own server. Matches are short (5–8 minutes), lethal, and fun to watch — live with commentary, or as shareable replay links. The bots play under strict fog of war: they see only what their character can see and hear, and everything else — memory, prediction, deception — is their own code's job.
+An 8-bot battle royale (configurable up to 16). Every "player" is an AI program someone wrote, connected from their own server. Matches are short (5–8 minutes), lethal, and fun to watch — live with commentary, or as shareable replay links. The bots play under strict fog of war: they see only what their character can see and hear, and everything else — memory, prediction, deception — is their own code's job.
 
 The design principle printed on every decision in this doc:
 
@@ -34,7 +34,7 @@ These come from a survey of ~12 prior "bring your own AI" games (Battlesnake, Sc
 
 ### 2.1 Format
 
-- **16 entrants per match**, each entrant controlled by one bot program.
+- **8 entrants per match**, each entrant controlled by one bot program (the sim supports up to 16).
 - **Each entrant = 1 main character + 1 companion** (a pet / small robot), leashed to its main.
 - **Main death = elimination.** Companion death = 20s respawn beside the main (tuning knob; see §11).
 - Win condition: last main alive. Secondary ladder metric: kills + placement.

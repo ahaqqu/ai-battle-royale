@@ -149,8 +149,8 @@ impl Server {
         if lobby.len() < self.cfg.min_bots {
             return;
         }
-        // ELO-proximity drafting (PLAN §8.2): sort by elo, take up to 16.
-        let take = lobby.len().min(16);
+        // ELO-proximity drafting (PLAN §8.2): sort by elo, take up to 8.
+        let take = lobby.len().min(8);
         lobby.sort_by_key(|h| self.db.elo_of(&h.name));
         let drafted: Vec<Arc<BotHandle>> = lobby.drain(..take).collect();
         drop(lobby);

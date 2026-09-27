@@ -69,9 +69,10 @@ fn main() {
         } => {
             let names = match (bots, preset) {
                 (Some(b), _) => b.split(',').map(|s| s.trim().to_string()).collect(),
+                (_, Some(p)) if p == "default8" => abr_core::bots::default8(),
                 (_, Some(p)) if p == "default16" => abr_core::bots::default16(),
                 _ => {
-                    eprintln!("--bots <a,b,c> or --preset default16 required");
+                    eprintln!("--bots <a,b,c> or --preset default8 required");
                     std::process::exit(2);
                 }
             };

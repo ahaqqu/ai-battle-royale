@@ -1,93 +1,122 @@
-/** Static arena art: deep-space background, grid, walls with neon edges,
- * arena frame. Drawn once per load. */
+/** Static arena art, Fall Guys style: bright sky with soft clouds, a floating
+ * pastel island floor with polka dots + sprinkles, and chunky rounded candy
+ * walls with thick outlines. Drawn once per load. */
 
 import { Graphics, Sprite } from "pixi.js";
-import { ARENA, MapData } from "../types.js";
+import { ARENA, INK, MapData, shade } from "../types.js";
 import { Stage } from "./stage.js";
+
+/** Rotating candy-block colors for the big walls. */
+const WALL_COLORS = [0xff6f91, 0xffa94d, 0x4fd0c0, 0x9d7bff];
+
+/** Tiny deterministic pseudo-random (sprinkle/cloud placement is stable). */
+function rand(seed: number): number {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
 
 export function drawArena(stage: Stage, map: MapData): void {
   const bg = stage.bgLayer;
   const size = map.size || ARENA;
 
-  // Soft nebula backdrop.
-  const neb = new Sprite(stage.softTex);
-  neb.anchor.set(0.5);
-  neb.position.set(size / 2, size / 2);
-  neb.scale.set((size * 1.6) / 256);
-  neb.tint = 0x1a2450;
-  neb.alpha = 0.55;
-  bg.addChild(neb);
-  const neb2 = new Sprite(stage.softTex);
-  neb2.anchor.set(0.5);
-  neb2.position.set(size * 0.2, size * 0.75);
-  neb2.scale.set((size * 1.1) / 256);
-  neb2.tint = 0x301b4d;
-  neb2.alpha = 0.35;
-  bg.addChild(neb2);
-  const neb3 = new Sprite(stage.softTex);
-  neb3.anchor.set(0.5);
-  neb3.position.set(size * 0.85, size * 0.25);
-  neb3.scale.set((size * 0.9) / 256);
-  neb3.tint = 0x0d2f3f;
-  neb3.alpha = 0.4;
-  bg.addChild(neb3);
+  // Sun glow in the top-left sky.
+  const sun = new Sprite(stage.softTex);
+  sun.anchor.set(0.5);
+  sun.position.set(size * 0.1, size * 0.08);
+  sun.scale.set((size * 1.3) / 256);
+  sun.tint = 0xffffff;
+  sun.alpha = 0.85;
+  bg.addChild(sun);
 
-  // Arena floor — slightly lighter than the void outside the map.
+  // Puffy clouds drifting around the island (clusters of soft blobs).
+  for (let i = 0; i < 9; i++) {
+    const cx = rand(i * 3 + 1) * (size + 900) - 450;
+    const cy = rand(i * 7 + 2) * (size + 900) - 450;
+    const s = 0.8 + rand(i * 13 + 3) * 0.9;
+    for (const [dx, dy, r] of [[-55, 8, 1], [0, -12, 1.35], [55, 10, 1]] as const) {
+      const puff = new Sprite(stage.softTex);
+      puff.anchor.set(0.5);
+      puff.position.set(cx + dx * s, cy + dy * s);
+      puff.scale.set((150 * r * s) / 256);
+      puff.tint = 0xffffff;
+      puff.alpha = 0.9;
+      bg.addChild(puff);
+    }
+  }
+
+  // Floating island: soft drop shadow, pastel slab, white rim.
   const floor = new Graphics();
-  floor.rect(0, 0, size, size).fill({ color: 0x0c1220 });
+  floor.roundRect(22, 30, size, size, 48).fill({ color: INK, alpha: 0.16 });
+  floor.roundRect(0, 0, size, size, 44).fill({ color: 0xbfe4f6 });
+  floor.roundRect(0, 0, size, size, 44).fill({ color: 0xcae9f8, alpha: 0.5 });
   bg.addChild(floor);
 
-  // Grid: minor every 200u, major every 800u.
-  const grid = new Graphics();
-  for (let i = 0; i <= size; i += 200) {
-    const major = i % 800 === 0;
-    grid.moveTo(i, 0).lineTo(i, size).stroke({ width: 1, color: major ? 0x25335c : 0x141b31, alpha: major ? 0.55 : 0.4 });
-    grid.moveTo(0, i).lineTo(size, i).stroke({ width: 1, color: major ? 0x25335c : 0x141b31, alpha: major ? 0.55 : 0.4 });
+  // Polka-dot floor pattern (cell centers only, so corners stay clean).
+  const dots = new Graphics();
+  for (let y = 100; y < size; y += 200) {
+    for (let x = 100; x < size; x += 200) {
+      const major = (x % 800 === 100) && (y % 800 === 100);
+      dots.circle(x, y, major ? 30 : 22).fill({ color: 0xffffff, alpha: major ? 0.5 : 0.32 });
+    }
   }
-  bg.addChild(grid);
+  bg.addChild(dots);
 
-  // Arena frame glow.
-  const frame = new Graphics();
-  frame.rect(0, 0, size, size).stroke({ width: 3, color: 0x3d5afe, alpha: 0.8 });
-  frame.rect(-6, -6, size + 12, size + 12).stroke({ width: 1, color: 0x55e6ff, alpha: 0.25 });
-  bg.addChild(frame);
+  // Candy sprinkles scattered on the floor.
+  const sprinkles = new Graphics();
+  for (let i = 0; i < 90; i++) {
+    const x = rand(i * 5 + 11) * (size - 120) + 60;
+    const y = rand(i * 9 + 17) * (size - 120) + 60;
+    const a = rand(i * 3 + 23) * Math.PI;
+    const col = WALL_COLORS[i % WALL_COLORS.length];
+    const hw = 7, hh = 2.6;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    sprinkles.moveTo(x - ca * hw, y - sa * hw)
+      .lineTo(x - sa * hh + ca * hw, y + ca * hh + sa * hw)
+      .lineTo(x + ca * hw, y + sa * hw)
+      .lineTo(x + sa * hh - ca * hw, y - ca * hh - sa * hw)
+      .closePath()
+      .fill({ color: col, alpha: 0.75 });
+  }
+  bg.addChild(sprinkles);
 
-  // Spawns: subtle pads (public knowledge, PLAN §2.4).
+  // Island rim: chunky white border with a soft ink outline.
+  const rim = new Graphics();
+  rim.roundRect(-10, -10, size + 20, size + 20, 52).stroke({ width: 14, color: 0xffffff, alpha: 0.97 });
+  rim.roundRect(-20, -20, size + 40, size + 40, 60).stroke({ width: 2.5, color: INK, alpha: 0.22 });
+  bg.addChild(rim);
+
+  // Spawns: bouncy-looking pads (public knowledge, PLAN §2.4).
   const pads = new Graphics();
   for (const s of map.spawns) {
-    pads.circle(s[0], s[1], 22).stroke({ width: 1, color: 0x2a3a66, alpha: 0.7 });
-    pads.circle(s[0], s[1], 3).fill({ color: 0x2a3a66, alpha: 0.9 });
+    pads.circle(s[0], s[1], 32).fill({ color: 0xffffff, alpha: 0.55 });
+    pads.circle(s[0], s[1], 32).stroke({ width: 4, color: 0xffffff, alpha: 0.95 });
+    pads.circle(s[0], s[1], 24).stroke({ width: 2, color: INK, alpha: 0.25 });
+    pads.circle(s[0], s[1], 6).fill({ color: 0xffd1e6, alpha: 0.9 });
   }
   bg.addChild(pads);
 
-  // Walls.
+  // Walls: chunky candy blocks with thick outlines and toy-like highlights.
   const walls = new Graphics();
+  let i = 0;
   for (const w of map.walls) {
     const x = w.min[0], y = w.min[1];
     const hw = w.max[0] - w.min[0], hh = w.max[1] - w.min[1];
     if (w.kind === "wall") {
-      walls.rect(x, y, hw, hh).fill({ color: 0x131a30 });
-      walls.rect(x, y, hw, hh).stroke({ width: 2, color: 0x3f57a8, alpha: 0.95 });
-      // Top highlight strip for a slight 2.5D read.
-      walls.rect(x + 2, y + 2, hw - 4, 2).fill({ color: 0x6d86d8, alpha: 0.5 });
+      const col = WALL_COLORS[i % WALL_COLORS.length];
+      walls.roundRect(x + 7, y + 12, hw, hh, 20).fill({ color: INK, alpha: 0.16 });
+      walls.roundRect(x, y, hw, hh, 20).fill({ color: col });
+      walls.roundRect(x, y, hw, hh, 20).stroke({ width: 4, color: shade(col, 0.62) });
+      walls.roundRect(x + 6, y + 6, Math.max(2, hw - 12), Math.max(2, Math.min(9, hh * 0.28)), 7)
+        .fill({ color: 0xffffff, alpha: 0.4 });
     } else {
-      // Low cover: shorter, warmer, dashed edge.
-      walls.rect(x, y, hw, hh).fill({ color: 0x1a1f33 });
-      const dash = 14;
-      const per = (hw + hh) * 2;
-      for (let d = 0; d < per; d += dash * 2) {
-        let rem = dash;
-        // top
-        if (d < hw) { const sx = Math.min(x + d, x + hw); walls.moveTo(sx, y).lineTo(Math.min(sx + rem, x + hw), y).stroke({ width: 2, color: 0x8a6a3a, alpha: 0.9 }); }
-        const d1 = d - hw;
-        if (d1 >= 0 && d1 < hh) { const sy = Math.min(y + d1, y + hh); walls.moveTo(x + hw, sy).lineTo(x + hw, Math.min(sy + rem, y + hh)).stroke({ width: 2, color: 0x8a6a3a, alpha: 0.9 }); }
-        const d2 = d1 - hh;
-        if (d2 >= 0 && d2 < hw) { const sx = Math.max(x + hw - d2, x); walls.moveTo(sx, y + hh).lineTo(Math.max(sx - rem, x), y + hh).stroke({ width: 2, color: 0x8a6a3a, alpha: 0.9 }); }
-        const d3 = d2 - hw;
-        if (d3 >= 0 && d3 < hh) { const sy = Math.max(y + hh - d3, y); walls.moveTo(x, sy).lineTo(x, Math.max(sy - rem, y)).stroke({ width: 2, color: 0x8a6a3a, alpha: 0.9 }); }
-        void rem;
-      }
+      // Low cover: pale foam bumper.
+      walls.roundRect(x + 4, y + 7, hw, hh, 12).fill({ color: INK, alpha: 0.1 });
+      walls.roundRect(x, y, hw, hh, 12).fill({ color: 0xfff1bf });
+      walls.roundRect(x, y, hw, hh, 12).stroke({ width: 3, color: 0xf5b83d });
+      walls.roundRect(x + 4, y + 4, Math.max(2, hw - 8), Math.max(2, Math.min(7, hh * 0.3)), 5)
+        .fill({ color: 0xffffff, alpha: 0.55 });
     }
+    i++;
   }
   stage.wallLayer.addChild(walls);
 }
