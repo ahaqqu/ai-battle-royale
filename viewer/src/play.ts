@@ -47,16 +47,26 @@ export interface PlayCallbacks {
 interface InputState {
   keys: Set<string>;
   mouseDown: boolean;
+  /** A click shorter than one observation tick would be missed by the
+   * level-sampled mouseDown — latch it so a tap still fires one shot. */
+  fireQueued: boolean;
   dashQueued: boolean;
   sonarQueued: boolean;
   sprintToggled: boolean;
 }
+
+/** The sim's `Fix` is a raw Q16.16 i64 on the wire (1.0 = 65536); JS numbers
+ * must be scaled before sending or the gateway reads 1 as 1/65536 — and a
+ * fractional value fails i64 parsing, dropping the WHOLE input message. */
+const FIX_ONE = 65536;
+const toFix = (v: number): number => Math.round(v * FIX_ONE);
 
 export class PlayClient {
   private ws: WebSocket | null = null;
   private state: InputState = {
     keys: new Set(),
     mouseDown: false,
+    fireQueued: false,
     dashQueued: false,
     sonarQueued: false,
     sprintToggled: false,
@@ -130,6 +140,7 @@ export class PlayClient {
     host.addEventListener("mousedown", (e) => {
       if (e.button === 0) {
         this.state.mouseDown = true;
+        this.state.fireQueued = true;
         this.firing = true;
       }
     });
@@ -148,7 +159,9 @@ export class PlayClient {
 
   private screenToWorld: (x: number, y: number) => { x: number; y: number } = (x, y) => ({ x, y });
 
-  /** Bearing (0 = north, clockwise) of the WASD chord; null = stand still. */
+  /** Bearing (0 = north, clockwise) of the WASD chord; null = stand still.
+   * The sim's compass 0 is world +Y, which renders as screen DOWN (the
+   * viewer has no Y flip), so screen-up keys must negate dy. */
   private moveDir(): { dir: number; throttle: number } | null {
     const k = this.state.keys;
     let dx = 0;
@@ -158,7 +171,7 @@ export class PlayClient {
     if (k.has("d") || k.has("arrowright")) dx += 1;
     if (k.has("a") || k.has("arrowleft")) dx -= 1;
     if (dx === 0 && dy === 0) return null;
-    const deg = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360;
+    const deg = ((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360;
     return { dir: Math.round(deg) % 360, throttle: 1 };
   }
 
@@ -176,27 +189,30 @@ export class PlayClient {
     const d = Math.hypot(dx, dy);
     if (d < 26) return { mv: { dir: 0, throttle: 0 } };
     const dir = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360;
-    return { mv: { dir: Math.round(dir) % 360, throttle: Math.min(1, d / 90) } };
-  }
+    return { mv: { dir: Math.round(dir) % 360, throttle: Math.min(1, d / 90) } };  }
 
   private sendInput(obs: PlayObs): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     const mv = this.moveDir();
     let action: Record<string, unknown> | undefined;
-    if (this.state.dashQueued && mv) {
+    if (this.state.dashQueued) {
+      // The sim dashes toward facing when standing still, so no move check.
       action = { type: "dash" };
-    } else if (this.state.keys.has("shift")) {
-      action = { type: "shield" };
-    } else if (this.state.mouseDown && !this.sprinting) {
-      const w = this.screenToWorld(this.mouseScreen.x, this.mouseScreen.y);
-      action = { type: "fire", target: { x: w.x, y: w.y } };
-    }
-    this.state.dashQueued = false;
-
-    if (this.state.sprintToggled) {
+    } else if (this.state.sprintToggled) {
+      // Sprint is a server-side toggle (PLAN §2.2); it takes the action slot
+      // this tick, and firing stays blocked while it is on.
       this.sprinting = !this.sprinting;
       this.state.sprintToggled = false;
+      action = { type: "sprint", on: this.sprinting };
+    } else if (this.state.keys.has("shift")) {
+      action = { type: "shield" };
+    } else if ((this.state.mouseDown || this.state.fireQueued) && !this.sprinting) {
+      const w = this.screenToWorld(this.mouseScreen.x, this.mouseScreen.y);
+      action = { type: "fire", target: { x: toFix(w.x), y: toFix(w.y) } };
     }
+    this.state.fireQueued = false;
+    this.state.dashQueued = false;
+
     const compIn = this.companionInput(obs);
     let compAction = compIn.action;
     if (this.state.sonarQueued) {
@@ -208,11 +224,11 @@ export class PlayClient {
     const msg = {
       tick: obs.tick,
       main: {
-        move: { dir: mv?.dir ?? 0, throttle: mv?.throttle ?? 0 },
+        move: { dir: mv?.dir ?? 0, throttle: mv ? toFix(mv.throttle) : 0 },
         action,
       },
       companion: {
-        move: compIn.mv,
+        move: { dir: compIn.mv.dir, throttle: toFix(compIn.mv.throttle) },
         action: compAction,
       },
     };

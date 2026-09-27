@@ -94,6 +94,7 @@ let replaysPageNum = 0;
 function hideMenus(): void {
   picker.classList.add("hidden");
   replaysPage.classList.add("hidden");
+  sfx.stopMenuTheme();
 }
 
 async function listReplays(): Promise<ReplayItem[]> {
@@ -107,6 +108,7 @@ async function showPicker(): Promise<void> {
   loading.classList.add("hidden");
   hideMenus();
   picker.classList.remove("hidden");
+  sfx.startMenuTheme();
 
   // Badge the library button with the replay count (metadata-only fetch).
   listReplays().then((items) => {
