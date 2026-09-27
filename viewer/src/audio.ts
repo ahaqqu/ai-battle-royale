@@ -16,11 +16,24 @@ const THROTTLE: Partial<Record<SndName, number>> = {
   shot: 0.045, hit: 0.08, boom: 0.1, sonar: 0.2, dash: 0.12, zone: 0.8,
 };
 
+/** Real-sample override: drop `viewer/public/sfx/<name>.mp3` (Mixkit /
+ * Pixabay both ship free-license game SFX) and it replaces the synth for
+ * that sound. Missing files fall back to the synthesized version. */
+const SAMPLE_URL: Record<SndName, string> = {
+  shot: "/sfx/shot.mp3", hit: "/sfx/hit.mp3", hurt: "/sfx/hurt.mp3",
+  dash: "/sfx/dash.mp3", sonar: "/sfx/sonar.mp3", pickup: "/sfx/pickup.mp3",
+  kill: "/sfx/kill.mp3", boom: "/sfx/boom.mp3", zone: "/sfx/zone.mp3",
+  victory: "/sfx/victory.mp3", defeat: "/sfx/defeat.mp3", click: "/sfx/click.mp3",
+};
+
 export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private noise: AudioBuffer | null = null;
   private last: Partial<Record<SndName, number>> = {};
+  /** Decoded samples per sound; a sound without a file stays on the synth. */
+  private samples: Partial<Record<SndName, AudioBuffer>> = {};
+  private probing = new Set<SndName>();
   muted = false;
 
   constructor() {
@@ -59,6 +72,23 @@ export class Sfx {
     return buf;
   }
 
+  /** Probe for a real sample once per sound; failures cache as "none". */
+  private probe(name: SndName): void {
+    if (!this.ctx || this.samples[name] !== undefined || this.probing.has(name)) return;
+    this.probing.add(name);
+    fetch(SAMPLE_URL[name])
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .then((buf) => {
+        this.probing.delete(name);
+        if (!buf || !this.ctx) { this.samples[name] = null as unknown as AudioBuffer; return; }
+        return this.ctx.decodeAudioData(buf).then(
+          (decoded) => { this.samples[name] = decoded; },
+          () => { this.samples[name] = null as unknown as AudioBuffer; },
+        );
+      })
+      .catch(() => { this.probing.delete(name); this.samples[name] = null as unknown as AudioBuffer; });
+  }
+
   /** Pan in [-1,1], vol in [0,1]. Safe to call before unlock / while muted. */
   play(name: SndName, pan = 0, vol = 1): void {
     if (this.muted || !this.ctx || !this.master || !this.noise) return;
@@ -75,6 +105,17 @@ export class Sfx {
     out.connect(this.master);
     const g = this.ctx.createGain();
     g.connect(out);
+    const sample = this.samples[name];
+    if (sample === undefined) this.probe(name);
+    if (sample) {
+      // Real SFX file: pitch untouched, level from the pan/vol mixer.
+      const src = this.ctx.createBufferSource();
+      src.buffer = sample;
+      src.connect(g);
+      g.gain.value = vol;
+      src.start(now);
+      return;
+    }
     switch (name) {
       case "shot": this.burst(g, now, vol * 0.5, 1900, 0.07, 3); this.tone(g, now, "square", 210, 90, vol * 0.22); break;
       case "hit": this.tone(g, now, "triangle", 720, 480, vol * 0.5, 0.09); this.burst(g, now, vol * 0.3, 2600, 0.05, 2); break;
