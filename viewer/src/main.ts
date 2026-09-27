@@ -16,6 +16,7 @@ import { Director } from "./render/director.js";
 import { Hud } from "./ui/hud.js";
 import { Timeline } from "./ui/timeline.js";
 import { sfx, panVol } from "./audio.js";
+import { startAmbient, stopAmbient } from "./ambient.js";
 
 const TICK_RATE = 10;
 
@@ -109,6 +110,8 @@ async function showPicker(): Promise<void> {
   hideMenus();
   picker.classList.remove("hidden");
   sfx.startMenuTheme();
+  // Ambient home screen: the newest recorded match plays behind the menu.
+  startAmbient(stage, ensureStage);
 
   // Badge the library button with the replay count (metadata-only fetch).
   listReplays().then((items) => {
@@ -208,21 +211,37 @@ function renderReplays(): void {
   (document.getElementById("replays-next") as HTMLButtonElement).disabled = replaysPageNum + 1 >= pages;
 }
 
-async function ensureStage(): Promise<void> {
-  // Give the display font a beat to load so Pixi-canvas text doesn't bake
-  // in the fallback; never block longer than ~1.2s (offline is fine).
+// Stage init is shared by the ambient background, replay playback and live
+// play; memoize the in-flight promise so concurrent callers (e.g. the user
+// clicks a replay while the ambient background is still initializing) wait
+// on the same init instead of racing past didInit into an uninitialized stage.
+let stageReady: Promise<void> | null = null;
+
+function ensureStage(): Promise<void> {
+  stageReady ??= initStage();
+  return stageReady;
+}
+
+async function initStage(): Promise<void> {
   try {
-    await Promise.race([
-      (document as Document & { fonts?: FontFaceSet }).fonts?.load('800 16px "Baloo 2"') ?? Promise.resolve(),
-      new Promise((r) => setTimeout(r, 1200)),
-    ]);
-  } catch { /* font stays fallback */ }
-  await stage.init(document.getElementById("stage-host")!, (s) => setProgress(0.005, s));
-  if (!mindcam && stage.didInit) {
-    mindHeat = new Graphics();
-    mindBubbles = new Graphics();
-    stage.fogLayer.addChild(mindHeat, mindBubbles);
-    mindcam = new MindCam(mindHeat, mindBubbles);
+    // Give the display font a beat to load so Pixi-canvas text doesn't bake
+    // in the fallback; never block longer than ~1.2s (offline is fine).
+    try {
+      await Promise.race([
+        (document as Document & { fonts?: FontFaceSet }).fonts?.load('800 16px "Baloo 2"') ?? Promise.resolve(),
+        new Promise((r) => setTimeout(r, 1200)),
+      ]);
+    } catch { /* font stays fallback */ }
+    await stage.init(document.getElementById("stage-host")!, (s) => setProgress(0.005, s));
+    if (!mindcam && stage.didInit) {
+      mindHeat = new Graphics();
+      mindBubbles = new Graphics();
+      stage.fogLayer.addChild(mindHeat, mindBubbles);
+      mindcam = new MindCam(mindHeat, mindBubbles);
+    }
+  } catch (e) {
+    stageReady = null; // allow a later attempt to actually retry
+    throw e;
   }
 }
 
@@ -247,6 +266,7 @@ async function startReplayUrl(url: string): Promise<void> {
 
 async function startReplay(json: string, name: string): Promise<void> {
   hideMenus();
+  stopAmbient(stage);
   loading.classList.remove("hidden");
   setProgress(0.01, "loading replay…");
   await ensureStage();
@@ -548,6 +568,7 @@ function setPlayStatus(s: string, detail?: string): void {
 
 async function startPlay(name: string): Promise<void> {
   hideMenus();
+  stopAmbient(stage);
   await ensureStage();
   loading.classList.add("hidden");
   document.body.classList.add("playing");
