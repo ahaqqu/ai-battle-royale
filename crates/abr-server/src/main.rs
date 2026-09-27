@@ -30,6 +30,10 @@ enum Cmd {
         /// Minimum connected bots to draft a match.
         #[arg(long, default_value_t = 2)]
         min_bots: usize,
+        /// Max house bots used to top up a match when a human is queued
+        /// (solo play); 0 disables.
+        #[arg(long, default_value_t = 8)]
+        house_bots: usize,
         /// Live spectate delay in seconds (anti-cheat; PLAN §6.2).
         #[arg(long, default_value_t = 0)]
         spectate_delay_s: u64,
@@ -47,6 +51,7 @@ async fn main() {
             viewer,
             lanes,
             min_bots,
+            house_bots,
             spectate_delay_s,
         } => {
             let cfg = ServerConfig {
@@ -56,6 +61,7 @@ async fn main() {
                 viewer_dir: Some(viewer),
                 lanes,
                 min_bots,
+                house_bots,
                 spectate_delay_s,
             };
             abr_server::Server::start(cfg, abr_core::config::MatchConfig::standard())

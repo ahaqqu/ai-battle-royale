@@ -171,9 +171,14 @@ export class Fx {
     }
   }
 
+  /** Hit-confirm: white X-shaped spark burst where YOUR shot landed. */
+  hitmark(x: number, y: number): void {
+    this.spawn(x, y, 0xffffff, { count: 6, speed: 190, maxLife: 0.2, size0: 9, size1: 1 });
+    this.ring(x, y, 0xffffff, 3, 34, 0.22, 2.5);
+  }
+
   /** Projectile tracers for visible projectiles — call every rendered frame. */
-  tracer(x: number, y: number, color: number, intense: boolean): void {
-    const s = this.take();
+  tracer(x: number, y: number, color: number, intense: boolean): void {    const s = this.take();
     if (!s) return;
     const p: Particle = {
       sprite: s, vx: 0, vy: 0, life: 0,

@@ -23,6 +23,7 @@
         <div class="stat"><span class="stat-label">ALIVE</span><span id="stat-alive">16</span></div>
         <div class="stat"><span class="stat-label">ZONE</span><span id="stat-zone">—</span></div>
         <div class="stat"><span class="stat-label">T+</span><span id="stat-time">0:00</span></div>
+        <button id="btn-audio" title="toggle sound">🔇</button>
       </div>
     </div>
 
@@ -55,8 +56,24 @@
     <div id="play-hud" class="hidden">
       <div id="play-status">connecting…</div>
       <div id="play-bars"></div>
-      <div id="play-keys">WASD move · mouse aim · click fire · SPACE dash · SHIFT shield · Q sprint · E sonar</div>
+      <div id="play-keys">WASD move · mouse aim · click fire · SPACE dash · SHIFT shield · Q sprint · E sonar · F recall pet · pet follows your cursor</div>
       <div id="play-replay"></div>
+    </div>
+
+    <!-- combat feel overlays -->
+    <div id="vignette"></div>
+    <div id="dmg-arrow" class="hidden"><i></i></div>
+    <div id="reticle" class="hidden"><s></s><b></b></div>
+    <div id="play-banner" class="hidden"></div>
+    <div id="play-over" class="hidden">
+      <div class="modal-card">
+        <div class="crown">💀</div>
+        <div id="play-over-title">ELIMINATED</div>
+        <div id="play-over-sub">riding it out…</div>
+        <div id="play-over-actions">
+          <button id="play-leave">LEAVE ARENA</button>
+        </div>
+      </div>
     </div>
 
     <!-- winner modal -->

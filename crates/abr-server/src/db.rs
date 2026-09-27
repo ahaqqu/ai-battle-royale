@@ -92,8 +92,11 @@ impl Db {
 
     pub fn standings(&self) -> Vec<BotRow> {
         let conn = self.conn.lock().unwrap();
+        // House bots are sparring partners, not competitors — keep them off
+        // the ladder (they still carry placements for match history).
         let mut stmt = match conn.prepare(
-            "SELECT id, name, elo, wins, games FROM bots ORDER BY elo DESC, name LIMIT 100",
+            "SELECT id, name, elo, wins, games FROM bots
+             WHERE name NOT LIKE 'house·%' ORDER BY elo DESC, name LIMIT 100",
         ) {
             Ok(s) => s,
             Err(_) => return vec![],
