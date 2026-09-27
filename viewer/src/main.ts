@@ -22,11 +22,16 @@ const TICK_RATE = 10;
 window.addEventListener("error", (e) => {
   (window as unknown as { __errors: string[] }).__errors.push(String(e.message));
 });
+window.addEventListener("unhandledrejection", (e) => {
+  const reason = (e as PromiseRejectionEvent).reason;
+  (window as unknown as { __errors: string[] }).__errors.push("rejection: " + String(reason?.stack ?? reason));
+});
 
 const loading = document.getElementById("loading")!;
 const loadStatus = document.getElementById("load-status")!;
 const loadBar = document.getElementById("load-bar")!;
 const picker = document.getElementById("picker")!;
+const replaysPage = document.getElementById("replays-page")!;
 
 const stage = new Stage();
 const hud = new Hud();
@@ -62,37 +67,54 @@ function setProgress(p: number, label: string): void {
 }
 
 async function boot(): Promise<void> {
-  const params = new URLSearchParams(location.search);
-  const replayParam = params.get("replay");
-  if (replayParam) {
-    await startReplayUrl(replayParam);
-  } else if (params.has("play")) {
-    await startPlay((params.get("name") || "human").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human");
-  } else {
-    await showPicker();
+  try {
+    const params = new URLSearchParams(location.search);
+    const replayParam = params.get("replay");
+    if (replayParam) {
+      await startReplayUrl(replayParam);
+    } else if (params.has("play")) {
+      await startPlay((params.get("name") || "human").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human");
+    } else {
+      await showPicker();
+    }
+  } catch (e) {
+    // Never leave a black screen: surface fatal boot errors on the overlay.
+    loadStatus.textContent = "failed to start: " + String((e as Error)?.message ?? e);
+    (window as unknown as { __errors: string[] }).__errors.push("boot: " + String((e as Error)?.stack ?? e));
   }
+}
+
+interface ReplayItem { name: string; url: string; size_kb: number }
+
+const REPLAYS_PER_PAGE = 10;
+let replaysCache: ReplayItem[] | null = null;
+let replaysPageNum = 0;
+
+function hideMenus(): void {
+  picker.classList.add("hidden");
+  replaysPage.classList.add("hidden");
+}
+
+async function listReplays(): Promise<ReplayItem[]> {
+  if (replaysCache) return replaysCache;
+  const res = await fetch("./api/replays");
+  replaysCache = await res.json();
+  return replaysCache!;
 }
 
 async function showPicker(): Promise<void> {
   loading.classList.add("hidden");
+  hideMenus();
   picker.classList.remove("hidden");
-  const list = document.getElementById("picker-list")!;
-  try {
-    const res = await fetch("./api/replays");
-    const items: { name: string; url: string; size_kb: number }[] = await res.json();
-    if (items.length === 0) {
-      list.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:12px 0">No replays found on the server.<br>Generate one: <code>abr-runner run --preset default16 --seed 42 --out replays/match.json</code></div>`;
-    }
-    for (const it of items) {
-      const row = document.createElement("div");
-      row.className = "picker-row";
-      row.innerHTML = `<span>${it.name}</span><span class="picker-meta">${it.size_kb.toFixed(0)} KB</span>`;
-      row.addEventListener("click", () => startReplayUrl(it.url));
-      list.appendChild(row);
-    }
-  } catch {
-    list.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:12px 0">No replay server detected.<br>Open a replay file directly:</div>`;
-  }
+
+  // Badge the library button with the replay count (metadata-only fetch).
+  listReplays().then((items) => {
+    if (items.length === 0) return;
+    const badge = document.getElementById("replay-count")!;
+    badge.textContent = String(items.length);
+    badge.classList.remove("hidden");
+  }).catch(() => { /* offline: button still opens the library page */ });
+
   const fileInput = document.getElementById("file-input") as HTMLInputElement;
   fileInput.addEventListener("change", async () => {
     const f = fileInput.files?.[0];
@@ -110,6 +132,77 @@ async function showPicker(): Promise<void> {
       location.href = "?play=1&name=" + encodeURIComponent(name);
     });
   }
+
+  document.getElementById("browse-replays-btn")!.addEventListener("click", () => {
+    location.hash = "#replays";
+  });
+  document.getElementById("replays-back")!.addEventListener("click", () => {
+    location.hash = "";
+  });
+  document.getElementById("replays-prev")!.addEventListener("click", () => {
+    if (replaysPageNum > 0) { replaysPageNum--; renderReplays(); }
+  });
+  document.getElementById("replays-next")!.addEventListener("click", () => {
+    const items = replaysCache ?? [];
+    if ((replaysPageNum + 1) * REPLAYS_PER_PAGE < items.length) { replaysPageNum++; renderReplays(); }
+  });
+  window.addEventListener("hashchange", () => {
+    if (location.hash === "#replays") {
+      // Don't overlay the library on a running replay/play session.
+      if (!replay && !playClient) void openReplays();
+      else location.hash = "";
+    } else if (!picker.classList.contains("hidden") || !replaysPage.classList.contains("hidden")) {
+      hideMenus();
+      picker.classList.remove("hidden");
+    }
+  });
+
+  if (location.hash === "#replays") void openReplays();
+}
+
+async function openReplays(): Promise<void> {
+  hideMenus();
+  replaysPage.classList.remove("hidden");
+  const list = document.getElementById("replays-list")!;
+  const indicator = document.getElementById("replays-page-indicator")!;
+  let items: ReplayItem[];
+  try {
+    items = await listReplays();
+  } catch {
+    list.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:12px 0">No replay server detected.<br>Open a replay file from the home screen.</div>`;
+    indicator.textContent = "—";
+    return;
+  }
+  if (items.length === 0) {
+    list.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:12px 0">No replays found on the server.<br>Generate one: <code>abr-runner run --preset default16 --seed 42 --out replays/match.json</code></div>`;
+    indicator.textContent = "—";
+    return;
+  }
+  replaysPageNum = Math.min(replaysPageNum, Math.floor((items.length - 1) / REPLAYS_PER_PAGE));
+  renderReplays();
+}
+
+function renderReplays(): void {
+  const items = replaysCache ?? [];
+  const list = document.getElementById("replays-list")!;
+  list.innerHTML = "";
+  const start = replaysPageNum * REPLAYS_PER_PAGE;
+  for (const it of items.slice(start, start + REPLAYS_PER_PAGE)) {
+    const row = document.createElement("div");
+    row.className = "picker-row";
+    const name = document.createElement("span");
+    name.textContent = it.name;
+    const meta = document.createElement("span");
+    meta.className = "picker-meta";
+    meta.textContent = `${it.size_kb.toFixed(0)} KB`;
+    row.append(name, meta);
+    row.addEventListener("click", () => startReplayUrl(it.url));
+    list.appendChild(row);
+  }
+  const pages = Math.max(1, Math.ceil(items.length / REPLAYS_PER_PAGE));
+  document.getElementById("replays-page-indicator")!.textContent = `${replaysPageNum + 1} / ${pages}`;
+  (document.getElementById("replays-prev") as HTMLButtonElement).disabled = replaysPageNum <= 0;
+  (document.getElementById("replays-next") as HTMLButtonElement).disabled = replaysPageNum + 1 >= pages;
 }
 
 async function ensureStage(): Promise<void> {
@@ -150,7 +243,7 @@ async function startReplayUrl(url: string): Promise<void> {
 }
 
 async function startReplay(json: string, name: string): Promise<void> {
-  picker.classList.add("hidden");
+  hideMenus();
   loading.classList.remove("hidden");
   setProgress(0.01, "loading replay…");
   await ensureStage();
@@ -369,7 +462,7 @@ function setPlayStatus(s: string, detail?: string): void {
 }
 
 async function startPlay(name: string): Promise<void> {
-  picker.classList.add("hidden");
+  hideMenus();
   await ensureStage();
   loading.classList.add("hidden");
 
@@ -512,6 +605,10 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "ArrowRight" && replay) { idx = Math.min(replay.data.totalTicks - 1, idx + TICK_RATE); }
   if (e.code === "ArrowLeft" && replay) { idx = Math.max(0, idx - TICK_RATE); }
   if (e.code === "KeyM") mindcam?.toggle();
+  if (location.hash === "#replays" && !replay && !playClient) {
+    location.hash = ""; // library open: Esc goes home instead
+    return;
+  }
   if (e.code === "Escape") { hud.hideWinner(); if (replay) setCamMode("auto"); }
 });
 
