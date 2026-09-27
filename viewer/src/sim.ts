@@ -11,8 +11,11 @@ import {
 
 let inited = false;
 
-async function ensureWasm(onProgress?: (label: string) => void): Promise<void> {
-  if (!inited) {
+// Re-exported for the ambient background player, which drives the sim
+// incrementally instead of pre-simulating the whole replay.
+export { ReplaySim };
+
+export async function ensureWasm(onProgress?: (label: string) => void): Promise<void> {  if (!inited) {
     const mark = (m: string) => { try { onProgress?.(m); } catch { /* noop */ } };
     mark('fetching simulation engine…');
     const res = await fetch(wasmUrl);
@@ -71,7 +74,7 @@ function normalizeEvents(events: FrameEvent[]): FrameEvent[] {
   });
 }
 
-function buildFrame(raw: RawFrame): Frame {
+export function buildFrame(raw: RawFrame): Frame {
   const n = raw.units.length;
   const units = new Float32Array(n * UNIT_STRIDE);
   for (let i = 0; i < n; i++) {
