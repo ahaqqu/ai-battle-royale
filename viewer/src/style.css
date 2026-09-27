@@ -326,3 +326,99 @@ canvas { display: block; }
 #play-keys { margin-top: 8px; font-size: 10px; color: var(--ink-dim); letter-spacing: .03em; font-weight: 700; }
 #play-replay { margin-top: 6px; font-size: 12px; font-weight: 700; }
 #play-replay a { color: var(--orange); }
+
+/* ---------- audio toggle ---------- */
+#btn-audio {
+  width: 34px; height: 40px; border-radius: 14px;
+  background: var(--panel); border: 2px solid var(--panel-border);
+  font-size: 16px; cursor: pointer; line-height: 1;
+  box-shadow: 0 3px 0 rgba(58, 44, 105, 0.18);
+  transition: transform 0.08s;
+  font-family: inherit;
+  pointer-events: auto; /* the topbar itself is click-through */
+}
+#btn-audio:hover { transform: scale(1.1); }
+#btn-audio:active { transform: translateY(2px); box-shadow: none; }
+
+/* ---------- combat feel: reticle, vignette, damage arrow, banner ---------- */
+body.playing #stage-host { cursor: none; }
+body.playing #bottombar { display: none; }
+
+#reticle {
+  position: fixed; left: 0; top: 0; z-index: 8;
+  width: 34px; height: 34px; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+}
+#reticle s {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 6px rgba(58, 44, 105, 0.7), inset 0 0 4px rgba(58, 44, 105, 0.5);
+  transition: transform 0.07s, border-color 0.07s;
+}
+#reticle b {
+  width: 4px; height: 4px; border-radius: 50%;
+  background: #fff; box-shadow: 0 0 4px rgba(58, 44, 105, 0.8);
+}
+#reticle.fire s { transform: scale(0.8); border-color: var(--orange); }
+#reticle.cd s { border-color: var(--danger); transform: scale(1.12); }
+#reticle.sprint s { border-color: var(--orange); border-style: dashed; }
+
+#vignette {
+  position: fixed; inset: 0; z-index: 7; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(230, 45, 70, 0.55) 100%);
+  opacity: 0; transition: opacity 0.5s ease-out;
+}
+
+#dmg-arrow {
+  position: fixed; left: 50%; top: 50%; z-index: 7;
+  pointer-events: none;
+}
+#dmg-arrow i {
+  position: absolute; left: -14px; top: -150px;
+  border-left: 14px solid transparent; border-right: 14px solid transparent;
+  border-bottom: 22px solid var(--danger);
+  filter: drop-shadow(0 0 6px rgba(230, 69, 95, 0.8));
+  animation: arrowPop 0.7s ease-out;
+}
+@keyframes arrowPop { 0% { opacity: 0; transform: scale(1.7); } 25% { opacity: 1; transform: scale(1); } 100% { opacity: 0.85; } }
+
+#play-banner {
+  position: fixed; top: 22%; left: 50%; transform: translateX(-50%);
+  z-index: 8; pointer-events: none;
+  font-size: 30px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--green);
+  text-shadow: 0 3px 0 rgba(58, 44, 105, 0.45), 0 0 18px rgba(255, 255, 255, 0.4);
+  animation: bannerPop 0.35s cubic-bezier(0.2, 1.8, 0.4, 1);
+  white-space: nowrap;
+}
+#play-banner.zone-warn {
+  color: var(--danger);
+  animation: zonePulse 0.9s ease-in-out infinite;
+}
+@keyframes bannerPop { from { transform: translateX(-50%) scale(0.4); opacity: 0; } }
+@keyframes zonePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+/* eliminated / victory overlay (reuses .modal-card) */
+#play-over {
+  position: fixed; inset: 0; z-index: 12;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(58, 44, 105, 0.28); backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+#play-over .modal-card { pointer-events: auto; }
+#play-over-title { font-size: 30px; font-weight: 800; margin: 6px 0 2px; letter-spacing: 0.04em; color: var(--ink); }
+#play-over-sub { font-size: 12px; color: var(--ink-dim); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
+#play-over-sub a { color: var(--orange); text-transform: none; letter-spacing: 0; }
+#play-over-actions { margin-top: 18px; }
+#play-leave {
+  padding: 10px 22px; border-radius: 999px; cursor: pointer;
+  background: #fff; color: var(--ink); border: 3px solid var(--panel-border);
+  font-weight: 800; letter-spacing: .1em; font-size: 12px; font-family: inherit;
+  box-shadow: 0 4px 0 rgba(58, 44, 105, 0.2);
+  transition: transform 0.08s;
+}
+#play-leave:hover { transform: scale(1.05); border-color: var(--orange); }
+
+/* slim ability-cooldown bars */
+.pbar.mini div { height: 6px; }
+.pbar.mini span { font-size: 9.5px; width: 44px; }

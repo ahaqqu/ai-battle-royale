@@ -15,6 +15,7 @@ import { MindCam } from "./render/mindcam.js";
 import { Director } from "./render/director.js";
 import { Hud } from "./ui/hud.js";
 import { Timeline } from "./ui/timeline.js";
+import { sfx, panVol } from "./audio.js";
 
 const TICK_RATE = 10;
 
@@ -351,6 +352,7 @@ function loop(ts: number): void {
       if (!winnerShown && data.winner !== null) {
         winnerShown = true;
         hud.winner(data.winner, data.botNames, placementsFinal);
+        sfx.play("victory", 0, 1);
       }
     }
   }
@@ -365,6 +367,21 @@ function loop(ts: number): void {
     firedEvents.add(iB);
     for (const e of frameB.events) {
       fx!.handleEvents([e]);
+      // Audio: distance-attenuated, stereo-panned around the camera.
+      const at = (e.at ?? e.from) as [number, number] | undefined;
+      if (at) {
+        const { pan, vol } = panVol(stage.cam, at, window.innerWidth);
+        switch (e.type) {
+          case "shot": sfx.play("shot", pan, vol); break;
+          case "hit": sfx.play("hit", pan, vol); break;
+          case "death": sfx.play("boom", pan, Math.max(0.55, vol)); break;
+          case "companion_down": sfx.play("boom", pan, vol * 0.45); break;
+          case "sonar": sfx.play("sonar", pan, vol); break;
+          case "pickup": sfx.play("pickup", pan, vol * 0.8); break;
+        }
+      } else if (e.type === "zone_locked" || e.type === "zone_shrink_started") {
+        sfx.play("zone", 0, 0.85);
+      }
       if (e.type === "death") {
         const bot = e.bot as number;
         hud.legendDead(bot);
@@ -454,6 +471,72 @@ let playFog: FogView | null = null;
 let playLoopRunning = false;
 let playEntrants: string[] = [];
 let playYouIndex = 0;
+// Combat-feel state: diffs between the last two observations drive the
+// hit confirms, hurt flashes, kill feed and audio (all client-side juice).
+let prevHp = 100;
+let prevEnergy = 100;
+let prevMainAlive = true;
+let prevCompAlive = true;
+let prevEnemyHp = new Map<number, number>();
+let prevMyShots = new Set<number>();
+let killProcessed = 0;
+let lastZoneBeep = 0;
+let bannerTimer = 0;
+
+const reticle = document.getElementById("reticle")!;
+const vignette = document.getElementById("vignette")!;
+const dmgArrow = document.getElementById("dmg-arrow")!;
+const playBanner = document.getElementById("play-banner")!;
+
+/** One-shot center banner ("ELIMINATED!", zone warnings). */
+function showBanner(text: string, color: string, ms = 1600): void {
+  playBanner.textContent = text;
+  playBanner.style.color = color;
+  playBanner.classList.remove("hidden");
+  playBanner.style.animation = "none";
+  void playBanner.offsetWidth; // restart the pop animation
+  playBanner.style.animation = "";
+  clearTimeout(bannerTimer);
+  bannerTimer = window.setTimeout(() => playBanner.classList.add("hidden"), ms);
+}
+
+function flashVignette(strength: number): void {
+  vignette.style.opacity = String(Math.min(0.9, strength));
+  setTimeout(() => { vignette.style.opacity = "0"; }, 60);
+}
+
+/** Direction the last hit came from: rotate the edge arrow, auto-hide. */
+function showDamageArrow(angleRad: number): void {
+  dmgArrow.classList.remove("hidden");
+  dmgArrow.style.transform = `translate(-50%, -50%) rotate(${angleRad}rad)`;
+  clearTimeout((showDamageArrow as unknown as { t?: number }).t);
+  (showDamageArrow as unknown as { t?: number }).t = window.setTimeout(
+    () => dmgArrow.classList.add("hidden"), 700,
+  );
+}
+
+function updateReticle(): void {
+  if (!playClient) return;
+  const m = playClient.mouseScreen;
+  reticle.style.transform = `translate(${m.x}px, ${m.y}px) translate(-50%, -50%)`;
+  reticle.classList.toggle("fire", playClient.firing);
+  const obs = playClient.lastObs;
+  reticle.classList.toggle("cd", !!obs && (obs.you.main.cooldown.fire ?? 0) > 0);
+  reticle.classList.toggle("sprint", playClient.sprinting);
+}
+
+function playOverShow(crown: string, title: string, sub: string): void {
+  const card = document.querySelector("#play-over .crown")!;
+  card.textContent = crown;
+  document.getElementById("play-over-title")!.textContent = title;
+  const subEl = document.getElementById("play-over-sub")!;
+  subEl.innerHTML = sub;
+  document.getElementById("play-over")!.classList.remove("hidden");
+}
+
+function playOverHide(): void {
+  document.getElementById("play-over")!.classList.add("hidden");
+}
 
 function setPlayStatus(s: string, detail?: string): void {
   const el = document.getElementById("play-status")!;
@@ -465,6 +548,7 @@ async function startPlay(name: string): Promise<void> {
   hideMenus();
   await ensureStage();
   loading.classList.add("hidden");
+  document.body.classList.add("playing");
 
   const map = await fetchMap("arena-1");
   drawArena(stage, map);
@@ -473,7 +557,9 @@ async function startPlay(name: string): Promise<void> {
   playFog = new FogView(stage);
 
   document.getElementById("topbar")!.classList.remove("hidden");
+  document.getElementById("killfeed")!.classList.remove("hidden");
   document.getElementById("play-hud")!.classList.remove("hidden");
+  reticle.classList.remove("hidden");
   setPlayStatus("connecting…");
 
   playClient = new PlayClient(name, {
@@ -484,6 +570,11 @@ async function startPlay(name: string): Promise<void> {
       const realNames = entrants.map((n, i) => (i === youIndex ? n + " (YOU)" : n));
       playUnits = new UnitViews(stage, realNames);
       hud.setHeader(realNames, "live match", 0);
+      prevHp = 100; prevEnergy = 100;
+      prevMainAlive = true; prevCompAlive = true;
+      prevEnemyHp = new Map(); prevMyShots = new Set();
+      killProcessed = 0;
+      playOverHide();
       setPlayStatus("in match — good luck");
     },
     onObs: () => {
@@ -493,12 +584,23 @@ async function startPlay(name: string): Promise<void> {
       }
     },
     onOver: (place, replayUrl) => {
-      setPlayStatus("match over — place " + place, replayUrl ? "replay: " + replayUrl : undefined);
-      if (replayUrl) {
-        const link = document.getElementById("play-replay")!;
-        link.innerHTML = "<a href='" + replayUrl + "' target='_blank'>▶ watch replay</a> · next match starting…";
+      setPlayStatus("match over — place " + place);
+      const watch = replayUrl
+        ? `<a href='${replayUrl}' target='_blank'>▶ watch the replay</a> · `
+        : "";
+      if (place === 1) {
+        sfx.play("victory", 0, 1);
+        playOverShow("👑", "VICTORY ROYALE!", `${watch}you outlasted the whole lobby`);
+      } else {
+        sfx.play("defeat", 0, 0.9);
+        playOverShow("💀", `#${place} PLACE`, `${watch}next match starts soon — you're re-queued`);
       }
     },
+  });
+
+  document.getElementById("play-leave")!.addEventListener("click", () => {
+    playClient?.leave();
+    location.href = location.pathname; // back to the home screen
   });
 
   const wsProto = location.protocol === "https:" ? "wss" : "ws";
@@ -512,6 +614,7 @@ function playLoop(ts: number): void {
   requestAnimationFrame(playLoop);
   const dt = Math.min(0.1, (ts - lastTs) / 1000);
   lastTs = ts;
+  updateReticle();
   const obs = playClient.lastObs;
   if (!obs || !playEntrants.length) {
     playFx?.update(dt);
@@ -519,6 +622,8 @@ function playLoop(ts: number): void {
   }
   if (!playUnits) return;
   const bots = obs.global.bots;
+  const me = obs.you.main;
+  const names = playEntrants.map((n, i) => (i === playYouIndex ? n + " (YOU)" : n));
 
   // Frame-shaped float view: self from obs.you, enemies through fog.
   const units = new Float32Array(bots * 2 * 11);
@@ -532,8 +637,8 @@ function playLoop(ts: number): void {
     units[o + 10] = u.maxhp;
   };
   setUnit(playYouIndex * 2, 1 + playYouIndex, playYouIndex, 0, {
-    pos: obs.you.main.pos, facing: obs.you.main.facing, hp: obs.you.main.hp,
-    alive: obs.you.main.alive, status: obs.you.main.status, maxhp: 100,
+    pos: me.pos, facing: me.facing, hp: me.hp,
+    alive: me.alive, status: me.status, maxhp: 100,
   });
   if (obs.you.companion.pos && obs.you.companion.alive) {
     setUnit(playYouIndex * 2 + 1, 101 + playYouIndex, playYouIndex, 1, {
@@ -558,7 +663,7 @@ function playLoop(ts: number): void {
   playFog!.show();
   playFog!.update({
     me: {
-      main: { pos: obs.you.main.pos, alive: obs.you.main.alive },
+      main: { pos: me.pos, alive: me.alive },
       comp: { pos: obs.you.companion.pos, alive: obs.you.companion.alive },
     },
     seenPlayers: obs.seen.players,
@@ -570,19 +675,118 @@ function playLoop(ts: number): void {
   }, playYouIndex);
 
   // Camera rides the player.
-  stage.setTarget(obs.you.main.pos[0], obs.you.main.pos[1], 1.05);
+  stage.setTarget(me.pos[0], me.pos[1], 1.05);
 
+  // ---------------- combat feel: diff this observation against the last one
+  if (me.alive && prevMainAlive) {
+    const hpDrop = prevHp - me.hp;
+    if (hpDrop > 0.5) {
+      sfx.play("hurt", 0, 0.9);
+      flashVignette(0.45 + Math.min(0.4, hpDrop / 30));
+      stage.shake(2.5);
+      // Point the damage arrow at the likeliest shooter: the closest enemy
+      // projectile in flight, else the strongest recent gunshot bearing.
+      const threat = obs.seen.projectiles
+        .filter((p) => p.owner !== me.id)
+        .map((p) => ({ p, d: Math.hypot(p.pos[0] - me.pos[0], p.pos[1] - me.pos[1]) }))
+        .sort((a, b) => a.d - b.d)[0];
+      if (threat) {
+        showDamageArrow(Math.atan2(threat.p.pos[1] - me.pos[1], threat.p.pos[0] - me.pos[0]));
+      } else {
+        const gun = obs.heard.find((h) => h.kind === "gunshot");
+        if (gun) showDamageArrow((gun.bearing * Math.PI) / 180 - Math.PI / 2);
+      }
+    }
+    const hpGain = me.hp - prevHp;
+    if (hpGain > 4 || me.energy - prevEnergy > 10) sfx.play("pickup", 0, 0.8);
+
+    // Hit confirms: a seen enemy's HP dropped → your shot (or an ally's) landed.
+    for (const p of obs.seen.players) {
+      if (p.hp === undefined) continue;
+      const before = prevEnemyHp.get(p.id);
+      if (before !== undefined && before - p.hp > 0.5) {
+        const dx = p.pos[0] - me.pos[0];
+        const dy = p.pos[1] - me.pos[1];
+        const d = Math.hypot(dx, dy);
+        const pan = Math.max(-1, Math.min(1, (dx / Math.max(60, d)) * 0.85));
+        sfx.play("hit", pan, 0.75);
+        playFx!.hitmark(p.pos[0], p.pos[1]);
+      }
+      prevEnemyHp.set(p.id, p.hp);
+    }
+
+    // Your own muzzle: new projectiles you own since last tick.
+    const myShots = new Set(obs.seen.projectiles.filter((p) => p.owner === me.id).map((p) => p.id));
+    for (const id of myShots) if (!prevMyShots.has(id)) sfx.play("shot", 0, 0.5);
+    prevMyShots = myShots;
+  }
+  prevHp = me.hp;
+  prevEnergy = me.energy;
+
+  // Companion status pips.
+  if (prevCompAlive && !obs.you.companion.alive) {
+    sfx.play("boom", 0, 0.4);
+    showBanner("companion down", "#ff9d3b", 1300);
+  }
+  prevCompAlive = obs.you.companion.alive;
+
+  // Kill feed (obs.global.kill_feed only ever appends).
+  const feed = obs.global.kill_feed;
+  while (killProcessed < feed.length) {
+    const k = feed[killProcessed++];
+    hud.kill(k.killer, k.victim, names);
+    if (k.killer === playYouIndex) {
+      sfx.play("kill", 0, 1);
+      showBanner(`eliminated ${names[k.victim]}!`, "#43d66e");
+    }
+  }
+
+  // Your elimination.
+  if (prevMainAlive && !me.alive) {
+    sfx.play("boom", 0, 1);
+    flashVignette(0.9);
+    showBanner("you were eliminated", "#e6455f", 2400);
+    playOverShow("💀", "ELIMINATED", `place revealed at match end — ${obs.global.alive} still fighting`);
+  }
+  prevMainAlive = me.alive;
+
+  // Zone discipline: beep + banner while taking zone damage.
+  const zd = Math.hypot(me.pos[0] - obs.global.zone.center[0], me.pos[1] - obs.global.zone.center[1]);
+  const outside = me.alive && zd > obs.global.zone.radius;
+  if (outside && ts - lastZoneBeep > 900) {
+    lastZoneBeep = ts;
+    sfx.play("zone", 0, 0.9);
+  }
+  playBanner.classList.toggle("zone-warn", outside);
+
+  // Heard events → positional audio (gunshot / dash / sonar).
+  for (const h of obs.heard) {
+    const a = (h.bearing * Math.PI) / 180;
+    const pan = Math.sin(a);
+    const vol = h.band === "near" ? 0.85 : h.band === "mid" ? 0.5 : 0.26;
+    if (h.kind === "gunshot") sfx.play("shot", pan, vol);
+    else if (h.kind === "dash") sfx.play("dash", pan, vol * 0.8);
+    else if (h.kind === "sonar") sfx.play("sonar", pan, vol * 0.9);
+  }
+
+  // HUD.
   hud.stats(obs.tick, obs.global.alive, zonePhaseOfFloat(obs.global.zone.radius), false);
-  const fireCd = obs.you.main.cooldown.fire ?? 0;
-  const hpColor = obs.you.main.hp > 55 ? "#43d66e" : obs.you.main.hp > 25 ? "#ffc93c" : "#ff5f7e";
-  const dead = obs.you.main.alive
-    ? ""
-    : `<div class="pcd"><b style="color:#e6455f">ELIMINATED — riding it out until match end</b></div>`;
+  const fireCd = me.cooldown.fire ?? 0;
+  const sonarCd = obs.you.companion.cooldown.sonar ?? 0;
+  const hpColor = me.hp > 55 ? "#43d66e" : me.hp > 25 ? "#ffc93c" : "#ff5f7e";
+  const zoneLeft = obs.global.zone.next
+    ? ` · zone locks ${Math.max(0, Math.round((obs.global.zone.next.locks_at_tick - obs.tick) / 10))}s`
+    : "";
+  const pet = obs.you.companion.alive
+    ? `<div class="pbar"><span>PET ${Math.round(obs.you.companion.hp)}</span><div><i style="width:${Math.max(0, obs.you.companion.hp / 30 * 100)}%;background:#c06bff"></i></div></div>`
+    : `<div class="pcd">pet respawning ${obs.you.companion.respawn_in_s ? obs.you.companion.respawn_in_s.toFixed(0) + "s" : "…"}</div>`;
   document.getElementById("play-bars")!.innerHTML = `
-    <div class="pbar"><span>HP ${Math.round(obs.you.main.hp)}</span><div><i style="width:${Math.max(0, obs.you.main.hp)}%;background:${hpColor}"></i></div></div>
-    <div class="pbar"><span>EN ${Math.round(obs.you.main.energy)}</span><div><i style="width:${obs.you.main.energy}%;background:#35c1f0"></i></div></div>
-    <div class="pcd">fire ${fireCd > 0 ? fireCd.toFixed(1) + "s" : "ready"} · sprint ${playClient.sprinting ? "ON" : "off"}</div>
-    ${dead}`;
+    <div class="pbar"><span>HP ${Math.round(me.hp)}</span><div><i style="width:${Math.max(0, me.hp)}%;background:${hpColor}"></i></div></div>
+    <div class="pbar"><span>EN ${Math.round(me.energy)}</span><div><i style="width:${me.energy}%;background:#35c1f0"></i></div></div>
+    ${pet}
+    <div class="pbar mini"><span>FIRE</span><div><i style="width:${(1 - Math.min(1, fireCd / 0.5)) * 100}%;background:${fireCd > 0 ? "#8d82b5" : "#ffd93b"}"></i></div></div>
+    <div class="pbar mini"><span>SONAR</span><div><i style="width:${(1 - Math.min(1, sonarCd / 15)) * 100}%;background:${sonarCd > 0 ? "#8d82b5" : "#35c1f0"}"></i></div></div>
+    <div class="pcd">sprint ${playClient.sprinting ? "ON (no firing)" : "off"} · ${outside ? "<b style='color:#e6455f'>OUTSIDE ZONE — RUN!</b>" : "zone ok"}${zoneLeft}</div>`;
 
   playFx!.update(dt);
 }
@@ -611,5 +815,13 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.code === "Escape") { hud.hideWinner(); if (replay) setCamMode("auto"); }
 });
+
+// Sound toggle — persists, works in both replay and play modes.
+{
+  const btn = document.getElementById("btn-audio")!;
+  const paint = () => { btn.textContent = sfx.muted ? "🔇" : "🔊"; };
+  paint();
+  btn.addEventListener("click", () => { sfx.toggleMute(); paint(); });
+}
 
 boot();

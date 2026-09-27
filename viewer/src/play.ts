@@ -5,6 +5,7 @@
 
 
 export interface PlayYouUnit {
+  id: number;
   alive: boolean;
   pos: [number, number];
   facing: number;
@@ -46,8 +47,6 @@ export interface PlayCallbacks {
 interface InputState {
   keys: Set<string>;
   mouseDown: boolean;
-  /** Screen-space mouse position; converted to world by the owner. */
-  mouseScreen: { x: number; y: number };
   dashQueued: boolean;
   sonarQueued: boolean;
   sprintToggled: boolean;
@@ -58,7 +57,6 @@ export class PlayClient {
   private state: InputState = {
     keys: new Set(),
     mouseDown: false,
-    mouseScreen: { x: 0, y: 0 },
     dashQueued: false,
     sonarQueued: false,
     sprintToggled: false,
@@ -68,6 +66,10 @@ export class PlayClient {
   sprinting = false;
   /** Latest observation, for HUD rendering between ticks. */
   lastObs: PlayObs | null = null;
+  /** Where the reticle sits on screen (HUD renders it each frame). */
+  mouseScreen = { x: 0, y: 0 };
+  /** True while the left button is held (HUD reticle state). */
+  firing = false;
 
   constructor(private name: string, private cb: PlayCallbacks) {}
 
@@ -76,7 +78,9 @@ export class PlayClient {
     const ws = new WebSocket(url);
     this.ws = ws;
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "register", name: this.name, decision_rate: 1, auto_heel: false }));
+      // `human` marks this entrant for house-bot fill: the server tops the
+      // match up to 8 with reference brains so solo play never waits.
+      ws.send(JSON.stringify({ type: "register", name: this.name, decision_rate: 1, auto_heel: false, human: true }));
     };
     ws.onmessage = (ev) => {
       let v: any;
@@ -124,13 +128,19 @@ export class PlayClient {
     });
     window.addEventListener("keyup", (e) => this.state.keys.delete(e.key.toLowerCase()));
     host.addEventListener("mousedown", (e) => {
-      if (e.button === 0) this.state.mouseDown = true;
+      if (e.button === 0) {
+        this.state.mouseDown = true;
+        this.firing = true;
+      }
     });
     window.addEventListener("mouseup", (e) => {
-      if (e.button === 0) this.state.mouseDown = false;
+      if (e.button === 0) {
+        this.state.mouseDown = false;
+        this.firing = false;
+      }
     });
     host.addEventListener("mousemove", (e) => {
-      this.state.mouseScreen = { x: e.clientX, y: e.clientY };
+      this.mouseScreen = { x: e.clientX, y: e.clientY };
     });
     host.addEventListener("contextmenu", (e) => e.preventDefault());
     this.screenToWorld = screenToWorld;
@@ -152,6 +162,23 @@ export class PlayClient {
     return { dir: Math.round(deg) % 360, throttle: 1 };
   }
 
+  /** Companion input: the pet trails the reticle (scout where you aim),
+   * E pings sonar, F recalls it to your side (PLAN §2.3 leash clamps). */
+  private companionInput(obs: PlayObs): { mv: { dir: number; throttle: number }; action?: Record<string, unknown> } {
+    const comp = obs.you.companion;
+    if (this.state.keys.has("f")) {
+      return { mv: { dir: 0, throttle: 0 }, action: { type: "heel" } };
+    }
+    if (!comp.alive) return { mv: { dir: 0, throttle: 0 } };
+    const w = this.screenToWorld(this.mouseScreen.x, this.mouseScreen.y);
+    const dx = w.x - comp.pos[0];
+    const dy = w.y - comp.pos[1];
+    const d = Math.hypot(dx, dy);
+    if (d < 26) return { mv: { dir: 0, throttle: 0 } };
+    const dir = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360;
+    return { mv: { dir: Math.round(dir) % 360, throttle: Math.min(1, d / 90) } };
+  }
+
   private sendInput(obs: PlayObs): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     const mv = this.moveDir();
@@ -161,7 +188,7 @@ export class PlayClient {
     } else if (this.state.keys.has("shift")) {
       action = { type: "shield" };
     } else if (this.state.mouseDown && !this.sprinting) {
-      const w = this.screenToWorld(this.state.mouseScreen.x, this.state.mouseScreen.y);
+      const w = this.screenToWorld(this.mouseScreen.x, this.mouseScreen.y);
       action = { type: "fire", target: { x: w.x, y: w.y } };
     }
     this.state.dashQueued = false;
@@ -170,8 +197,13 @@ export class PlayClient {
       this.sprinting = !this.sprinting;
       this.state.sprintToggled = false;
     }
-    const companionAction = this.state.sonarQueued ? { type: "sonar" } : { type: "heel" };
-    this.state.sonarQueued = false;
+    const compIn = this.companionInput(obs);
+    let compAction = compIn.action;
+    if (this.state.sonarQueued) {
+      // Ignored by the sim while on cooldown, so firing blind is free.
+      compAction = { type: "sonar" };
+      this.state.sonarQueued = false;
+    }
 
     const msg = {
       tick: obs.tick,
@@ -180,8 +212,8 @@ export class PlayClient {
         action,
       },
       companion: {
-        move: { dir: 0, throttle: 0 },
-        action: companionAction,
+        move: compIn.mv,
+        action: compAction,
       },
     };
     this.ws.send(JSON.stringify(msg));

@@ -6,6 +6,7 @@
 //! spectate sockets stream full-state frames on a delay (anti-cheat, §6.2).
 
 pub mod db;
+pub mod house;
 pub mod page;
 
 use abr_core::config::MatchConfig;
@@ -37,6 +38,10 @@ pub struct BotHandle {
     pub db_id: i64,
     pub decision_rate: u64,
     pub auto_heel: bool,
+    /// A human at the viewer (queued by the play client) — triggers house fill.
+    pub human: bool,
+    /// An in-process house bot (never re-queued, hidden from standings).
+    pub house: bool,
     pub connected: Arc<AtomicBool>,
     pub out_tx: mpsc::Sender<String>,
     pub in_rx: Arc<Mutex<mpsc::Receiver<BotMsg>>>,
@@ -58,6 +63,9 @@ pub struct ServerConfig {
     pub lanes: usize,
     /// Minimum connected bots before the queue drafts a match.
     pub min_bots: usize,
+    /// When a human is queued, top the match up to 8 entrants with at most
+    /// this many in-process house bots (0 disables solo play entirely).
+    pub house_bots: usize,
     /// Spectate delay in seconds (anti-cheat, PLAN §6.2).
     pub spectate_delay_s: u64,
 }
@@ -71,6 +79,7 @@ impl Default for ServerConfig {
             viewer_dir: None,
             lanes: 2,
             min_bots: 2,
+            house_bots: 8,
             spectate_delay_s: 30,
         }
     }
@@ -96,6 +105,8 @@ struct RegisterMsg {
     decision_rate: u64,
     #[serde(default)]
     auto_heel: bool,
+    #[serde(default)]
+    human: bool,
 }
 
 fn default_rate() -> u64 {
@@ -146,14 +157,24 @@ impl Server {
         }
         let mut lobby = self.lobby.lock().await;
         lobby.retain(|h| h.connected.load(Ordering::Relaxed));
-        if lobby.len() < self.cfg.min_bots {
+        // A queued human wants a match NOW — house bots make up the numbers,
+        // so solo play never waits for other bots to connect (README "play live").
+        let has_human = lobby.iter().any(|h| h.human);
+        if lobby.is_empty() || (lobby.len() < self.cfg.min_bots && !has_human) {
             return;
         }
         // ELO-proximity drafting (PLAN §8.2): sort by elo, take up to 8.
-        let take = lobby.len().min(8);
         lobby.sort_by_key(|h| self.db.elo_of(&h.name));
-        let drafted: Vec<Arc<BotHandle>> = lobby.drain(..take).collect();
+        let take = lobby.len().min(8);
+        let mut drafted: Vec<Arc<BotHandle>> = lobby.drain(..take).collect();
         drop(lobby);
+        if has_human {
+            let want = 8usize.min(drafted.len() + self.cfg.house_bots);
+            while drafted.len() < want {
+                let brain = house::HOUSE_ROSTER[drafted.len() % house::HOUSE_ROSTER.len()];
+                drafted.push(house::spawn(&self.db, brain));
+            }
+        }
 
         let permit = self.lane_count.clone().acquire_owned().await.unwrap();
         let server = Arc::new(Self {
@@ -324,7 +345,7 @@ async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>) {
                 .to_string(),
             )
             .await;
-        if h.connected.load(Ordering::Relaxed) {
+        if h.connected.load(Ordering::Relaxed) && !h.house {
             server.lobby.lock().await.push(h.clone());
         }
     }
@@ -480,6 +501,7 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
         token: String::new(),
         decision_rate: 1,
         auto_heel: false,
+        human: false,
     });
     if reg.name.is_empty() || reg.name.len() > 32 {
         let _ = ws_tx
@@ -510,6 +532,8 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
         // Auto-heel is opt-in per bot at registration (the companion AI
         // would otherwise overwrite the bot's own companion commands).
         auto_heel: reg.auto_heel,
+        human: reg.human,
+        house: false,
         connected: connected.clone(),
         out_tx: out_tx.clone(),
         in_rx: Arc::new(Mutex::new(in_rx)),

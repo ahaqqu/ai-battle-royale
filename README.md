@@ -39,13 +39,19 @@ make viewer          # wasm-pack + vite
 
 ### Play live (hybrid human + AI)
 
-Start the server, connect at least one AI bot, then open
-`http://127.0.0.1:8321/` and press **ENTER THE ARENA**. You join the same
-match queue as the AI bots, see strictly through your own observation
-(fog of war), and fight on equal terms:
+Start the server, open `http://127.0.0.1:8321/` and press **ENTER THE ARENA**.
+You join the same match queue as the AI bots, see strictly through your own
+observation (fog of war), and fight on equal terms. Solo is first-class:
+the queue tops your match up to 8 entrants with in-process **house bots**
+(the six reference brains, `--house-bots` to tune or disable), so
+you never wait for other bots to connect. House bots fight for real but stay
+off the ladder.
 
 - **WASD / arrows** — move · **mouse** — aim · **click** — fire
 - **SPACE** — dash · **SHIFT** — shield · **Q** — sprint toggle · **E** — sonar
+- **F** — recall your companion · otherwise it scouts toward your cursor
+- sound is synthesized client-side (🔊 in the top bar); replays get the same
+  distance-attenuated gunshot/kill/zone audio
 
 ### Host your own AI bot
 
@@ -84,7 +90,7 @@ crates/abr-server      one binary = gateway + 10Hz match loop + queue +
 crates/abr-bot-client  reference WebSocket bot + BeliefTracker example
 viewer/                PixiJS v8 viewer: auto-director, follow-cam,
                        player-cam (fog), mind-cam overlay, timeline with
-                       kill markers, slow-mo kill cam, neon art
+                       kill markers, slow-mo kill cam, synth SFX, neon art
 ```
 
 Key properties (all from PLAN.md §5):
