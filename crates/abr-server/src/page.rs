@@ -27,7 +27,7 @@ pub fn ladder_html(db: &Db) -> String {
         .iter()
         .map(|m| {
             format!(
-                r#"<tr><td>{}</td><td class="name" style="color:#7cff4f">{}</td><td>{}</td><td><a href="/?replay={}" target="_blank">▶ watch</a></td></tr>"#,
+                r#"<tr><td>{}</td><td class="name" style="color:#43d66e">{}</td><td>{}</td><td><a href="/?replay={}" target="_blank">▶ watch</a></td></tr>"#,
                 html_escape(&m.ended_at),
                 html_escape(m.winner.as_deref().unwrap_or("—")),
                 m.num_bots,
@@ -40,23 +40,23 @@ pub fn ladder_html(db: &Db) -> String {
         r#"<!doctype html>
 <html><head><meta charset="utf-8"><title>AI Battle Royale — Ladder</title>
 <style>
-  :root {{ --bg:#070a14; --panel:rgba(13,18,33,.85); --border:rgba(90,120,255,.18); --neon:#55e6ff; --text:#cfe3ff; --dim:#6d82a6; }}
+  :root {{ --bg:#7ec9f5; --panel:#ffffff; --border:rgba(58,44,105,.15); --neon:#ff9d3b; --text:#3a2c5a; --dim:#8d82b5; }}
   * {{ box-sizing:border-box }}
-  body {{ background:var(--bg); color:var(--text); font:14px/1.5 Inter,system-ui,sans-serif; margin:0; padding:40px 20px; }}
+  body {{ background:radial-gradient(ellipse at 30% 0%, #a8dcff 0%, #7ec9f5 60%, #5db2ea 100%); color:var(--text); font:14px/1.5 "Baloo 2","Trebuchet MS",Inter,system-ui,sans-serif; margin:0; padding:40px 20px; }}
   .wrap {{ max-width:900px; margin:0 auto }}
-  h1 {{ letter-spacing:.28em; font-weight:900; font-size:22px; color:var(--text) }}
-  h1 span {{ color:var(--neon); text-shadow:0 0 16px rgba(85,230,255,.8) }}
-  .sub {{ color:var(--dim); font-size:12px; letter-spacing:.1em; margin-bottom:28px }}
-  table {{ width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--border); border-radius:10px; overflow:hidden }}
-  th {{ text-align:left; font-size:10px; letter-spacing:.24em; color:var(--dim); padding:10px 14px; border-bottom:1px solid var(--border) }}
-  td {{ padding:8px 14px; border-bottom:1px solid rgba(90,120,255,.07) }}
+  h1 {{ letter-spacing:.14em; font-weight:800; font-size:24px; color:var(--text) }}
+  h1 span {{ color:#ff5fd0 }}
+  .sub {{ color:var(--dim); font-size:12px; letter-spacing:.08em; margin-bottom:28px; font-weight:600 }}
+  table {{ width:100%; border-collapse:collapse; background:var(--panel); border:2px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 4px 0 rgba(58,44,105,.15) }}
+  th {{ text-align:left; font-size:10px; letter-spacing:.2em; color:var(--dim); padding:10px 14px; border-bottom:2px solid var(--border) }}
+  td {{ padding:8px 14px; border-bottom:1px solid rgba(58,44,105,.08) }}
   td.rank {{ color:var(--dim) }}
-  td.name {{ font-weight:700 }}
-  a {{ color:var(--neon); text-decoration:none }}
-  a:hover {{ text-shadow:0 0 10px rgba(85,230,255,.7) }}
-  h2 {{ font-size:13px; letter-spacing:.24em; color:var(--dim); margin:34px 0 10px; text-transform:uppercase }}
+  td.name {{ font-weight:800 }}
+  a {{ color:var(--neon); text-decoration:none; font-weight:700 }}
+  a:hover {{ text-decoration:underline }}
+  h2 {{ font-size:13px; letter-spacing:.2em; color:var(--dim); margin:34px 0 10px; text-transform:uppercase }}
   .foot {{ margin-top:30px; color:var(--dim); font-size:12px }}
-  code {{ color:var(--neon) }}
+  code {{ color:#e0457f; background:rgba(255,255,255,.7); padding:1px 6px; border-radius:6px }}
 </style></head><body><div class="wrap">
 <h1>AI <span>BATTLE</span> ROYALE</h1>
 <div class="sub">player-hosted AI bots · strict fog of war · every match a shareable replay</div>
@@ -72,7 +72,7 @@ pub fn ladder_html(db: &Db) -> String {
 </tbody></table>
 <div class="foot">
   Connect a bot: <code>wss://host/ws/bot</code> · first message <code>{{"type":"register","name":"mybot"}}</code>, then reply to each tick's observation with an action.<br>
-  Run locally: <code>abr-runner run --preset default16 --seed 42</code> · <code>make viewer &amp;&amp; make serve</code>
+  Run locally: <code>abr-runner run --preset default8 --seed 42</code> · <code>make viewer &amp;&amp; make serve</code>
 </div>
 </div></body></html>"#,
         standings.join("\n"),
@@ -81,9 +81,11 @@ pub fn ladder_html(db: &Db) -> String {
 }
 
 fn bot_hex(i: usize) -> &'static str {
+    // Mirrors the viewer's candy palette (viewer/src/types.ts) — first 8
+    // are the standard lineup, maximally distinct hues.
     const COLORS: [&str; 16] = [
-        "#00e5ff", "#ff4fd8", "#7cff4f", "#ffd54f", "#ff6b3d", "#4f7cff", "#b44fff", "#4fffb0",
-        "#ff4f4f", "#e8ff4f", "#4fd8ff", "#ff9ff3", "#9dff4f", "#ffb84f", "#4fff6b", "#c04fff",
+        "#ff5f7e", "#35c1f0", "#ffd93b", "#8a5cff", "#43d66e", "#ff9d3b", "#ff5fd0", "#f2f6ff",
+        "#a8e04c", "#35d6b5", "#4f7dff", "#c06bff", "#c97a4a", "#e6455f", "#ff8fb8", "#00e0c8",
     ];
     COLORS[i % 16]
 }

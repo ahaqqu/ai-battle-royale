@@ -3,31 +3,33 @@
  * audio-bearing wedges for heard events. */
 
 import { Container, Graphics, Text } from "pixi.js";
-import { botColor, CamFrame } from "../types.js";
-import { Stage } from "./stage.js";
+import { botColor, CamFrame, FONT, INK_HEX } from "../types.js";
+import { drawOutsideOverlay, Stage } from "./stage.js";
 
 const MAIN_VISION = 450;
 const COMP_VISION = 250;
 const KIND_COLORS: Record<string, number> = {
-  gunshot: 0xff4f6d,
-  dash: 0xffa54f,
-  footstep: 0xffd54f,
-  sonar: 0x55e6ff,
+  gunshot: 0xff5f7e,
+  dash: 0xff9d3b,
+  footstep: 0xffd93b,
+  sonar: 0x35c1f0,
 };
 
 export class FogView {
   private overlay = new Graphics();
-  private holes = new Graphics();
   private marks = new Graphics();
   private heardWedges = new Graphics();
   private emptyHint: Text;
 
   constructor(stage: Stage) {
-    this.holes.blendMode = "erase";
-    stage.fogLayer.addChild(this.overlay, this.holes, this.marks, this.heardWedges);
+    stage.fogLayer.addChild(this.overlay, this.marks, this.heardWedges);
     this.emptyHint = new Text({
       text: "FOLLOWING BOT VISION — what this bot can see and hear",
-      style: { fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: "700", fill: "#8fa8d8", letterSpacing: 2 },
+      style: {
+        fontFamily: FONT, fontSize: 13, fontWeight: "700",
+        fill: 0xffffff, letterSpacing: 2,
+        stroke: { color: INK_HEX, width: 3.5, join: "round" },
+      },
     });
     this.emptyHint.anchor.set(0.5);
     stage.fogLayer.addChild(this.emptyHint);
@@ -36,7 +38,6 @@ export class FogView {
 
   show(): void {
     this.overlay.visible = true;
-    this.holes.visible = true;
     this.marks.visible = true;
     this.heardWedges.visible = true;
     this.emptyHint.visible = true;
@@ -44,7 +45,6 @@ export class FogView {
 
   hide(): void {
     this.overlay.visible = false;
-    this.holes.visible = false;
     this.marks.visible = false;
     this.heardWedges.visible = false;
     this.emptyHint.visible = false;
@@ -55,50 +55,60 @@ export class FogView {
     const showAt = { x: mainPos[0], y: mainPos[1] - 480 };
     this.emptyHint.position.set(showAt.x, showAt.y);
 
-    // Darkness + vision holes (union of main + companion circles).
+    // Darkness outside the vision union (fan mesh, no blend tricks).
     this.overlay.clear();
-    this.overlay.rect(-2000, -2000, 7200, 7200).fill({ color: 0x02040a, alpha: 0.93 });
-    this.holes.clear();
-    if (cam.me.main.alive) {
-      this.holes.circle(mainPos[0], mainPos[1], MAIN_VISION).fill({ color: 0xffffff });
-    }
-    if (cam.me.comp.alive && cam.me.comp.pos) {
-      this.holes.circle(cam.me.comp.pos[0], cam.me.comp.pos[1], COMP_VISION).fill({ color: 0xffffff });
-      // faint leash line
-      this.marks.moveTo(mainPos[0], mainPos[1]).lineTo(cam.me.comp.pos[0], cam.me.comp.pos[1])
-        .stroke({ width: 0.8, color: 0x9fd8ff, alpha: 0.12 });
+    const hasComp = cam.me.comp.alive && !!cam.me.comp.pos;
+    const comp = cam.me.comp.pos ?? [0, 0];
+    if (hasComp) {
+      const d = Math.hypot(comp[0] - mainPos[0], comp[1] - mainPos[1]);
+      const tc = Math.atan2(comp[1] - mainPos[1], comp[0] - mainPos[0]);
+      drawOutsideOverlay(this.overlay, -2000, -2000, 7200, 7200, mainPos[0], mainPos[1], (a) => {
+        const cosD = Math.cos(a - tc);
+        const disc = COMP_VISION * COMP_VISION - d * d * (1 - cosD * cosD);
+        let inner = MAIN_VISION;
+        if (disc > 0) {
+          const tExit = d * cosD + Math.sqrt(disc);
+          if (tExit > inner) inner = tExit;
+        }
+        return inner;
+      }, 0x140b2c, 0.9);
+    } else {
+      drawOutsideOverlay(this.overlay, -2000, -2000, 7200, 7200, mainPos[0], mainPos[1], () => MAIN_VISION, 0x140b2c, 0.9);
     }
 
     // Seen entities.
     this.marks.clear();
     const viewerCol = parseInt(botColor(viewerBot).slice(1), 16);
-    this.marks.circle(mainPos[0], mainPos[1], 20).stroke({ width: 1.6, color: viewerCol, alpha: 0.7 });
+    this.marks.circle(mainPos[0], mainPos[1], 20).stroke({ width: 2, color: viewerCol, alpha: 0.8 });
     for (const p of cam.seenPlayers) {
-      const col = p.detail === "full" ? parseInt(botColor(ownerOf(p.id)).slice(1), 16) : 0xcfd8ff;
+      const col = p.detail === "full" ? parseInt(botColor(ownerOf(p.id)).slice(1), 16) : 0xbfd0e8;
       if (p.detail === "full") {
+        this.marks.circle(p.pos[0], p.pos[1], 14).fill({ color: col, alpha: 0.3 });
         this.marks.circle(p.pos[0], p.pos[1], 14).stroke({ width: 2.4, color: col });
         if (p.hp !== undefined) {
-          this.marks.rect(p.pos[0] - 17, p.pos[1] - 27, 34 * p.hp, 3.4).fill({ color: p.hp > 0.55 ? 0x58ff9b : p.hp > 0.25 ? 0xffd54f : 0xff4f6d });
+          this.marks.roundRect(p.pos[0] - 17, p.pos[1] - 28, 34 * p.hp, 4, 2).fill({
+            color: p.hp > 0.55 ? 0x43d66e : p.hp > 0.25 ? 0xffc93c : 0xff5f7e,
+          });
         }
       } else {
         // Silhouette: pale position-only blob.
-        this.marks.circle(p.pos[0], p.pos[1], p.viaSonar ? 11 : 9).fill({ color: 0xaebbd8, alpha: p.viaSonar ? 0.5 : 0.75 });
+        this.marks.circle(p.pos[0], p.pos[1], p.viaSonar ? 11 : 9).fill({ color: 0xc7d4ec, alpha: p.viaSonar ? 0.5 : 0.75 });
       }
     }
     for (const c of cam.seenCompanions) {
       if (c.detail === "full") {
-        this.marks.circle(c.pos[0], c.pos[1], 9).stroke({ width: 2, color: 0x9fb8e8 });
+        this.marks.circle(c.pos[0], c.pos[1], 9).stroke({ width: 2, color: 0xffffff });
       } else {
-        this.marks.circle(c.pos[0], c.pos[1], 7).fill({ color: 0xaebbd8, alpha: 0.6 });
+        this.marks.circle(c.pos[0], c.pos[1], 7).fill({ color: 0xc7d4ec, alpha: 0.6 });
       }
     }
     for (const p of cam.seenProjectiles) {
       this.marks.moveTo(p.pos[0], p.pos[1]).lineTo(p.pos[0] - p.vel[0] * 0.04, p.pos[1] - p.vel[1] * 0.04)
-        .stroke({ width: 2.4, color: parseInt(botColor(p.owner).slice(1), 16) });
+        .stroke({ width: 2.6, color: parseInt(botColor(p.owner).slice(1), 16) });
     }
     for (const pk of cam.seenPickups) {
-      this.marks.moveTo(pk.pos[0], pk.pos[1] - 7).lineTo(pk.pos[0] + 7, pk.pos[1]).lineTo(pk.pos[0], pk.pos[1] + 7).lineTo(pk.pos[0] - 7, pk.pos[1]).closePath()
-        .stroke({ width: 1.4, color: 0xffd54f, alpha: 0.9 });
+      this.marks.roundRect(pk.pos[0] - 7, pk.pos[1] - 7, 14, 14, 5)
+        .stroke({ width: 1.6, color: 0xffc93c, alpha: 0.95 });
     }
 
     // Heard events: bearing wedges from the listener.

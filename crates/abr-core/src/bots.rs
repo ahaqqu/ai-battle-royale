@@ -451,7 +451,16 @@ pub const BOT_NAMES: &[&str] = &[
     "berserker",
 ];
 
-/// default16: the 16-entrant ladder smoke lineup.
+/// default8: the standard 8-entrant ladder lineup.
+pub fn default8() -> Vec<String> {
+    let mut v = Vec::new();
+    for i in 0..8 {
+        v.push(BOT_NAMES[i % BOT_NAMES.len()].to_string());
+    }
+    v
+}
+
+/// default16: the 16-entrant stress lineup.
 pub fn default16() -> Vec<String> {
     let mut v = Vec::new();
     for i in 0..16 {

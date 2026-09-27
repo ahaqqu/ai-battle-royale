@@ -58,8 +58,8 @@ export class Timeline {
       const el = document.createElement("div");
       el.className = "tl-marker";
       el.style.left = `${m.at * 100}%`;
-      el.style.color = m.killer === null ? "#ff4f6d" : botColor(m.killer);
-      el.style.background = m.killer === null ? "#ff4f6d" : botColor(m.killer);
+      el.style.color = m.killer === null ? "#e6455f" : botColor(m.killer);
+      el.style.background = m.killer === null ? "#e6455f" : botColor(m.killer);
       el.title = m.killer === null
         ? `t${m.tick}: the zone eliminated ${names[m.victim]}`
         : `t${m.tick}: ${names[m.killer]} eliminated ${names[m.victim]}`;

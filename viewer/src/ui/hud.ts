@@ -1,6 +1,6 @@
 /** HTML HUD: top stats, kill feed, legend, winner modal. */
 
-import { botColor, fmtTime } from "../types.js";
+import { botColor, BOT_COLORS, fmtTime } from "../types.js";
 
 export class Hud {
   topbar = document.getElementById("topbar")!;
@@ -28,7 +28,7 @@ export class Hud {
     this.statAlive.textContent = String(alive);
     this.statTime.textContent = fmtTime(tick / 10);
     this.statZone.textContent = shrinking ? `P${zonePhase} ⚠` : `P${zonePhase}`;
-    this.statZone.style.color = shrinking ? "#ff4f6d" : "#ffb1c0";
+    this.statZone.style.color = shrinking ? "#e6455f" : "#e0457f";
   }
 
   kill(killer: number | null, victim: number, names: string[]): void {
@@ -79,7 +79,7 @@ export class Hud {
   winner(winner: number | null, names: string[], placements: number[]): void {
     if (winner === null) {
       this.winnerName.textContent = "NOBODY";
-      this.winnerName.style.color = "#8fa8d8";
+      this.winnerName.style.color = "#8d82b5";
     } else {
       this.winnerName.textContent = names[winner];
       this.winnerName.style.color = botColor(winner);
@@ -91,6 +91,24 @@ export class Hud {
       this.podium.appendChild(li);
     });
     this.winnerModal.classList.remove("hidden");
+    this.confetti();
+  }
+
+  /** CSS confetti shower across the winner modal. */
+  private confetti(): void {
+    for (let i = 0; i < 90; i++) {
+      const p = document.createElement("i");
+      p.className = "confetti-piece";
+      const s = 6 + Math.random() * 9;
+      p.style.left = `${Math.random() * 100}%`;
+      p.style.width = `${s}px`;
+      p.style.height = `${s * 0.55}px`;
+      p.style.background = BOT_COLORS[i % BOT_COLORS.length];
+      p.style.animationDelay = `${Math.random() * 1.4}s`;
+      p.style.animationDuration = `${2.4 + Math.random() * 2.2}s`;
+      this.winnerModal.appendChild(p);
+      setTimeout(() => p.remove(), 7000);
+    }
   }
 
   hideWinner(): void {

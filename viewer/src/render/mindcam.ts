@@ -2,7 +2,7 @@
  * plus its intent shout. "Where bot #7 thinks everyone is." */
 
 import { Container, Graphics, Text } from "pixi.js";
-import { botColor } from "../types.js";
+import { botColor, FONT, INK_HEX } from "../types.js";
 
 const GRID = 64;
 const CELL = 3200 / GRID;
@@ -70,7 +70,11 @@ export class MindCam {
       if (!t) {
         t = new Text({
           text: "",
-          style: { fontFamily: "Inter, sans-serif", fontSize: 11, fontWeight: "700", fill: botColor(bot), letterSpacing: 0.4 },
+          style: {
+            fontFamily: FONT, fontSize: 12, fontWeight: "800",
+            fill: 0xffffff, letterSpacing: 0.4,
+            stroke: { color: INK_HEX, width: 3, join: "round" },
+          },
         });
         t.anchor.set(0.5, 1);
         this.bubbleLayer.addChild(t);

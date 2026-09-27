@@ -1,6 +1,6 @@
 /** Pixi stage with layered world container + smooth camera + shake. */
 
-import { Application, Container, Renderer, Texture } from "pixi.js";
+import { Application, Container, Graphics, Renderer, Texture } from "pixi.js";
 
 export interface CameraTarget {
   x: number;
@@ -22,6 +22,59 @@ export function makeGlowTexture(_renderer: Renderer | null, size = 128, inner = 
   return Texture.from(canvas);
 }
 
+/** Chunky rounded-square confetti piece, tinted per particle. */
+export function makeConfettiTexture(size = 26, radius = 7): Texture {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.roundRect(1, 1, size - 2, size - 2, radius);
+  ctx.fill();
+  return Texture.from(canvas);
+}
+
+/** Distance along a ray from (cx,cy) to the rect boundary. */
+function rayToRect(x0: number, y0: number, x1: number, y1: number, cx: number, cy: number, dx: number, dy: number): number {
+  let t = Infinity;
+  if (dx > 1e-6) t = Math.min(t, (x1 - cx) / dx);
+  else if (dx < -1e-6) t = Math.min(t, (x0 - cx) / dx);
+  if (dy > 1e-6) t = Math.min(t, (y1 - cy) / dy);
+  else if (dy < -1e-6) t = Math.min(t, (y0 - cy) / dy);
+  return Number.isFinite(t) ? Math.max(0, t) : 4000;
+}
+
+/** Fill `g` with the region inside `bounds` but outside the shape whose
+ * inner radius along each ray from (cx,cy) is `innerAt(angle)` — a polar
+ * fan mesh. Pure geometry, so it works identically in WebGL/WebGPU/canvas
+ * (blend-mode "erase" punches through the whole canvas and renders black
+ * over opaque backgrounds, which the bright theme made obvious). */
+export function drawOutsideOverlay(
+  g: Graphics,
+  x0: number, y0: number, x1: number, y1: number,
+  cx: number, cy: number,
+  innerAt: (angle: number) => number,
+  color: number, alpha: number, segs = 96,
+): void {
+  for (let i = 0; i < segs; i++) {
+    const a0 = (i / segs) * Math.PI * 2;
+    const a1 = ((i + 1) / segs) * Math.PI * 2;
+    const c0x = Math.cos(a0), c0y = Math.sin(a0);
+    const c1x = Math.cos(a1), c1y = Math.sin(a1);
+    const e0 = rayToRect(x0, y0, x1, y1, cx, cy, c0x, c0y);
+    const e1 = rayToRect(x0, y0, x1, y1, cx, cy, c1x, c1y);
+    const i0 = Math.min(innerAt(a0), e0);
+    const i1 = Math.min(innerAt(a1), e1);
+    if (i0 >= e0 && i1 >= e1) continue;
+    g.moveTo(cx + c0x * i0, cy + c0y * i0)
+      .lineTo(cx + c0x * e0, cy + c0y * e0)
+      .lineTo(cx + c1x * e1, cy + c1y * e1)
+      .lineTo(cx + c1x * i1, cy + c1y * i1)
+      .closePath()
+      .fill({ color, alpha });
+  }
+}
+
 export class Stage {
   app: Application = new Application();
   didInit = false;
@@ -38,6 +91,7 @@ export class Stage {
 
   glowTex!: Texture;
   softTex!: Texture;
+  confettiTex!: Texture;
 
   cam: CameraTarget = { x: 1600, y: 1600, zoom: 0.35 };
   private target: CameraTarget = { x: 1600, y: 1600, zoom: 0.35 };
@@ -54,12 +108,14 @@ export class Stage {
     const mark = (m: string) => { try { status?.(m); } catch { /* noop */ } };
     mark('creating renderer…');
     this.app = new Application();
-    await this.app.init({ resizeTo: window, background: 0x070a14, antialias: true });
+    // Bright Fall-Guys sky instead of deep space.
+    await this.app.init({ resizeTo: window, background: 0x7ec9f5, antialias: true });
     mark('renderer ready');
     host.appendChild(this.app.canvas);
 
     this.glowTex = makeGlowTexture(null, 128, "rgba(255,255,255,0.9)", "rgba(255,255,255,0.28)");
     this.softTex = makeGlowTexture(null, 256, "rgba(255,255,255,0.55)", "rgba(255,255,255,0.16)");
+    this.confettiTex = makeConfettiTexture();
 
     // Isolate the world as its own render group BEFORE first render —
     // avoids pixi v8 structure-rebuild misses for subtrees populated later.

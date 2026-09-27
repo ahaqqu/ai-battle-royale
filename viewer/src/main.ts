@@ -113,6 +113,14 @@ async function showPicker(): Promise<void> {
 }
 
 async function ensureStage(): Promise<void> {
+  // Give the display font a beat to load so Pixi-canvas text doesn't bake
+  // in the fallback; never block longer than ~1.2s (offline is fine).
+  try {
+    await Promise.race([
+      (document as Document & { fonts?: FontFaceSet }).fonts?.load('800 16px "Baloo 2"') ?? Promise.resolve(),
+      new Promise((r) => setTimeout(r, 1200)),
+    ]);
+  } catch { /* font stays fallback */ }
   await stage.init(document.getElementById("stage-host")!, (s) => setProgress(0.005, s));
   if (!mindcam && stage.didInit) {
     mindHeat = new Graphics();
@@ -275,8 +283,8 @@ function loop(ts: number): void {
     }
   }
 
-  // World layers.
-  unitViews.update(frameA.units, frameA.unitCount, true);
+  // World layers (units interpolate A→B for smooth 60fps motion).
+  unitViews.update(frameA.units, frameB.units, t, frameA.unitCount, true);
   projs!.update(
     frameA.projs, frameA.projCount,
     frameB.projs, frameB.projCount, t,
@@ -444,7 +452,7 @@ function playLoop(ts: number): void {
     if (bot === playYouIndex || bot < 0 || bot >= bots) continue;
     setUnit(bot * 2, p.id, bot, 0, { pos: p.pos, hp: p.hp, alive: true, maxhp: 100 });
   }
-  playUnits.update(units, bots * 2, true);
+  playUnits.update(units, units, 0, bots * 2, true);
 
   const zoneArr = Float32Array.of(
     obs.global.zone.center[0], obs.global.zone.center[1], obs.global.zone.radius,
@@ -473,13 +481,13 @@ function playLoop(ts: number): void {
 
   hud.stats(obs.tick, obs.global.alive, zonePhaseOfFloat(obs.global.zone.radius), false);
   const fireCd = obs.you.main.cooldown.fire ?? 0;
-  const hpColor = obs.you.main.hp > 55 ? "#58ff9b" : obs.you.main.hp > 25 ? "#ffd54f" : "#ff4f6d";
+  const hpColor = obs.you.main.hp > 55 ? "#43d66e" : obs.you.main.hp > 25 ? "#ffc93c" : "#ff5f7e";
   const dead = obs.you.main.alive
     ? ""
-    : `<div class="pcd"><b style="color:#ff4f6d">ELIMINATED — riding it out until match end</b></div>`;
+    : `<div class="pcd"><b style="color:#e6455f">ELIMINATED — riding it out until match end</b></div>`;
   document.getElementById("play-bars")!.innerHTML = `
     <div class="pbar"><span>HP ${Math.round(obs.you.main.hp)}</span><div><i style="width:${Math.max(0, obs.you.main.hp)}%;background:${hpColor}"></i></div></div>
-    <div class="pbar"><span>EN ${Math.round(obs.you.main.energy)}</span><div><i style="width:${obs.you.main.energy}%;background:#59c2ff"></i></div></div>
+    <div class="pbar"><span>EN ${Math.round(obs.you.main.energy)}</span><div><i style="width:${obs.you.main.energy}%;background:#35c1f0"></i></div></div>
     <div class="pcd">fire ${fireCd > 0 ? fireCd.toFixed(1) + "s" : "ready"} · sprint ${playClient.sprinting ? "ON" : "off"}</div>
     ${dead}`;
 

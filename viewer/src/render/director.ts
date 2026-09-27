@@ -19,7 +19,7 @@ export class Director {
       return this.lastGood;
     }
     if (this.mode.startsWith("follow:")) {
-      if (botPos) return { x: botPos.x, y: botPos.y, zoom: 1.5 };
+      if (botPos) return { x: botPos.x, y: botPos.y, zoom: 1.7 };
       return this.lastGood;
     }
     if (this.mode === "global") {
@@ -42,7 +42,8 @@ export class Director {
     }
     if (any && wsum > 0) {
       const cx = wx / wsum, cy = wy / wsum;
-      const zoom = Math.min(1.4, Math.max(0.42, fitZoom(maxSpread + 380)));
+      // Zoom floor of 0.55 keeps the beans readable at wide shots.
+      const zoom = Math.min(1.5, Math.max(0.55, fitZoom(maxSpread + 380)));
       const t = { x: cx, y: cy, zoom };
       if (Number.isFinite(t.x) && Number.isFinite(t.y) && Number.isFinite(t.zoom)) {
         this.lastGood = t;
@@ -54,7 +55,7 @@ export class Director {
     const zx = frameB.zone[3] || frameB.zone[0];
     const zy = frameB.zone[4] || frameB.zone[1];
     const zr = frameB.zone[5] || frameB.zone[2];
-    const t = { x: (zx + ARENA_CENTER) / 2, y: (zy + ARENA_CENTER) / 2, zoom: Math.min(0.5, fitZoom(zr * 2.4 + 700)) };
+    const t = { x: (zx + ARENA_CENTER) / 2, y: (zy + ARENA_CENTER) / 2, zoom: Math.min(0.55, fitZoom(zr * 2.4 + 700)) };
     this.lastGood = t;
     return t;
   }
