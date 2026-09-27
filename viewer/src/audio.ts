@@ -16,6 +16,14 @@ const THROTTLE: Partial<Record<SndName, number>> = {
   shot: 0.045, hit: 0.08, boom: 0.1, sonar: 0.2, dash: 0.12, zone: 0.8,
 };
 
+/** Playback cap per sound (seconds). Dropped samples can be long — an 8s
+ * "hit" would stack into mud at a 10Hz tick — so each role caps its length
+ * and the tail fades out over ≤60ms (masked by the sample's own decay). */
+const MAX_DUR: Partial<Record<SndName, number>> = {
+  shot: 0.35, hit: 0.25, hurt: 0.4, dash: 0.3, sonar: 0.5, pickup: 0.4,
+  kill: 1.2, boom: 0.6, zone: 0.8, victory: 1.7, defeat: 0.6, click: 0.12,
+};
+
 /** Real-sample override: drop `viewer/public/sfx/<name>.mp3` (Mixkit /
  * Pixabay both ship free-license game SFX) and it replaces the synth for
  * that sound. Missing files fall back to the synthesized version. */
@@ -34,6 +42,8 @@ export class Sfx {
   /** Decoded samples per sound; a sound without a file stays on the synth. */
   private samples: Partial<Record<SndName, AudioBuffer>> = {};
   private probing = new Set<SndName>();
+  /** Menu-theme interval handle (null = not playing). */
+  private themeTimer: number | null = null;
   muted = false;
 
   constructor() {
@@ -52,6 +62,9 @@ export class Sfx {
         } catch { /* no audio available: stay silent */ }
       }
       void this.ctx?.resume();
+      // Home menu is usually visible at first gesture — start its theme.
+      const pickerEl = document.getElementById("picker");
+      if (pickerEl && !pickerEl.classList.contains("hidden")) this.startMenuTheme();
     };
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", unlock);
@@ -60,8 +73,49 @@ export class Sfx {
   toggleMute(): boolean {
     this.muted = !this.muted;
     if (this.master) this.master.gain.value = this.muted ? 0 : MASTER;
+    if (this.muted) this.stopMenuTheme();
     try { localStorage.setItem("abr-mute", this.muted ? "1" : "0"); } catch { /* noop */ }
     return this.muted;
+  }
+
+  /** Soft synth pad that loops under the home menu (I–vi–IV–V, very quiet).
+   * Starts only after the audio unlock gesture; muted sessions stay silent. */
+  startMenuTheme(): void {
+    if (!this.ctx || !this.master || this.themeTimer !== null || this.muted) return;
+    const chords = [
+      [261.6, 329.6, 392.0], // C
+      [220.0, 261.6, 329.6], // Am
+      [174.6, 220.0, 261.6], // F
+      [196.0, 246.9, 293.7], // G
+    ];
+    let bar = 0;
+    const playBar = (): void => {
+      if (!this.ctx || !this.master || this.muted) return;
+      const t = this.ctx.currentTime + 0.05;
+      for (const f of chords[bar % chords.length]) {
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        o.type = "triangle";
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.028, t + 0.5);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 2.1);
+        o.connect(g);
+        g.connect(this.master);
+        o.start(t);
+        o.stop(t + 2.2);
+      }
+      bar++;
+    };
+    playBar();
+    this.themeTimer = window.setInterval(playBar, 2000);
+  }
+
+  stopMenuTheme(): void {
+    if (this.themeTimer !== null) {
+      clearInterval(this.themeTimer);
+      this.themeTimer = null;
+    }
   }
 
   private makeNoise(): AudioBuffer {
@@ -108,12 +162,18 @@ export class Sfx {
     const sample = this.samples[name];
     if (sample === undefined) this.probe(name);
     if (sample) {
-      // Real SFX file: pitch untouched, level from the pan/vol mixer.
+      // Real SFX file, capped to its role's length with a quick tail fade
+      // (MAX_DUR) so long source files can't stack at the 10Hz tick.
       const src = this.ctx.createBufferSource();
       src.buffer = sample;
       src.connect(g);
-      g.gain.value = vol;
+      const dur = Math.min(sample.duration, MAX_DUR[name] ?? sample.duration);
+      const fade = Math.min(0.06, dur * 0.3);
+      g.gain.setValueAtTime(vol, now);
+      g.gain.setValueAtTime(vol, now + dur - fade);
+      g.gain.exponentialRampToValueAtTime(0.001, now + dur);
       src.start(now);
+      src.stop(now + dur + 0.02);
       return;
     }
     switch (name) {

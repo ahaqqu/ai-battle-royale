@@ -422,3 +422,44 @@ body.playing #bottombar { display: none; }
 /* slim ability-cooldown bars */
 .pbar.mini div { height: 6px; }
 .pbar.mini span { font-size: 9.5px; width: 44px; }
+
+/* ---------- home polish: centered card + fun controls strip ---------- */
+.picker-card { text-align: center; }
+.picker-card .play-join p { max-width: 42ch; margin-inline: auto; }
+.picker-card .play-join input { text-align: center; }
+.picker-card .play-join button,
+.picker-card .home-actions button,
+.picker-card .home-actions .upload { width: 100%; }
+.picker-card .logo.small { animation: logo-bob 2.6s ease-in-out infinite; }
+@keyframes logo-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.home-keys {
+  display: flex; justify-content: center; align-items: center; gap: 5px;
+  margin-top: 16px;
+}
+.home-keys kbd {
+  font-family: inherit; font-size: 10.5px; font-weight: 800; color: var(--ink);
+  background: #fff; border: 2px solid var(--panel-border); border-radius: 7px;
+  padding: 3px 7px; box-shadow: 0 2px 0 var(--panel-border);
+  animation: key-glow 2.8s ease-in-out infinite;
+}
+.home-keys kbd:nth-child(1) { animation-delay: 0s; }
+.home-keys kbd:nth-child(2) { animation-delay: .14s; }
+.home-keys kbd:nth-child(3) { animation-delay: .28s; }
+.home-keys kbd:nth-child(4) { animation-delay: .42s; }
+.home-keys kbd:nth-child(6) { animation-delay: .56s; }
+.home-keys kbd:nth-child(8) { animation-delay: .7s; }
+.home-keys kbd:nth-child(9) { animation-delay: .84s; }
+.home-keys kbd:nth-child(10) { animation-delay: .98s; }
+@keyframes key-glow {
+  0%, 12%, 100% { border-color: var(--panel-border); transform: translateY(0); box-shadow: 0 2px 0 var(--panel-border); }
+  6% { border-color: var(--orange); transform: translateY(-2px); box-shadow: 0 4px 0 rgba(255, 157, 59, 0.45); }
+}
+.home-keys-sep { color: var(--ink-dim); font-weight: 800; font-size: 11px; }
+.home-keys-wide { padding: 3px 12px; }
+.home-tip {
+  margin-top: 9px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  color: var(--ink-dim);
+}

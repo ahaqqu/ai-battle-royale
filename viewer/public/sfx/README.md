@@ -33,3 +33,25 @@ Suggested mapping for the battle-royale feel:
 
 Keep files short (<1s for one-shots, ~2s max) and quiet-mastered; the
 engine applies its own volume/pan mix on top.
+
+## Shipped samples (Mixkit, free license)
+
+These ship in the repo, trimmed to role length (mono 128 kbps), sourced
+from https://mixkit.co/free-sound-effects/game/ under the Mixkit Free
+License (free for commercial and noncommercial use, no attribution
+required):
+
+| file        | Mixkit title                       | id   |
+|-------------|------------------------------------|------|
+| shot.mp3    | Retro video game bubble laser      | 276  |
+| hit.mp3     | Small hit in a game                | 226  |
+| hurt.mp3    | Boxer getting hit                  | 277  |
+| pickup.mp3  | Winning a coin, video game         | 211  |
+| kill.mp3    | Casino bling achievement           | 2058 |
+| zone.mp3    | Ominous drums                      | 257  |
+| victory.mp3 | Medieval show fanfare announcement | 2361 |
+| defeat.mp3  | Player losing or failing           | 2073 |
+| click.mp3   | Video game retro click             | 266  |
+
+`dash` / `sonar` / `boom` had no strong match on that page and stay
+synthesized — drop your own files here to override them.
