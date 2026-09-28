@@ -23,14 +23,19 @@
 # re-run never clobbers certbot's TLS edits.
 set -euo pipefail
 
+here="$(cd "$(dirname "$0")" && pwd)"
+
+# The CI public key: passed via env, or read from deploy.pub beside this
+# script (deploy.sh --bootstrap uploads it with the rest of the tree).
+if [ -z "${GUNBATTE_DEPLOY_PUBKEY:-}" ] && [ -f "$here/deploy.pub" ]; then
+    GUNBATTE_DEPLOY_PUBKEY="$(cat "$here/deploy.pub")"
+fi
 : "${GUNBATTE_GAME_HOST:?set GUNBATTE_GAME_HOST (game hostname, e.g. play.example.com)}"
 : "${GUNBATTE_SITE_HOST:?set GUNBATTE_SITE_HOST (website hostname, e.g. gunbatte.example.com)}"
 : "${GUNBATTE_DEPLOY_PUBKEY:?set GUNBATTE_DEPLOY_PUBKEY (contents of the CI public key — deploy.sh takes it from deploy.pub beside this script)}"
 : "${GUNBATTE_DEPLOY_USER:?set GUNBATTE_DEPLOY_USER (restricted deploy identity, e.g. kajianq-deploy)}"
 : "${GUNBATTE_DIR:?set GUNBATTE_DIR (app dir, e.g. /home/kajianq-deploy/gunbatte)}"
 : "${GUNBATTE_PORT:?set GUNBATTE_PORT (loopback port for abr-server, e.g. 8321)}"
-
-here="$(cd "$(dirname "$0")" && pwd)"
 
 echo "▶ game host : $GUNBATTE_GAME_HOST"
 echo "▶ site host : $GUNBATTE_SITE_HOST"
