@@ -78,6 +78,10 @@ if [ "$BOOTSTRAP" = 1 ]; then
         echo "   create the keypair first:  ssh-keygen -t ed25519 -f ~/.ssh/gunbatte-deploy -N ''" >&2
         exit 1
     fi
+    # The pubkey rides along in the staged tree — apply.sh (running as root)
+    # reads it from disk. Never write directly into the deploy identity's
+    # 0700 home as the admin user; that path is always permission-denied.
+    printf '%s\n' "$(cat "$pub_file")" > "$stage/provision/vps/deploy.pub"
 
     # 1. stage on the VPS in the ADMIN's home (no sudo needed to write there).
     staging="/home/$(echo "$GUNBATTE_ADMIN_SSH" | cut -d@ -f1)/gunbatte-staging"
