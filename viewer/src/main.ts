@@ -671,7 +671,9 @@ async function startPlay(
   }
 
   playClient = new PlayClient(name, {
-    onStatus: setPlayStatus,
+    // In a room, connection status belongs on the room screen — the match HUD
+    // is not up yet and must not peek out from behind the lobby card.
+    onStatus: lobby ? (s, d) => setLobbyNotice(d ? `${s} ${d}` : s, false) : setPlayStatus,
     onLobby: (info) => {
       lobbyInfo = info;
       // A roster arrived: the room exists — reveal it (hiding the setup form)

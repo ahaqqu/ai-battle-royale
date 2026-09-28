@@ -420,11 +420,11 @@ impl Server {
                     "members": names,
                 })
                 .to_string();
-                let host_tx = lobby.host.out_tx.clone();
+                // Everyone already in the room hears the new roster; the joiner
+                // has `lobby_joined` (which carries the same roster).
                 let others: Vec<Arc<BotHandle>> = lobby.members[..lobby.members.len() - 1].to_vec();
                 drop(lobbies);
                 let _ = ws_tx.send(tmsg(msg)).await;
-                let _ = host_tx.send(host_msg.clone()).await;
                 for m in others {
                     let _ = m.out_tx.send(host_msg.clone()).await;
                 }

@@ -136,7 +136,7 @@
     <!-- lobby: private room — create or join by share code, host starts -->
     <div id="lobby-page" class="hidden">
       <div class="picker-card lobby-card">
-        <div class="logo small">PRIVATE<span>LOBBY</span></div>
+        <div class="logo small lobby-title">PRIVATE<span>LOBBY</span></div>
         <div id="lobby-setup">
           <p class="lobby-lede">Open a room, text the code to your friends, and start the match when everyone's in. Works for both modes — a boss raid casts its last player (or the AI) as the boss.</p>
           <input id="lobby-name" maxlength="16" placeholder="your name" />
@@ -160,6 +160,7 @@
             <p class="lobby-hint">starts immediately — the roster is topped up with house bots</p>
           </div>
           <p id="lobby-wait" class="lobby-hint hidden">waiting for the host to start…</p>
+          <p id="lobby-err" class="lobby-err hidden"></p>
           <button id="lobby-leave" class="lobby-ghost">← leave lobby</button>
         </div>
       </div>

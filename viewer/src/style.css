@@ -551,6 +551,8 @@ body.playing #bottombar { display: none; }
 /* ---------- private lobby room ---------- */
 .lobby-card { max-width: 420px; }
 .lobby-card .logo.small { animation: logo-bob 2.6s ease-in-out infinite; }
+/* The room title is one line: "PRIVATE" + pink "LOBBY" must not wrap/overlap. */
+.lobby-title { font-size: 14px; white-space: nowrap; margin-bottom: 4px; }
 .lobby-lede {
   color: var(--ink-dim); font-size: 12px; font-weight: 600;
   margin: 12px 0 4px; line-height: 1.45;
