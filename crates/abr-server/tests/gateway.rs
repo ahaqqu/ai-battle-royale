@@ -122,7 +122,7 @@ async fn m3_gateway_end_to_end() {
 
     // The ladder page itself renders (at /ladder; / is the viewer).
     let body = reqwest_get(&format!("{http}/ladder")).await;
-    assert!(body.contains("AI <span>BATTLE</span> ROYALE"));
+    assert!(body.contains("GUNBATTE<span>★</span>ROYALE"));
     assert!(body.contains("test-alpha"));
 }
 
