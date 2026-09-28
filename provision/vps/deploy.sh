@@ -1,22 +1,29 @@
 #!/usr/bin/env bash
 # provision/vps/deploy.sh — build locally, ship artifacts, restart the service.
 #
-# First run (installs unit + nginx + TLS; sudo prompts over ssh):
-#   GUNBATTE_GAME_HOST=play.example.com GUNBATTE_SITE_HOST=gunbatte.example.com \
+# First run (installs identity + unit + nginx + TLS; sudo prompts over ssh):
+#   GUNBATTE_GAME_HOST=play.example.com GUNBATTE_SITE_HOST=site.example.com \
 #   GUNBATTE_EMAIL=you@example.com ./provision/vps/deploy.sh --bootstrap
 #
 # Every later update (no sudo, no prompts):
-#   GUNBATTE_GAME_HOST=play.example.com ./provision/vps/deploy.sh
+#   ./provision/vps/deploy.sh
 #
-# The game hostname is required on every run: it is substituted into the
-# website's PLAY NOW / LADDER links at upload time, so the repo copy stays
-# generic (same placeholder convention as the kajianq provisioning).
+# Identity model (same as the kajianq provisioning): CI and regular deploys
+# authenticate as the restricted $GUNBATTE_DEPLOY_USER (default
+# kajianq-deploy — override with the VPS_USER Actions variable), never as
+# the admin login. --bootstrap is the one exception: it runs as the admin
+# account because it creates the deploy identity itself, staging the
+# artifacts in the admin's home and letting sudo move them into place.
+#
+# The game hostname is substituted into the website's PLAY NOW / LADDER links
+# at upload time, so the repo copy stays generic.
 set -euo pipefail
 
-GUNBATTE_SSH="${GUNBATTE_SSH:-ahaqqu@62.83.35.220}"
-GUNBATTE_DIR="${GUNBATTE_DIR:-/home/ahaqqu/gunbatte}"
+GUNBATTE_DEPLOY_USER="${GUNBATTE_DEPLOY_USER:-kajianq-deploy}"
+GUNBATTE_SSH="${GUNBATTE_SSH:-$GUNBATTE_DEPLOY_USER@62.83.35.220}"
+GUNBATTE_ADMIN_SSH="${GUNBATTE_ADMIN_SSH:-ahaqqu@62.83.35.220}"
+GUNBATTE_DIR="${GUNBATTE_DIR:-/home/$GUNBATTE_DEPLOY_USER/gunbatte}"
 GUNBATTE_PORT="${GUNBATTE_PORT:-8321}"
-GUNBATTE_USER="${GUNBATTE_USER:-ahaqqu}"
 : "${GUNBATTE_GAME_HOST:?set GUNBATTE_GAME_HOST (game hostname, e.g. play.example.com)}"
 
 BOOTSTRAP=0
@@ -42,22 +49,39 @@ sed "s|http://127.0.0.1:8321|https://$GUNBATTE_GAME_HOST|g" \
 cp -r "$repo/website/assets" "$repo/website/style.css" "$stage/website/"
 cp -r "$repo/provision" "$stage/provision"
 
-echo "▶ uploading to $GUNBATTE_SSH:$GUNBATTE_DIR …"
-ssh "$GUNBATTE_SSH" "mkdir -p '$GUNBATTE_DIR'"
-rsync -a --delete "$stage/viewer-dist/" "$GUNBATTE_SSH:$GUNBATTE_DIR/viewer/dist/"
-rsync -a --delete "$stage/website/"     "$GUNBATTE_SSH:$GUNBATTE_DIR/website/"
-rsync -a --delete "$stage/provision/"   "$GUNBATTE_SSH:$GUNBATTE_DIR/provision/"
-rsync -a "$stage/abr-server"            "$GUNBATTE_SSH:$GUNBATTE_DIR/abr-server"
-# ladder.db and replays/ live in GUNBATTE_DIR too and are deliberately NOT
-# synced — they are the server's state.
-
 if [ "$BOOTSTRAP" = 1 ]; then
     : "${GUNBATTE_SITE_HOST:?--bootstrap needs GUNBATTE_SITE_HOST (website hostname)}"
     : "${GUNBATTE_EMAIL:?--bootstrap needs GUNBATTE_EMAIL (for the certbot account)}"
-    echo "▶ bootstrapping VPS (sudo password may be prompted once)…"
-    remote_cmd="cd $GUNBATTE_DIR/provision/vps && sudo -v && GUNBATTE_GAME_HOST=$GUNBATTE_GAME_HOST GUNBATTE_SITE_HOST=$GUNBATTE_SITE_HOST GUNBATTE_EMAIL=$GUNBATTE_EMAIL GUNBATTE_DIR=$GUNBATTE_DIR GUNBATTE_PORT=$GUNBATTE_PORT GUNBATTE_USER=$GUNBATTE_USER ./apply.sh"
-    ssh -t "$GUNBATTE_SSH" "$remote_cmd"
+    pub_file="${GUNBATTE_DEPLOY_PUBKEY_FILE:-$HOME/.ssh/gunbatte-deploy.pub}"
+    if [ ! -f "$pub_file" ]; then
+        echo "!! CI public key not found at $pub_file" >&2
+        echo "   create the keypair first:  ssh-keygen -t ed25519 -f ~/.ssh/gunbatte-deploy -N ''" >&2
+        exit 1
+    fi
+
+    # 1. stage on the VPS in the ADMIN's home (no sudo needed to write there).
+    staging="/home/$(echo "$GUNBATTE_ADMIN_SSH" | cut -d@ -f1)/gunbatte-staging"
+    echo "▶ staging upload to $GUNBATTE_ADMIN_SSH:$staging …"
+    ssh "$GUNBATTE_ADMIN_SSH" "mkdir -p '$staging'"
+    rsync -a --delete "$stage/viewer-dist/" "$GUNBATTE_ADMIN_SSH:$staging/viewer/dist/"
+    rsync -a --delete "$stage/website/"     "$GUNBATTE_ADMIN_SSH:$staging/website/"
+    rsync -a --delete "$stage/provision/"   "$GUNBATTE_ADMIN_SSH:$staging/provision/"
+    rsync -a "$stage/abr-server"            "$GUNBATTE_ADMIN_SSH:$staging/abr-server"
+
+    # 2. one interactive sudo session moves everything into place and runs
+    #    apply.sh (creates the deploy identity, unit, nginx, TLS, service).
+    echo "▶ bootstrapping VPS as $GUNBATTE_ADMIN_SSH (sudo password may be prompted once)…"
+    remote_cmd="sudo -v && sudo rsync -a $staging/ $GUNBATTE_DIR/ && sudo chown -R $GUNBATTE_DEPLOY_USER:$GUNBATTE_DEPLOY_USER $GUNBATTE_DIR && cd $GUNBATTE_DIR/provision/vps && sudo -v && GUNBATTE_GAME_HOST=$GUNBATTE_GAME_HOST GUNBATTE_SITE_HOST=$GUNBATTE_SITE_HOST GUNBATTE_EMAIL=$GUNBATTE_EMAIL GUNBATTE_DIR=$GUNBATTE_DIR GUNBATTE_PORT=$GUNBATTE_PORT GUNBATTE_DEPLOY_USER=$GUNBATTE_DEPLOY_USER GUNBATTE_DEPLOY_PUBKEY=\"\$(sudo cat $GUNBATTE_DIR/provision/vps/deploy.pub)\" ./apply.sh"
+    ssh -t "$GUNBATTE_ADMIN_SSH" "$remote_cmd"
 else
+    echo "▶ uploading to $GUNBATTE_SSH:$GUNBATTE_DIR …"
+    ssh "$GUNBATTE_SSH" "mkdir -p '$GUNBATTE_DIR'"
+    rsync -a --delete "$stage/viewer-dist/" "$GUNBATTE_SSH:$GUNBATTE_DIR/viewer/dist/"
+    rsync -a --delete "$stage/website/"     "$GUNBATTE_SSH:$GUNBATTE_DIR/website/"
+    rsync -a --delete "$stage/provision/"   "$GUNBATTE_SSH:$GUNBATTE_DIR/provision/"
+    rsync -a "$stage/abr-server"            "$GUNBATTE_SSH:$GUNBATTE_DIR/abr-server"
+    # ladder.db and replays/ live in GUNBATTE_DIR too and are deliberately NOT
+    # synced — they are the server's state.
     if ssh "$GUNBATTE_SSH" "systemctl list-unit-files gunbatte.service --no-legend" | grep -q gunbatte; then
         echo "▶ restarting gunbatte.service (passwordless via sudoers drop-in)…"
         ssh "$GUNBATTE_SSH" "sudo -n systemctl restart gunbatte.service && systemctl is-active gunbatte.service"
