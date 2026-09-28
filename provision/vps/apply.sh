@@ -95,9 +95,24 @@ sudo find "$GUNBATTE_WEB_ROOT" -type d -exec chmod 0755 {} +
 sudo find "$GUNBATTE_WEB_ROOT" -type f -exec chmod 0644 {} +
 echo "✓ web root: website published to $GUNBATTE_WEB_ROOT (world-readable for nginx)"
 
-# --- 4. nginx site file (add-only) ---------------------------------------------
+# --- 4. nginx site file ---------------------------------------------------------
+# Fresh install renders the template. An existing file is left alone EXCEPT
+# for the `root` directive, which is reconciled so a web-root change reaches
+# the live config without discarding certbot's TLS edits. Hostnames and TLS
+# blocks are never rewritten — changing those requires `certbot --nginx` again.
 if sudo test -f /etc/nginx/sites-enabled/gunbatte.conf; then
-    echo "✓ nginx: gunbatte.conf already installed — leaving certbot's TLS edits alone"
+    current_root="$(sudo grep -m1 -E '^\s*root\s' /etc/nginx/sites-enabled/gunbatte.conf | awk '{print $2}' | tr -d ';')"
+    if [ "$current_root" != "$GUNBATTE_WEB_ROOT" ]; then
+        echo "▶ nginx: reconciling root directive ($current_root → $GUNBATTE_WEB_ROOT)…"
+        # Replace every occurrence of the old path (one per server block).
+        sudo sed -i "s|$current_root|$GUNBATTE_WEB_ROOT|g" \
+            /etc/nginx/sites-enabled/gunbatte.conf
+        sudo nginx -t
+        sudo systemctl reload nginx
+        echo "✓ nginx: root updated (TLS blocks untouched)"
+    else
+        echo "✓ nginx: gunbatte.conf already installed — leaving certbot's TLS edits alone"
+    fi
 else
     sed -e "s|__GUNBATTE_GAME_HOST__|$GUNBATTE_GAME_HOST|g" \
         -e "s|__GUNBATTE_SITE_HOST__|$GUNBATTE_SITE_HOST|g" \
