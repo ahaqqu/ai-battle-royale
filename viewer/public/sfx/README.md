@@ -52,6 +52,11 @@ required):
 | victory.mp3 | Medieval show fanfare announcement | 2361 |
 | defeat.mp3  | Player losing or failing           | 2073 |
 | click.mp3   | Video game retro click             | 266  |
+| dash.mp3    | Fast whoosh transition             | 1490 |
+| sonar.mp3   | Water sci fi bleep                 | 902  |
+| boom.mp3    | Arcade game explosion              | 1699 |
 
-`dash` / `sonar` / `boom` had no strong match on that page and stay
-synthesized — drop your own files here to override them.
+The last three were trimmed to role length like the rest (the engine caps
+each sound via `MAX_DUR` in `viewer/src/audio.ts` and fades the tail).
+`sonar` uses the sci-fi bleep suggested in the mapping above for the pet
+ping — swap in a true sonar ping if you find one you like better.

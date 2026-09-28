@@ -650,28 +650,30 @@ function playLoop(ts: number): void {
 
   // Frame-shaped float view: self from obs.you, enemies through fog.
   const units = new Float32Array(bots * 2 * 11);
-  const setUnit = (slot: number, id: number, bot: number, kind: number, u: { pos: [number, number]; facing?: number; hp?: number; alive: boolean; status?: string[]; maxhp: number }) => {
+  const setUnit = (slot: number, id: number, bot: number, kind: number, u: { pos: [number, number]; vel?: [number, number]; facing?: number; hp?: number; alive: boolean; status?: string[]; maxhp: number }) => {
     const o = slot * 11;
     units[o] = id; units[o + 1] = bot; units[o + 2] = kind;
     units[o + 3] = u.pos[0]; units[o + 4] = u.pos[1];
+    units[o + 5] = u.vel?.[0] ?? 0; units[o + 6] = u.vel?.[1] ?? 0;
     units[o + 7] = u.facing ?? 0;
     units[o + 8] = (u.hp ?? 0) / u.maxhp;
-    units[o + 9] = (u.alive ? 1 : 0) | (u.status?.includes("sprint") ? 2 : 0) | (u.status?.includes("shielding") ? 8 : 0);
+    units[o + 9] = (u.alive ? 1 : 0) | (u.status?.includes("sprint") ? 2 : 0) | (u.status?.includes("dashing") ? 4 : 0) | (u.status?.includes("shielding") ? 8 : 0);
     units[o + 10] = u.maxhp;
   };
   setUnit(playYouIndex * 2, 1 + playYouIndex, playYouIndex, 0, {
-    pos: me.pos, facing: me.facing, hp: me.hp,
+    pos: me.pos, vel: me.vel, facing: me.facing, hp: me.hp,
     alive: me.alive, status: me.status, maxhp: 100,
   });
   if (obs.you.companion.pos && obs.you.companion.alive) {
     setUnit(playYouIndex * 2 + 1, 101 + playYouIndex, playYouIndex, 1, {
-      pos: obs.you.companion.pos, hp: obs.you.companion.hp, alive: true, maxhp: 30,
+      pos: obs.you.companion.pos, vel: obs.you.companion.vel, facing: obs.you.companion.facing,
+      hp: obs.you.companion.hp, alive: true, maxhp: 30,
     });
   }
   for (const p of obs.seen.players) {
     const bot = p.id - 1;
     if (bot === playYouIndex || bot < 0 || bot >= bots) continue;
-    setUnit(bot * 2, p.id, bot, 0, { pos: p.pos, hp: p.hp, alive: true, maxhp: 100 });
+    setUnit(bot * 2, p.id, bot, 0, { pos: p.pos, vel: p.vel, facing: p.facing, hp: p.hp, alive: true, maxhp: 100 });
   }
   playUnits.update(units, units, 0, bots * 2, true);
 
