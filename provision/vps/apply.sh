@@ -35,6 +35,7 @@ fi
 : "${GUNBATTE_DEPLOY_PUBKEY:?set GUNBATTE_DEPLOY_PUBKEY (contents of the CI public key — deploy.sh takes it from deploy.pub beside this script)}"
 : "${GUNBATTE_DEPLOY_USER:?set GUNBATTE_DEPLOY_USER (restricted deploy identity, e.g. kajianq-deploy)}"
 : "${GUNBATTE_DIR:?set GUNBATTE_DIR (app dir, e.g. /home/kajianq-deploy/gunbatte)}"
+: "${GUNBATTE_WEB_ROOT:?set GUNBATTE_WEB_ROOT (world-readable web root, e.g. /srv/gunbatte/website)}"
 : "${GUNBATTE_PORT:?set GUNBATTE_PORT (loopback port for abr-server, e.g. 8321)}"
 
 echo "▶ game host : $GUNBATTE_GAME_HOST"
@@ -71,25 +72,36 @@ sudo systemctl daemon-reload
 sudo systemctl enable gunbatte.service
 echo "✓ systemd: gunbatte.service installed + enabled"
 
-# --- 2. sudoers drop-in: restart THIS unit only, for THIS identity only -------
+# --- 2. sudoers drop-in: scoped grants for THIS identity only -----------------
+# Two commands only: restart/status this unit, and publish the website from
+# the deploy tree to the world-readable web root nginx serves.
 sudoers_tmp="$(mktemp)"
-printf '%s ALL=(root) NOPASSWD: /usr/bin/systemctl restart gunbatte.service, /usr/bin/systemctl status gunbatte.service\n' \
-    "$GUNBATTE_DEPLOY_USER" > "$sudoers_tmp"
+cat > "$sudoers_tmp" <<EOF
+$GUNBATTE_DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/systemctl restart gunbatte.service, /usr/bin/systemctl status gunbatte.service
+$GUNBATTE_DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/rsync -a --delete $GUNBATTE_DIR/website/ $GUNBATTE_WEB_ROOT/
+EOF
 if sudo visudo -c -q -f "$sudoers_tmp"; then
     sudo install -m 0440 "$sudoers_tmp" /etc/sudoers.d/gunbatte-deploy
-    echo "✓ sudoers: $GUNBATTE_DEPLOY_USER may restart/status gunbatte.service without a password"
+    echo "✓ sudoers: $GUNBATTE_DEPLOY_USER may restart gunbatte.service + publish the site (no password)"
 else
     echo "!! visudo rejected the drop-in — skipping (deploys will need the sudo password)" >&2
 fi
 rm -f "$sudoers_tmp"
 
-# --- 3. nginx site file (add-only) ---------------------------------------------
+# --- 3. website web root (world-readable, outside the 0700 home) ---------------
+sudo install -d -m 0755 "$GUNBATTE_WEB_ROOT"
+sudo rsync -a --delete "$GUNBATTE_DIR/website/" "$GUNBATTE_WEB_ROOT/"
+sudo find "$GUNBATTE_WEB_ROOT" -type d -exec chmod 0755 {} +
+sudo find "$GUNBATTE_WEB_ROOT" -type f -exec chmod 0644 {} +
+echo "✓ web root: website published to $GUNBATTE_WEB_ROOT (world-readable for nginx)"
+
+# --- 4. nginx site file (add-only) ---------------------------------------------
 if sudo test -f /etc/nginx/sites-enabled/gunbatte.conf; then
     echo "✓ nginx: gunbatte.conf already installed — leaving certbot's TLS edits alone"
 else
     sed -e "s|__GUNBATTE_GAME_HOST__|$GUNBATTE_GAME_HOST|g" \
         -e "s|__GUNBATTE_SITE_HOST__|$GUNBATTE_SITE_HOST|g" \
-        -e "s|__GUNBATTE_DIR__|$GUNBATTE_DIR|g" \
+        -e "s|__GUNBATTE_WEB_ROOT__|$GUNBATTE_WEB_ROOT|g" \
         -e "s|__GUNBATTE_PORT__|$GUNBATTE_PORT|g" \
         "$here/nginx/gunbatte.conf" | sudo tee /etc/nginx/sites-available/gunbatte.conf >/dev/null
     sudo ln -sf /etc/nginx/sites-available/gunbatte.conf /etc/nginx/sites-enabled/gunbatte.conf
@@ -98,14 +110,18 @@ else
     echo "✓ nginx: gunbatte site installed (HTTP only; certbot adds TLS next)"
 fi
 
-# --- 4. TLS via certbot (needs both hostnames resolving to THIS machine) --------
+# --- 5. TLS via certbot (needs both hostnames resolving to THIS machine) --------
+# Resolve via the local resolver and compare against this host's own
+# addresses — read with `hostname -I`, not `ip` (which can fail under sudo's
+# restricted PATH and produced a false "not this machine" skip).
 resolved="$(getent hosts "$GUNBATTE_GAME_HOST" | awk '{print $1; exit}')"
+own_ips="$(hostname -I 2>/dev/null || true)"
 skip_certbot=0
 if [ -z "$resolved" ]; then
     echo "!! DNS: $GUNBATTE_GAME_HOST does not resolve yet — skipping certbot (re-run apply.sh after DNS goes live)"
     skip_certbot=1
-elif ! ip -o addr | grep -qF "$resolved"; then
-    echo "!! DNS: $GUNBATTE_GAME_HOST resolves to $resolved, which is not this machine — skipping certbot"
+elif ! printf '%s\n' $own_ips | grep -qxF "$resolved"; then
+    echo "!! DNS: $GUNBATTE_GAME_HOST resolves to $resolved, which is not this machine ($own_ips) — skipping certbot"
     skip_certbot=1
 elif sudo test -d "/etc/letsencrypt/live/$GUNBATTE_GAME_HOST"; then
     echo "✓ certbot: certificate for $GUNBATTE_GAME_HOST already exists"
