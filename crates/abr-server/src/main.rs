@@ -17,6 +17,9 @@ enum Cmd {
     Serve {
         #[arg(long, default_value_t = 8321)]
         port: u16,
+        /// Address to listen on; use 127.0.0.1 behind a same-host reverse proxy.
+        #[arg(long, default_value = "0.0.0.0")]
+        bind: String,
         #[arg(long, default_value = "ladder.db")]
         db: PathBuf,
         #[arg(long, default_value = "replays")]
@@ -46,6 +49,7 @@ async fn main() {
     match cli.cmd {
         Cmd::Serve {
             port,
+            bind,
             db,
             replays,
             viewer,
@@ -56,6 +60,7 @@ async fn main() {
         } => {
             let cfg = ServerConfig {
                 port,
+                bind,
                 db_path: db,
                 replay_dir: replays,
                 viewer_dir: Some(viewer),

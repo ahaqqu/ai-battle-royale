@@ -56,6 +56,9 @@ pub struct BotMsg {
 #[derive(Clone)]
 pub struct ServerConfig {
     pub port: u16,
+    /// Address to listen on: "0.0.0.0" (default) or "127.0.0.1" when a reverse
+    /// proxy on the same host fronts the server.
+    pub bind: String,
     pub db_path: PathBuf,
     pub replay_dir: PathBuf,
     pub viewer_dir: Option<PathBuf>,
@@ -74,6 +77,7 @@ impl Default for ServerConfig {
     fn default() -> Self {
         ServerConfig {
             port: 8321,
+            bind: "0.0.0.0".to_string(),
             db_path: PathBuf::from("ladder.db"),
             replay_dir: PathBuf::from("replays"),
             viewer_dir: None,
@@ -460,10 +464,10 @@ async fn start_axum(server: Arc<Server>) -> anyhow::Result<()> {
 
     let app = app.with_state(server.clone());
 
-    let listener = tokio::net::TcpListener::bind(("0.0.0.0", server.cfg.port)).await?;
+    let listener = tokio::net::TcpListener::bind((server.cfg.bind.as_str(), server.cfg.port)).await?;
     println!(
-        "▶ GUNBATTE ROYALE ladder server on http://0.0.0.0:{} (bots: /ws/bot, spectate: /ws/spectate)",
-        server.cfg.port
+        "▶ GUNBATTE ROYALE ladder server on http://{}:{} (bots: /ws/bot, spectate: /ws/spectate)",
+        server.cfg.bind, server.cfg.port
     );
     axum::serve(listener, app).await?;
     Ok(())

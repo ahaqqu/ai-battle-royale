@@ -70,6 +70,7 @@ async fn m3_gateway_end_to_end() {
     let port = 8931; // test-local port
     let cfg = ServerConfig {
         port,
+        bind: "127.0.0.1".to_string(),
         db_path: dir.path().join("ladder.db"),
         replay_dir: replay_dir.clone(),
         viewer_dir: None,
@@ -155,6 +156,7 @@ async fn solo_human_gets_house_fill() {
     let port = 8933;
     let cfg = ServerConfig {
         port,
+        bind: "127.0.0.1".to_string(),
         db_path: dir.path().join("ladder.db"),
         replay_dir: replay_dir.clone(),
         viewer_dir: None,
