@@ -8,6 +8,7 @@ export interface PlayYouUnit {
   id: number;
   alive: boolean;
   pos: [number, number];
+  vel: [number, number];
   facing: number;
   hp: number;
   energy: number;
@@ -20,7 +21,7 @@ export interface PlayObs {
   tick: number;
   you: { main: PlayYouUnit; companion: PlayYouUnit };
   seen: {
-    players: { id: number; pos: [number, number]; detail: string; hp?: number; viaSonar?: boolean }[];
+    players: { id: number; pos: [number, number]; vel?: [number, number]; facing?: number; detail: string; hp?: number; viaSonar?: boolean }[];
     companions: { id: number; owner: number; pos: [number, number]; detail: string }[];
     projectiles: { id: number; pos: [number, number]; vel: [number, number]; owner: number }[];
     pickups: { id: number; pos: [number, number]; kind: string }[];

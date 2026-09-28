@@ -192,7 +192,9 @@ export class UnitView {
     }
     this.root.position.set(x, y);
     this.facingCur = lerpAngleDeg(this.facingCur, facing, Math.min(1, dt * 18));
-    this.char.rotation = (this.facingCur * Math.PI) / 180;
+    // Sim bearings are 0 = +Y (screen down), clockwise; the sprite's front is
+    // local +X, so the rotation that points it along the bearing is 90° − f.
+    this.char.rotation = ((90 - this.facingCur) * Math.PI) / 180;
 
     const hp01 = unitsA[o + U.HP01];
     const sp = Math.hypot(unitsA[o + U.VX], unitsA[o + U.VY]);
