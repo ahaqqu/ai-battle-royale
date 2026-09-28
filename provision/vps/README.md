@@ -48,17 +48,20 @@ state (`ladder.db`, `replays/`) is never touched by uploads.
 ## Automatic deploys (GitHub Actions)
 
 `.github/workflows/deploy.yml` fires **after CI finishes green on main** and
-runs the same `deploy.sh` — one deploy path for CI and humans. One-time setup:
+runs the same `deploy.sh` — one deploy path for CI and humans. **All values
+live as repository variables** (Settings → Secrets and variables → Actions):
+`VPS_USER`, `VPS_HOST`, `GUNBATTE_GAME_HOST`, `GUNBATTE_SITE_HOST`,
+`GUNBATTE_PORT`, `GUNBATTE_EMAIL`. deploy.sh reads the same variables via
+`gh`, so there is exactly one source of configuration. CI never holds an
+admin identity — the admin account appears only when **you** run the
+one-time bootstrap, named by the `GUNBATTE_ADMIN_SSH` env var. One-time key
+setup:
 
 ```sh
-# 1. a dedicated, revocable keypair (no passphrase; CI can't type one):
-ssh-keygen -t ed25519 -f ~/.ssh/gh-deploy-key -N "" -C "github-actions-deploy"
+# 1. a dedicated, revocable keypair for the deploy identity (no passphrase):
+ssh-keygen -t ed25519 -f ~/.ssh/gunbatte-deploy -N "" -C "gunbatte-vps-deploy-key"
 
-# 2. authorize it on the VPS:
-cat ~/.ssh/gh-deploy-key.pub | ssh ahaqqu@62.83.35.220 \
-  'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys'
-
-# 3. pin the host key:
+# 2. pin the host key:
 ssh-keyscan 62.83.35.220 > /tmp/vps_known_hosts
 ```
 
@@ -67,13 +70,16 @@ Actions):
 
 | Secret | Value |
 |---|---|
-| `VPS_DEPLOY_SSH_KEY` | contents of `~/.ssh/gh-deploy-key` (the private key) |
+| `VPS_DEPLOY_SSH_KEY` | contents of `~/.ssh/gunbatte-deploy` (the private key) |
 | `VPS_KNOWN_HOSTS` | contents of `/tmp/vps_known_hosts` |
 
-After that, every merge to main that passes CI deploys itself. To revoke CI's
-access, delete its line from `~/.ssh/authorized_keys` on the VPS. Until the
-first `--bootstrap` has run, the workflow only uploads artifacts and prints a
-reminder — the final restart needs the service to exist.
+The **public** half is installed into the deploy identity's
+`authorized_keys` by `--bootstrap` itself (idempotent append — kajianq's own
+key line is kept). After that, every merge to main that passes CI deploys
+itself. To revoke CI's access, delete its line from the deploy identity's
+`authorized_keys` on the VPS. Until the first `--bootstrap` has run, the
+workflow only uploads artifacts and prints a reminder — the final restart
+needs the service to exist.
 
 ## Files
 

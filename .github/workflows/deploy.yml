@@ -5,17 +5,16 @@
 # + server, rsync to the VPS, restart gunbatte.service. One deploy path for
 # CI and humans.
 #
-# One-time setup (before this workflow can succeed):
-#   1. ssh-keygen -t ed25519 -f ~/.ssh/gh-deploy-key -N "" -C "github-actions"
-#   2. cat ~/.ssh/gh-deploy-key.pub | ssh ahaqqu@62.83.35.220 \
-#        'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys'
-#   3. ssh-keyscan 62.83.35.220   # → GitHub secret VPS_KNOWN_HOSTS
-#   4. GitHub → Settings → Secrets and variables → Actions:
-#        VPS_DEPLOY_SSH_KEY = contents of ~/.ssh/gh-deploy-key (the PRIVATE key)
-#        VPS_KNOWN_HOSTS    = output of step 3
-#   5. the sudoers drop-in from deploy.sh --bootstrap makes the final restart
-#      passwordless; until that first bootstrap the job only uploads artifacts
-#      and prints a reminder.
+# ALL configuration comes from repository VARIABLES (Settings → Secrets and
+# variables → Actions → Variables — nothing is hardcoded in this file):
+#   VPS_USER            the restricted deploy identity (e.g. kajianq-deploy)
+#   VPS_HOST            the VPS address (e.g. 62.83.35.220)
+#   GUNBATTE_GAME_HOST  game hostname (e.g. play.gunbatte.ahaqqu.com)
+# and these SECRETS:
+#   VPS_DEPLOY_SSH_KEY  private half of the deploy identity's key
+#   VPS_KNOWN_HOSTS     ssh-keyscan of VPS_HOST
+# One-time bootstrap (creates the identity, unit, nginx, TLS) is run by a
+# human: ./provision/vps/deploy.sh --bootstrap — see provision/vps/README.md.
 name: deploy
 
 on:
@@ -34,12 +33,25 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     env:
-      GUNBATTE_GAME_HOST: play.gunbatte.ahaqqu.com
-      GUNBATTE_SSH: ahaqqu@62.83.35.220
+      GUNBATTE_DEPLOY_USER: ${{ vars.VPS_USER }}
+      VPS_HOST: ${{ vars.VPS_HOST }}
+      GUNBATTE_SSH: ${{ vars.VPS_USER }}@${{ vars.VPS_HOST }}
+      GUNBATTE_GAME_HOST: ${{ vars.GUNBATTE_GAME_HOST }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Check required variables
+        run: |
+          missing=0
+          for v in VPS_USER VPS_HOST GUNBATTE_GAME_HOST; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Repository variable '$v' is not set — add it under Settings → Secrets and variables → Actions → Variables"
+              missing=1
+            fi
+          done
+          exit $missing
 
       - uses: actions/setup-node@v4
         with:
