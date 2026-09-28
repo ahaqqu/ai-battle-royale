@@ -306,7 +306,7 @@ async function startReplay(json: string, name: string): Promise<void> {
   replay = await loadReplay(json, setProgress);
   const data = replay.data;
 
-  document.title = `${name} — AI Battle Royale`;
+  document.title = `${name} — GUNBATTE ROYALE`;
   loading.classList.add("hidden");
 
   drawArena(stage, data.map);
@@ -665,10 +665,10 @@ async function startPlay(name: string): Promise<void> {
         : "";
       if (place === 1) {
         sfx.play("victory", 0, 1);
-        playOverShow("👑", "VICTORY ROYALE!", `${watch}you outlasted the whole lobby`);
+        playOverShow("👑", "GUNBATTE!!!", `${watch}you outlasted the whole lobby. necessary.`);
       } else {
         sfx.play("defeat", 0, 0.9);
-        playOverShow("💀", `#${place} PLACE`, `${watch}next match starts soon — you're re-queued`);
+        playOverShow("💀", `#${place} PLACE`, `${watch}five more minutes. then you're re-queued`);
       }
     },
   });

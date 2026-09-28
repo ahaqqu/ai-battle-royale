@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Battle Royale — Replay Viewer</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🍬%3C/text%3E%3C/svg%3E" />
+  <title>GUNBATTE ROYALE — Play</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23ff5f7e' stroke='%233a2c5a' stroke-width='7'/%3E%3Cpath d='M50 24l7.2 15 16.8 2-12.4 11.6 3.4 16.9L50 61l-15 8.5 3.4-16.9L26 41l16.8-2z' fill='%23ffd93b' stroke='%233a2c5a' stroke-width='4' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" />
@@ -17,7 +17,7 @@
     <!-- top HUD -->
     <div id="topbar" class="hidden">
       <div id="match-title">
-        <span id="match-name">AI BATTLE ROYALE</span>
+        <span id="match-name">GUNBATTE ROYALE</span>
         <span id="match-sub"></span>
       </div>
       <div id="match-stats">
@@ -90,7 +90,7 @@
     <!-- loading overlay -->
     <div id="loading">
       <div class="load-card">
-        <div class="logo">AI<span>BATTLE</span>ROYALE</div>
+        <div class="logo"><span class="logo-kana">がんばって！</span><b>GUN</b>BATTE<i>★</i>ROYALE</div>
         <div id="load-status">connecting…</div>
         <div class="bar"><div id="load-bar"></div></div>
       </div>
@@ -99,18 +99,19 @@
     <!-- home: play first, replays one click away -->
     <div id="picker" class="hidden">
       <div class="picker-wrap">
+        <div class="hanko" aria-hidden="true">がんば</div>
         <div class="picker-card">
-          <div class="logo small">AI<span>BATTLE</span>ROYALE</div>
+          <div class="logo small"><span class="logo-kana">がんばって！</span><b>GUN</b>BATTE<i>★</i>ROYALE</div>
           <div class="play-join">
             <h3>▶ PLAY LIVE — humans welcome</h3>
-            <p>Play as <b>Tarsius</b>, with your <b>Jalak</b> companion at your side. You join the same queue as the AI bots, see through the fog, and fight on equal terms.</p>
+            <p>Play as <b>Tarsius</b>, the grumpiest sharpshooter in the arena. He'd rather nap, but his chatty <b>Jalak</b> won't stop shouting GUNBATTE! Same queue as the AI bots, strict fog, equal terms.</p>
             <input id="play-name" maxlength="16" placeholder="your name" />
             <button id="play-btn">ENTER THE ARENA</button>
           </div>
           <div class="home-keys" aria-hidden="true">
             <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span class="home-keys-sep">+</span><kbd class="home-keys-wide">SPACE</kbd><span class="home-keys-sep">·</span><kbd>Q</kbd><kbd>E</kbd><kbd>F</kbd>
           </div>
-          <p class="home-tip">move · dash · sprint · sonar · recall jalak — last tarsius standing wins</p>
+          <p class="home-tip">move · dash · grab guns · sonar · recall jalak — last tarsius standing wins · がんばって！</p>
           <div class="home-actions">
             <button id="browse-replays-btn">WATCH REPLAYS<span id="replay-count" class="count-badge hidden"></span></button>
             <label class="upload">or open a replay file…<input type="file" id="file-input" accept=".json" /></label>

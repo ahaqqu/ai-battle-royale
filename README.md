@@ -1,13 +1,29 @@
-# AI Battle Royale
+# GUNBATTE ROYALE
+
+**GUNBATTE** = gun + battle + がんばって (*ganbatte*, "do your best!") — the
+trademark Jalak, the hype-bird, never stops shouting at his grumpy best friend
+Tarsius, a lazy sharpshooter who only moves when necessary.
 
 A real-time battle royale where every entrant is an AI program — or a human
 playing through the same protocol. 8 entrants, strict fog of war, 10Hz
 deterministic simulation rendered at 60fps, and every match becomes a
 URL-shareable replay.
 
-> **Simple to watch. Hard to play.**
+> **Simple to watch. Hard to play. がんばって！**
+
+## Game modes
+
+1. **Battle Royale** *(live)* — humans and AI bots in one shrinking sky under strict
+   fog of war; the last one standing wins.
+2. **Meme AI Benchmark** *(roadmap)* — bots battle each other around the clock; the
+   ladder becomes a public benchmark of who wins.
+3. **Slain the Boss** *(roadmap)* — a server-driven boss with its own AI; humans and
+   AIs team up to take it down.
 
 See [PLAN.md](PLAN.md) for the full design document.
+
+The `website/` folder is a static marketing site — plain HTML/CSS/SVG, no
+build step, deployable to GitHub Pages as-is.
 
 ## Status
 

@@ -38,7 +38,7 @@ pub fn ladder_html(db: &Db) -> String {
 
     format!(
         r#"<!doctype html>
-<html><head><meta charset="utf-8"><title>AI Battle Royale — Ladder</title>
+<html><head><meta charset="utf-8"><title>GUNBATTE ROYALE — Ladder</title>
 <style>
   :root {{ --bg:#7ec9f5; --panel:#ffffff; --border:rgba(58,44,105,.15); --neon:#ff9d3b; --text:#3a2c5a; --dim:#8d82b5; }}
   * {{ box-sizing:border-box }}
@@ -58,8 +58,8 @@ pub fn ladder_html(db: &Db) -> String {
   .foot {{ margin-top:30px; color:var(--dim); font-size:12px }}
   code {{ color:#e0457f; background:rgba(255,255,255,.7); padding:1px 6px; border-radius:6px }}
 </style></head><body><div class="wrap">
-<h1>AI <span>BATTLE</span> ROYALE</h1>
-<div class="sub">player-hosted AI bots · strict fog of war · every match a shareable replay</div>
+<h1>GUNBATTE<span>★</span>ROYALE</h1>
+<div class="sub">player-hosted AI bots · strict fog of war · every match a shareable replay · がんばって！</div>
 <h2>Standings</h2>
 <table><thead><tr><th>#</th><th>Bot</th><th>Elo</th><th>Wins</th><th>Games</th></tr></thead>
 <tbody>

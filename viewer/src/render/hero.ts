@@ -1,7 +1,9 @@
-/** Home-screen mascots: a tarsius that lives inside the menu card, dancing,
- * roaming between the menu's own controls and playing with them (hopping on
- * the ENTER button, poking the name field, bopping the tagline) while
- * inviting the visitor in — and its jalak, which circles overhead.
+/** Home-screen mascots: a lazy, grumpy sharpshooter tarsius who lives inside
+ * the menu card — napping between chores, shuffling to the next one only when
+ * the nagging becomes unbearable — and his jalak, a cheerful hype-bird who
+ * never stops moving and never stops shouting his trademark 「GUNBATTE！」 at
+ * his best friend. The tarsius plays with the menu (hopping on the ENTER
+ * button, poking the name field, bopping the tagline) strictly when necessary.
  *
  * Reuses the exact in-game art (makeTarsius / makeJalak) so the menu shows
  * what the match delivers. The overlay canvas covers the card exactly and is
@@ -19,23 +21,40 @@ const BIRD_COL = parseInt(botColor(2).slice(1), 16);   // banana jalak accents
 /** Dance beat: 132 BPM reads as "party", not "idle". */
 const BEAT = 132 / 60;
 const SCALE = 0.86;
-/** Roam speed in card pixels/second. */
-const WALK_SPEED = 96;
+/** Roam speed in card pixels/second — a lazy shamble, not a walk. */
+const WALK_SPEED = 70;
 const MARGIN = 34;                 // keep this far from the card's edges
 /** Bird orbit, relative to the tarsius (held above it). */
 const ORBIT_RX = 74;
 const ORBIT_RY = 24;
 const ORBIT_CY = -52;
-const ORBIT_T = 3.6;
-/** Invitations the tarsius pipes up with. */
-const INVITES = [
-  "press ENTER THE ARENA!",
-  "come play with us!",
-  "race you to the arena!",
-  "click ENTER — I'm ready!",
-  "dance now, battle later!",
-  "your name? make one up!",
-  "I'll do the winning, you click.",
+const ORBIT_T = 2.4;
+/** Tarsius's lines: grumpy, lazy, deadpan. He'd rather nap. */
+const TARSIUS_LINES = [
+  "five more minutes.",
+  "ugh. fine. ENTER THE ARENA.",
+  "I only miss once. that was practice.",
+  "shush, bird.",
+  "naps > battles.",
+  "I move when necessary. this is necessary.",
+  "wake me when someone wins.",
+];
+/** Grumbles he fires back when the trademark catches him mid-nap. */
+const GRUMBLES = [
+  "ganbatte… I mean GUNBATTE. ugh.",
+  "GUNBATTE yourself.",
+  "I heard you the first time.",
+  "shush, bird.",
+];
+/** Jalak's lines: cheerful, loud, endless. GUNBATTE! is his trademark. */
+const JALAK_LINES = [
+  "GUNBATTE!!!",
+  "GUNBATTE, TARSIUS!!",
+  "がんばって！！",
+  "GUNBATTE!!! gun up!!",
+  "wakey wakey, battle time!!",
+  "best shot in the arena!! GUNBATTE!!",
+  "last tarsius standing!! that's you!!",
 ];
 
 type Action = "press" | "poke" | "boop" | "dance";
@@ -52,6 +71,9 @@ let birdShadow: Sprite | null = null;
 let bubble: Container | null = null;
 let bubbleBg: Graphics | null = null;
 let bubbleText: Text | null = null;
+let birdBubble: Container | null = null;
+let birdBubbleBg: Graphics | null = null;
+let birdBubbleText: Text | null = null;
 let onTick: (() => void) | null = null;
 
 let spots: Spot[] = [];
@@ -63,13 +85,19 @@ let targetX = 200;
 let targetY = 300;
 let action: Action = "dance";
 let actionEl: HTMLElement | undefined;
-/** Roam state machine: walk to a spot → do its bit → freestyle → repeat. */
-let state: "walk" | "act" | "dance" = "dance";
+/** Roam state machine: walk to a spot → do its bit → lounge or freestyle → repeat. */
+let state: "walk" | "act" | "dance" | "lounge" = "dance";
 let stateT = 1.4;
 let phase = Math.random() * 6.28;
 let orbit = { x: 200, y: 260 };
 let bubbleT = 0;
 let bubbleCd = 6;
+let birdBubbleT = 0;
+/** The bird cannot stay quiet for long — he opens with a shout. */
+let birdBubbleCd = 2.2;
+/** A scheduled grumble: the reply to the trademark, fired a beat later. */
+let replyText: string | null = null;
+let replyT = 0;
 let actionFired = false;
 
 /** Build + start the mascot scene, sized to the menu card it lives in. */
@@ -116,6 +144,21 @@ export async function startHero(hostEl: HTMLElement): Promise<void> {
   bubble.addChild(bubbleBg, bubbleText);
   bubble.visible = false;
   a.stage.addChild(bubble);
+
+  // The jalak's own bubble — the GUNBATTE! trademark lives here.
+  birdBubble = new Container();
+  birdBubbleBg = new Graphics();
+  birdBubbleText = new Text({
+    text: "",
+    style: {
+      fontFamily: FONT, fontSize: 12.5, fontWeight: "800",
+      fill: 0x3a2c5a, align: "center", wordWrap: true, wordWrapWidth: 200,
+    },
+  });
+  birdBubbleText.anchor.set(0.5);
+  birdBubble.addChild(birdBubbleBg, birdBubbleText);
+  birdBubble.visible = false;
+  a.stage.addChild(birdBubble);
 
   measureSpots();
   const start = spots.find((s) => s.action === "dance");
@@ -194,32 +237,44 @@ function say(text: string, hold = 3.4): void {
   bubbleT = hold;
 }
 
-/** Redraw the bubble's body + tail so the tail always points at the tarsius.
+/** The bird pipes up. Shouting the trademark at his best friend usually earns
+ * a grumble back a beat later — that's the whole bit. */
+function birdSay(text: string, hold = 3.2, provokeReply = true): void {
+  if (!birdBubbleText) return;
+  birdBubbleText.text = text;
+  birdBubbleT = hold;
+  if (provokeReply && text.startsWith("GUNBATTE") && Math.random() < 0.6) {
+    replyText = GRUMBLES[Math.floor(Math.random() * GRUMBLES.length)];
+    replyT = 1.2 + Math.random() * 0.9;
+  }
+}
+
+/** Redraw a bubble's body + tail so the tail always points at its speaker.
  * The body is centered on the text, and the tail's white fill overlaps the
  * body's edge so the border reads as one continuous outline: only the tail's
  * two free sides get stroked, so no seam line crosses its base. */
-function drawBubble(tailDown: boolean): void {
-  if (!bubbleText || !bubbleBg) return;
-  const w = Math.max(96, bubbleText.width + 24);
-  const h = bubbleText.height + 14;
+function drawBubble(bg: Graphics, text: Text, tailDown: boolean, stroke = 0x6b5b9a): void {
+  const w = Math.max(96, text.width + 24);
+  const h = text.height + 14;
   const half = h / 2;
   const dir = tailDown ? 1 : -1;          // +1: tail hangs from the bottom edge
   const edge = half - 2;                  // tail base tucks 2px inside the body
   const tip = half + 9;
   const fill = { color: 0xffffff, alpha: 0.96 };
-  const line = { width: 2, color: 0x6b5b9a, alpha: 0.5, join: "round" } as const;
-  bubbleBg.clear();
-  bubbleBg.roundRect(-w / 2, -half, w, h, 10).fill(fill).stroke(line);
-  bubbleBg.moveTo(-6, edge * dir).lineTo(0, tip * dir).lineTo(6, edge * dir)
+  const line = { width: 2, color: stroke, alpha: 0.55, join: "round" } as const;
+  bg.clear();
+  bg.roundRect(-w / 2, -half, w, h, 10).fill(fill).stroke(line);
+  bg.moveTo(-6, edge * dir).lineTo(0, tip * dir).lineTo(6, edge * dir)
     .closePath().fill(fill);
-  bubbleBg.moveTo(-6, edge * dir).lineTo(0, tip * dir).lineTo(6, edge * dir)
+  bg.moveTo(-6, edge * dir).lineTo(0, tip * dir).lineTo(6, edge * dir)
     .stroke(line);
 }
 
 /** Frame driver: roam → act → freestyle, with the bird orbiting the whole way
  * and the invitations surfacing from time to time. */
 function tick(t: number): void {
-  if (!app || !tarsius || !jalak || !birdShadow || !bubble || !bubbleText) return;
+  if (!app || !tarsius || !jalak || !birdShadow || !bubble || !bubbleBg || !bubbleText) return;
+  if (!birdBubble || !birdBubbleBg || !birdBubbleText) return;
   const dt = Math.min(0.05, app.ticker.deltaMS / 1000);
   const bt = t * BEAT * Math.PI;          // beat phase
   const sway = Math.sin(bt * 0.5);
@@ -239,17 +294,30 @@ function tick(t: number): void {
       pos.y += (dy / d) * step;
       facing = Math.atan2(dy, dx);
       walking = true;
-      phase += dt * 15;
+      phase += dt * 11;   // a shamble, not a strut
       stateT -= dt;
     }
   } else {
     stateT -= dt;
     if (stateT <= 0) {
       if (state === "act") {
-        // Settle into a short freestyle before wandering off again.
-        state = "dance";
-        stateT = 0.9 + Math.random() * 1.6;
-        if (Math.random() < 0.45) say(INVITES[Math.floor(Math.random() * INVITES.length)]);
+        // Lazy: more often than not he flops down right there instead of
+        // dancing. The bird treats every flop as an invitation to nag.
+        if (Math.random() < 0.55) {
+          state = "lounge";
+          stateT = 2.6 + Math.random() * 2.8;
+          if (Math.random() < 0.75) {
+            birdSay(JALAK_LINES[Math.floor(Math.random() * JALAK_LINES.length)]);
+          }
+        } else {
+          state = "dance";
+          stateT = 0.8 + Math.random() * 1.3;
+          if (Math.random() < 0.4) say(TARSIUS_LINES[Math.floor(Math.random() * TARSIUS_LINES.length)]);
+        }
+      } else if (state === "lounge") {
+        // Getting up is a whole thing, and he wants everyone to know it.
+        if (Math.random() < 0.5) say(TARSIUS_LINES[Math.floor(Math.random() * TARSIUS_LINES.length)]);
+        pickSpot();
       } else {
         pickSpot();
       }
@@ -289,7 +357,8 @@ function tick(t: number): void {
       if (!actionFired && p > 0.45) {
         actionFired = true;
         pressEl(actionEl);                       // cosmetic bounce only
-        say("press ENTER THE ARENA!", 2.6);
+        say("ugh. fine. ENTER THE ARENA.", 2.6);
+        birdSay("GUNBATTE!!!", 2.4, false);      // the eruption, reply-free
       }
     } else if (action === "poke") {
       tarsius.root.position.set(pos.x - 14 + Math.sin(p * 26) * 2, pos.y + 6);
@@ -312,6 +381,18 @@ function tick(t: number): void {
       tarsius.armL.rotation = 2.3 + Math.sin(bt) * 1.05;
       tarsius.armR.rotation = -2.3 - Math.sin(bt) * 1.05;
     }
+  } else if (state === "lounge") {
+    // The flop: flat, ears drooped, one ear twitching, absolutely done.
+    const breathe = Math.sin(t * 1.7);
+    tarsius.root.rotation = 0.07 * breathe;
+    tarsius.root.position.set(pos.x, pos.y + 7);
+    tarsius.root.scale.set(SCALE * 1.1, SCALE * (0.78 + breathe * 0.018));
+    tarsius.footL.x = 15; tarsius.footR.x = 15;
+    tarsius.footL.y = -5.5; tarsius.footR.y = 5.5;
+    tarsius.earL.rotation = 0.8 + breathe * 0.05;
+    tarsius.earR.rotation = -0.8 - Math.sin(t * 3.1) * 0.06;
+    tarsius.armL.rotation = 2.95;
+    tarsius.armR.rotation = -2.95;
   } else {
     // Freestyle dance: hop on the beat, arms pumping, big ear flaps.
     const hop = Math.max(0, Math.sin(bt)) ** 1.5;
@@ -329,16 +410,19 @@ function tick(t: number): void {
   }
   tarsius.blinkTarget.scale.y = 1;
 
-  // --- jalak: circles the dancing tarsius, held above it ---
+  // --- jalak: circles the tarsius, held above it. When the big guy flops,
+  // the orbit tightens and speeds up — buzzing the nap like it's urgent. ---
   orbit.x += (pos.x - orbit.x) * Math.min(1, dt * 2.2);
   orbit.y += (pos.y + ORBIT_CY - orbit.y) * Math.min(1, dt * 2.2);
-  const oa = (t / ORBIT_T) * Math.PI * 2;
-  const bx = orbit.x + Math.cos(oa) * ORBIT_RX;
+  const buzzing = state === "lounge";
+  const oa = (t / (buzzing ? ORBIT_T * 0.55 : ORBIT_T)) * Math.PI * 2;
+  const rx = ORBIT_RX * (buzzing ? 0.78 : 1);
+  const bx = orbit.x + Math.cos(oa) * rx;
   const by = orbit.y + Math.sin(oa) * ORBIT_RY;
   jalak.root.position.set(bx, by);
   const bank = Math.cos(oa) * 0.3;
-  jalak.root.rotation = Math.atan2(Math.cos(oa) * ORBIT_RY, -Math.sin(oa) * ORBIT_RX) + bank * 0.35;
-  const flap = Math.sin(t * 11);
+  jalak.root.rotation = Math.atan2(Math.cos(oa) * ORBIT_RY, -Math.sin(oa) * rx) + bank * 0.35;
+  const flap = Math.sin(t * 14);
   const span = 0.62 + Math.abs(flap) * 0.5;
   jalak.wingL.scale.set(1 - Math.abs(flap) * 0.16, span);
   jalak.wingR.scale.set(1 - Math.abs(flap) * 0.16, span);
@@ -350,19 +434,31 @@ function tick(t: number): void {
   birdShadow.position.set(bx, orbit.y + 42);
   birdShadow.scale.set(0.5 - Math.abs(bank) * 0.08, 0.26 - Math.abs(bank) * 0.04);
 
-  // --- speech bubble ---
+  // --- speech bubbles: the bird's chatter, then the tarsius's grumbles ---
   bubbleCd -= dt;
   if (bubbleCd <= 0 && bubbleT <= 0) {
-    bubbleCd = 11 + Math.random() * 9;
-    say(INVITES[Math.floor(Math.random() * INVITES.length)]);
+    bubbleCd = 13 + Math.random() * 9;
+    say(TARSIUS_LINES[Math.floor(Math.random() * TARSIUS_LINES.length)]);
+  }
+  birdBubbleCd -= dt;
+  if (birdBubbleCd <= 0 && birdBubbleT <= 0) {
+    birdBubbleCd = 6.5 + Math.random() * 5.5;    // he talks a LOT
+    birdSay(JALAK_LINES[Math.floor(Math.random() * JALAK_LINES.length)]);
+  }
+  if (replyText) {
+    replyT -= dt;
+    if (replyT <= 0) {
+      say(replyText, 2.8);   // the grumble, right on cue
+      replyText = null;
+    }
   }
   if (bubbleT > 0) {
     bubbleT -= dt;
     bubble.visible = true;
     // Flip the bubble below the tarsius when it roams high in the card, so the
-    // invitation never covers the heading or the name field.
+    // grumble never covers the heading or the name field.
     const bubbleAbove = tarsius.root.y > 96;
-    drawBubble(bubbleAbove);           // bubble above ⇒ tail hangs down at it
+    drawBubble(bubbleBg, bubbleText, bubbleAbove);   // bubble above ⇒ tail hangs down at it
     const w = bubbleText.width / 2 + 14;
     const px = Math.min(Math.max(tarsius.root.x, w), app.screen.width - w);
     const py = bubbleAbove ? tarsius.root.y - 78 : tarsius.root.y + 74;
@@ -370,6 +466,19 @@ function tick(t: number): void {
     bubble.alpha = Math.min(1, bubbleT / 0.35);
   } else {
     bubble.visible = false;
+  }
+  if (birdBubbleT > 0) {
+    birdBubbleT -= dt;
+    birdBubble.visible = true;
+    // The bird's bubble always hangs above him, pink-stroked, tail down.
+    drawBubble(birdBubbleBg, birdBubbleText, true, 0xff5fd0);
+    const w2 = birdBubbleText.width / 2 + 14;
+    const px2 = Math.min(Math.max(jalak.root.x, w2), app.screen.width - w2);
+    const py2 = Math.max(28, jalak.root.y - 54);
+    birdBubble.position.set(px2, py2);
+    birdBubble.alpha = Math.min(1, birdBubbleT / 0.35);
+  } else {
+    birdBubble.visible = false;
   }
 }
 
@@ -420,6 +529,10 @@ export function stopHero(): void {
   bubble = null;
   bubbleBg = null;
   bubbleText = null;
+  birdBubble = null;
+  birdBubbleBg = null;
+  birdBubbleText = null;
+  replyText = null;
   host = null;
   cardEl = null;
   spots = [];

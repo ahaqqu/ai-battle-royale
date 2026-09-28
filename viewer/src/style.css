@@ -202,9 +202,19 @@ canvas { display: block; }
   background: radial-gradient(ellipse at 30% 20%, #a8dcff 0%, #7ec9f5 55%, #5db2ea 100%);
 }
 .load-card { width: 340px; text-align: center; background: var(--panel); border: 3px solid var(--panel-border); border-radius: 24px; padding: 30px 26px 26px; box-shadow: 0 8px 0 rgba(58, 44, 105, 0.2); }
-.logo { font-size: 25px; font-weight: 800; letter-spacing: 0.12em; color: var(--ink); }
+.logo { font-size: 25px; font-weight: 800; letter-spacing: 0.12em; color: var(--ink); line-height: 1.08; }
 .logo span { color: var(--pink); }
+.logo b { color: var(--orange-deep); font-weight: 800; }
+.logo i { color: var(--pink); font-style: normal; font-size: 0.74em; vertical-align: 0.14em; margin: 0 0.08em; }
+/* Furigana-style kana floating over the wordmark — the ganbatte accent. */
+.logo-kana {
+  display: block;
+  font-size: 10px; font-weight: 800; color: var(--pink);
+  letter-spacing: 0.42em; text-indent: 0.42em; /* recenter the letterspaced kana */
+  margin: 0 0 2px;
+}
 .logo.small { font-size: 18px; margin-bottom: 18px; }
+.logo.small .logo-kana { font-size: 8.5px; margin-bottom: 1px; }
 #load-status { margin: 18px 0 10px; font-size: 12px; color: var(--ink-dim); letter-spacing: 0.06em; font-weight: 700; }
 .bar { height: 10px; background: #ece7f8; border-radius: 999px; overflow: hidden; border: 2px solid var(--panel-border); }
 #load-bar { height: 100%; width: 0; background: linear-gradient(90deg, #ffd93b, var(--orange), var(--pink)); border-radius: 999px; transition: width 0.15s; }
@@ -218,6 +228,21 @@ canvas { display: block; }
 /* The card and the mascot overlay share one positioned, centered box, so the
    tarsius and jalak can roam the whole menu and play with its text/buttons. */
 .picker-wrap { position: relative; }
+/* Hanko-style name stamp pinned over the card's corner. Lives on the wrap,
+   not the card, because the card scrolls (overflow:auto) and would clip it. */
+.hanko {
+  position: absolute; top: -16px; right: 10px; z-index: 3;
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 900; color: #fff; line-height: 1;
+  letter-spacing: 0.02em;
+  font-family: "Baloo 2", "Hiragino Maru Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  background: radial-gradient(circle at 32% 28%, #ff6d86, var(--danger));
+  border: 2.5px solid #fff;
+  box-shadow: 0 3px 0 rgba(58, 44, 105, 0.28), inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+  transform: rotate(9deg);
+  pointer-events: none;
+}
 /* Mascot layer: covers the card exactly, ignores pointer events so every
    click reaches the real menu underneath. Sized to the card by hero.ts. */
 #hero-host { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
