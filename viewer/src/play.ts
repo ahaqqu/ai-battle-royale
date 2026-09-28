@@ -176,7 +176,7 @@ export class PlayClient {
     return { dir: Math.round(deg) % 360, throttle: 1 };
   }
 
-  /** Companion input: the pet trails the reticle (scout where you aim),
+  /** Companion input: the jalak trails the reticle (scout where you aim),
    * E pings sonar, F recalls it to your side (PLAN §2.3 leash clamps). */
   private companionInput(obs: PlayObs): { mv: { dir: number; throttle: number }; action?: Record<string, unknown> } {
     const comp = obs.you.companion;

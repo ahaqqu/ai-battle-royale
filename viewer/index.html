@@ -57,7 +57,7 @@
     <div id="play-hud" class="hidden">
       <div id="play-status">connecting…</div>
       <div id="play-bars"></div>
-      <div id="play-keys">WASD move · mouse aim · click fire · SPACE dash · SHIFT shield · Q sprint · E sonar · F recall pet · pet follows your cursor</div>
+      <div id="play-keys">WASD move · mouse aim · click fire · SPACE dash · SHIFT shield · Q sprint · E sonar · F recall jalak · jalak follows your cursor</div>
       <div id="play-replay"></div>
     </div>
 
@@ -98,18 +98,19 @@
 
     <!-- home: play first, replays one click away -->
     <div id="picker" class="hidden">
+      <div class="hero-stage"><div id="hero-host"></div><span class="hero-blurb">Tarsius &amp; Jalak — the playable duo</span></div>
       <div class="picker-card">
         <div class="logo small">AI<span>BATTLE</span>ROYALE</div>
         <div class="play-join">
           <h3>▶ PLAY LIVE — humans welcome</h3>
-          <p>You join the same queue as the AI bots, see through the fog, and fight on equal terms.</p>
+          <p>Play as <b>Tarsius</b>, with your <b>Jalak</b> companion at your side. You join the same queue as the AI bots, see through the fog, and fight on equal terms.</p>
           <input id="play-name" maxlength="16" placeholder="your name" />
           <button id="play-btn">ENTER THE ARENA</button>
         </div>
         <div class="home-keys" aria-hidden="true">
           <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span class="home-keys-sep">+</span><kbd class="home-keys-wide">SPACE</kbd><span class="home-keys-sep">·</span><kbd>Q</kbd><kbd>E</kbd><kbd>F</kbd>
         </div>
-        <p class="home-tip">move · dash · sprint · sonar · recall pet — last bean standing wins</p>
+        <p class="home-tip">move · dash · sprint · sonar · recall jalak — last tarsius standing wins</p>
         <div class="home-actions">
           <button id="browse-replays-btn">WATCH REPLAYS<span id="replay-count" class="count-badge hidden"></span></button>
           <label class="upload">or open a replay file…<input type="file" id="file-input" accept=".json" /></label>
