@@ -89,6 +89,26 @@ async function boot(): Promise<void> {
 
 interface ReplayItem { name: string; url: string; size_kb: number }
 
+/** Playful names for the name-field placeholder. Alphanumeric only: the value
+ * gets sanitized on submit, so anything else would silently change. */
+const NAME_A = [
+  "Sleepy", "Wobbly", "Spicy", "Grumpy", "Turbo", "Soggy", "Crispy", "Sneaky",
+  "Sleepy", "Bouncy", "Salty", "Fluffy", "Dizzy", "Chunky", "Sassy", "Sweaty",
+  "Grumpy", "Toasty", "Prickly", "Zooming", "Hungry", "Silly", "Sleepy", "Noodle",
+];
+const NAME_B = [
+  "Tarsius", "Jalak", "Bean", "Slime", "Cactus", "Nugget", "Waffle", "Pickle",
+  "Mango", "Tofu", "Dumpling", "Pigeon", "Llama", "Potato", "Goblin", "Muffin",
+  "Biscuit", "Penguin", "Avocado", "Meatball", "Coconut", "Raccoon", "Banan",
+  "Turnip", "Noodle", "Walnut", "Sardine", "Pancake",
+];
+
+export function funnyName(): string {
+  const a = NAME_A[Math.floor(Math.random() * NAME_A.length)];
+  const b = NAME_B[Math.floor(Math.random() * NAME_B.length)];
+  return `${a}${b}`;
+}
+
 const REPLAYS_PER_PAGE = 10;
 let replaysCache: ReplayItem[] | null = null;
 let replaysPageNum = 0;
@@ -137,9 +157,17 @@ async function showPicker(): Promise<void> {
   const playBtn = document.getElementById("play-btn") as HTMLButtonElement | null;
   const nameInput = document.getElementById("play-name") as HTMLInputElement | null;
   if (playBtn && nameInput) {
+    // Seed a random funny name as the placeholder hint: the field stays empty,
+    // so it reads as a suggestion the user can take or replace — but a bare
+    // click on ENTER still gets them in with that name.
+    const suggestion = funnyName();
+    nameInput.placeholder = suggestion;
     playBtn.addEventListener("click", () => {
-      const name = (nameInput.value || "human").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
+      const name = (nameInput.value || suggestion).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
       location.href = "?play=1&name=" + encodeURIComponent(name);
+    });
+    nameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") playBtn.click();
     });
   }
 

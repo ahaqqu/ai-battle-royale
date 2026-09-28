@@ -1,138 +1,358 @@
-/** Home-screen mascots: a tarsius dancing in place on its little stage while
- * its jalak circles overhead — the two playable characters introduced on the
- * front page. Reuses the exact in-game art (makeTarsius / makeJalak) so the
- * menu promises what the match delivers.
+/** Home-screen mascots: a tarsius that lives inside the menu card, dancing,
+ * roaming between the menu's own controls and playing with them (hopping on
+ * the ENTER button, poking the name field, bopping the tagline) while
+ * inviting the visitor in — and its jalak, which circles overhead.
  *
- * Runs on its own tiny Pixi app beside the menu card, independent of the
- * ambient gameplay backdrop, and is torn down when the menu is left. */
+ * Reuses the exact in-game art (makeTarsius / makeJalak) so the menu shows
+ * what the match delivers. The overlay canvas covers the card exactly and is
+ * pointer-transparent; waypoints are read from the real DOM elements, and the
+ * mascot's "interactions" are cosmetic CSS animations — it never clicks
+ * anything on the user's behalf. */
 
 import { Application, Container, Graphics, Sprite, Text } from "pixi.js";
 import { FONT, INK_HEX, botColor } from "../types.js";
 import { JalakArt, TarsiusArt, makeJalak, makeTarsius } from "./units.js";
 import { makeGlowTexture } from "./stage.js";
 
-const W = 340;
-const H = 300;
 const HERO_COL = parseInt(botColor(0).slice(1), 16);   // watermelon tarsius
 const BIRD_COL = parseInt(botColor(2).slice(1), 16);   // banana jalak accents
 /** Dance beat: 132 BPM reads as "party", not "idle". */
 const BEAT = 132 / 60;
-/** Orbit radii for the circling jalak (tilted ellipse, held above the hero). */
-const ORBIT_RX = 96;
-const ORBIT_RY = 34;
-const ORBIT_CY = -64;
-const ORBIT_T = 4.6;
+const SCALE = 0.86;
+/** Roam speed in card pixels/second. */
+const WALK_SPEED = 96;
+const MARGIN = 34;                 // keep this far from the card's edges
+/** Bird orbit, relative to the tarsius (held above it). */
+const ORBIT_RX = 74;
+const ORBIT_RY = 24;
+const ORBIT_CY = -52;
+const ORBIT_T = 3.6;
+/** Invitations the tarsius pipes up with. */
+const INVITES = [
+  "press ENTER THE ARENA!",
+  "come play with us!",
+  "race you to the arena!",
+  "click ENTER — I'm ready!",
+  "dance now, battle later!",
+  "your name? make one up!",
+  "I'll do the winning, you click.",
+];
+
+type Action = "press" | "poke" | "boop" | "dance";
+interface Spot { x: number; y: number; action: Action; el?: HTMLElement; }
 
 let app: Application | null = null;
+let host: HTMLElement | null = null;
+let cardEl: HTMLElement | null = null;
+let ro: ResizeObserver | null = null;
 let hero: Container | null = null;
 let tarsius: TarsiusArt | null = null;
 let jalak: JalakArt | null = null;
 let birdShadow: Sprite | null = null;
+let bubble: Container | null = null;
+let bubbleBg: Graphics | null = null;
+let bubbleText: Text | null = null;
+let labelT: Text | null = null;
+let labelJ: Text | null = null;
 let onTick: (() => void) | null = null;
 
-/** Build + start the mascot scene on the given host element. */
-export async function startHero(host: HTMLElement): Promise<void> {
+let spots: Spot[] = [];
+let spotI = -1;
+/** Current pose target in card (canvas) coordinates. */
+let pos = { x: 200, y: 300 };
+let facing = 0;
+let targetX = 200;
+let targetY = 300;
+let action: Action = "dance";
+let actionEl: HTMLElement | undefined;
+/** Roam state machine: walk to a spot → do its bit → freestyle → repeat. */
+let state: "walk" | "act" | "dance" = "dance";
+let stateT = 1.4;
+let phase = Math.random() * 6.28;
+let orbit = { x: 200, y: 260 };
+let bubbleT = 0;
+let bubbleCd = 6;
+let actionFired = false;
+
+/** Build + start the mascot scene, sized to the menu card it lives in. */
+export async function startHero(hostEl: HTMLElement): Promise<void> {
   if (app) return;
+  const card = hostEl.parentElement?.querySelector<HTMLElement>(".picker-card") ?? null;
+  cardEl = card ?? hostEl.parentElement;
+  host = hostEl;
   const a = new Application();
   await a.init({
-    width: W,
-    height: H,
+    width: Math.max(200, hostEl.clientWidth || 470),
+    height: Math.max(200, hostEl.clientHeight || 560),
     backgroundAlpha: 0,
     antialias: true,
     resolution: Math.min(2, window.devicePixelRatio || 1),
     autoDensity: true,
   });
   app = a;
-  a.canvas.style.width = `${W}px`;
-  a.canvas.style.height = `${H}px`;
   a.canvas.style.pointerEvents = "none";
-  host.appendChild(a.canvas);
-
-  // Stage: a spotlight pool on the menu sky + the orbit path the bird flies.
-  const heroY = 178;
-  const ground = new Graphics();
-  ground.ellipse(W / 2, 236, 62, 15).fill({ color: 0x3a2c5a, alpha: 0.12 });
-  ground.ellipse(W / 2, 234, 76, 19).fill({ color: 0xffffff, alpha: 0.3 });
-  ground.ellipse(W / 2, heroY + ORBIT_CY, ORBIT_RX, ORBIT_RY).stroke({ width: 1.6, color: 0xffffff, alpha: 0.34 });
-  a.stage.addChild(ground);
+  hostEl.appendChild(a.canvas);
 
   hero = new Container();
-  hero.position.set(W / 2, heroY);
   tarsius = makeTarsius(HERO_COL);
+  tarsius.root.scale.set(SCALE);
   jalak = makeJalak(BIRD_COL);
-  // The bird reads as a companion: slightly smaller, with its own soft shadow
-  // that slides along the orbit beneath it.
-  jalak.root.scale.set(0.9);
   birdShadow = new Sprite(makeGlowTexture(null, 64, "rgba(58,44,90,0.5)", "rgba(58,44,90,0.16)"));
   birdShadow.anchor.set(0.5);
-  birdShadow.scale.set(0.6, 0.32);
-  birdShadow.alpha = 0.35;
+  birdShadow.scale.set(0.5, 0.26);
+  birdShadow.alpha = 0.3;
   hero.addChild(birdShadow, tarsius.root, jalak.root);
   a.stage.addChild(hero);
 
-  // Name tags under the stage, in the same chunky style as the in-game labels.
-  const tag = (text: string, col: string, y: number): Text => {
-    const t = new Text({
-      text,
-      style: {
-        fontFamily: FONT, fontSize: 15, fontWeight: "800",
-        fill: col, letterSpacing: 1.6,
-        stroke: { color: INK_HEX, width: 4.5, join: "round" },
-      },
-    });
-    t.anchor.set(0.5, 0);
-    t.position.set(W / 2, y);
-    return t;
-  };
-  a.stage.addChild(tag("TARSIUS", "#ff8fb8", H - 34));
-  a.stage.addChild(tag("JALAK", "#ffd93b", H - 15));
+  // Name tags follow their characters, so the yellow JALAK word rides up with
+  // the bird while TARSIUS stays with the dancer below it.
+  labelT = nameTag("TARSIUS", "#ff8fb8");
+  labelJ = nameTag("JALAK", "#ffd93b");
+  a.stage.addChild(labelT, labelJ);
 
-  onTick = () => dance(performance.now() / 1000);
+  // Speech bubble for the invitations.
+  bubble = new Container();
+  bubbleBg = new Graphics();
+  bubbleText = new Text({
+    text: "",
+    style: {
+      fontFamily: FONT, fontSize: 12.5, fontWeight: "800",
+      fill: 0x3a2c5a, align: "center", wordWrap: true, wordWrapWidth: 220,
+    },
+  });
+  bubbleText.anchor.set(0.5);
+  bubble.addChild(bubbleBg, bubbleText);
+  bubble.visible = false;
+  a.stage.addChild(bubble);
+
+  measureSpots();
+  const start = spots.find((s) => s.action === "dance");
+  if (start) { pos = { x: start.x, y: start.y }; targetX = start.x; targetY = start.y; }
+  orbit = { x: pos.x, y: pos.y + ORBIT_CY };
+
+  ro = new ResizeObserver(() => resize());
+  if (cardEl) ro.observe(cardEl);
+  window.addEventListener("resize", resize);
+
+  onTick = () => tick(performance.now() / 1000);
   a.ticker.add(onTick);
 }
 
-/** One frame of choreography: the tarsius bounces and sways on the beat with
- * its ears flapping, the jalak orbits in a tilted ellipse, flapping faster. */
-function dance(t: number): void {
-  if (!tarsius || !jalak || !birdShadow) return;
+function nameTag(text: string, col: string): Text {
+  const t = new Text({
+    text,
+    style: {
+      fontFamily: FONT, fontSize: 10.5, fontWeight: "800",
+      fill: col, letterSpacing: 1.2,
+      stroke: { color: INK_HEX, width: 3.5, join: "round" },
+    },
+  });
+  t.anchor.set(0.5, 1);
+  t.alpha = 0.92;
+  return t;
+}
+
+/** Read the menu's real controls and turn them into roam targets, so the
+ * mascot interacts with whatever the card actually lays out. */
+function measureSpots(): void {
+  if (!app || !cardEl) return;
+  const cr = cardEl.getBoundingClientRect();
+  const local = (el: Element): { x: number; y: number } => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left - cr.left + r.width / 2, y: r.top - cr.top + r.height / 2 };
+  };
+  const q = <T extends HTMLElement>(sel: string): T | null => cardEl!.querySelector<T>(sel);
+  const next: Spot[] = [];
+  const play = q("#play-btn");
+  if (play) next.push({ ...local(play), action: "press", el: play });
+  const replays = q("#browse-replays-btn");
+  if (replays) next.push({ ...local(replays), action: "press", el: replays });
+  const input = q("#play-name");
+  if (input) next.push({ ...local(input), action: "poke", el: input });
+  const h3 = q(".play-join h3");
+  if (h3) next.push({ ...local(h3), action: "boop", el: h3 });
+  const tip = q(".home-tip");
+  if (tip) next.push({ ...local(tip), action: "boop", el: tip });
+
+  // Freestyle floor spots, so it also just dances around the card.
+  const w = cr.width, h = cr.height;
+  const cols = 3, rows = 4;
+  for (let i = 0; i < cols * rows; i++) {
+    const cx = MARGIN + ((i % cols) + 0.5) * ((w - MARGIN * 2) / cols);
+    const cy = MARGIN + (Math.floor(i / cols) + 0.5) * ((h - MARGIN * 2) / rows);
+    next.push({ x: cx, y: cy, action: "dance" });
+  }
+  spots = next;
+}
+
+function resize(): void {
+  if (!app || !host || !cardEl) return;
+  const w = cardEl.clientWidth, h = cardEl.clientHeight;
+  if (w < 50 || h < 50) return;
+  app.renderer.resize(w, h);
+  measureSpots();
+}
+
+/** Pick the next thing to go do — anything but the spot we're on. */
+function pickSpot(): void {
+  if (spots.length === 0) { state = "dance"; stateT = 2; return; }
+  let i = spotI;
+  for (let tries = 0; tries < 8; i = Math.floor(Math.random() * spots.length), tries++) {
+    if (i !== spotI) break;
+  }
+  spotI = i;
+  const s = spots[i];
+  targetX = s.x; targetY = s.y;
+  action = s.action;
+  actionEl = s.el;
+  actionFired = false;
+  state = "walk";
+  stateT = 30;   // safety cap; arrival ends the walk
+}
+
+function say(text: string, hold = 3.4): void {
+  if (!bubbleText) return;
+  bubbleText.text = text;
+  bubbleT = hold;
+}
+
+/** Redraw the bubble's body + tail so the tail always points at the tarsius. */
+function drawBubble(tailDown: boolean): void {
+  if (!bubbleText || !bubbleBg) return;
+  const w = Math.max(96, bubbleText.width + 24);
+  const h = bubbleText.height + 16;
+  const ty = (h - 6) / 2;
+  const dir = tailDown ? -1 : 1;
+  bubbleBg.clear();
+  bubbleBg.roundRect(-w / 2, -h / 2, w, h - 6, 10).fill({ color: 0xffffff, alpha: 0.96 })
+    .stroke({ width: 2, color: 0x6b5b9a, alpha: 0.5 });
+  bubbleBg.moveTo(-6, ty * dir).lineTo(0, (ty + 9) * dir).lineTo(6, ty * dir).closePath()
+    .fill({ color: 0xffffff, alpha: 0.96 });
+}
+
+/** Frame driver: roam → act → freestyle, with the bird orbiting the whole way
+ * and the invitations surfacing from time to time. */
+function tick(t: number): void {
+  if (!app || !tarsius || !jalak || !birdShadow || !labelT || !labelJ || !bubble || !bubbleText) return;
+  const dt = Math.min(0.05, app.ticker.deltaMS / 1000);
   const bt = t * BEAT * Math.PI;          // beat phase
-
-  // --- tarsius: two-step dance ---
   const sway = Math.sin(bt * 0.5);
-  const hop = Math.max(0, Math.sin(bt)) ** 1.5;
-  tarsius.root.y = -hop * 15;
-  tarsius.root.rotation = sway * 0.16;
-  // Squash on the land, stretch at the top of the hop.
-  const st = hop * 0.18 - (1 - hop) * 0.055 * Math.abs(Math.cos(bt));
-  tarsius.root.scale.set(1 - st * 0.7, 1 + st);
 
-  // Arms pump up on the beat, feet keep a little step.
-  const pump = Math.sin(bt) * 1.05;
-  tarsius.armL.rotation = 2.3 + pump;
-  tarsius.armR.rotation = -2.3 - pump;
-  tarsius.footL.y = -8.5 - hop * 4;
-  tarsius.footR.y = 8.5 - hop * 4;
-  tarsius.footL.x = 13 + sway * 3.5;
-  tarsius.footR.x = 13 - sway * 3.5;
-  // Ears flap big — the signature read, doubled for the dance.
-  tarsius.earL.rotation = 0.3 + Math.sin(bt * 2) * 0.55;
-  tarsius.earR.rotation = -0.3 - Math.sin(bt * 2) * 0.55;
-  // Eyes stay open (dancing, not blinking) — reset any stale blink scale.
+  let walking = false;
+  if (state === "walk") {
+    const dx = targetX - pos.x, dy = targetY - pos.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 5 || stateT <= 0) {
+      // Arrived: play the spot's bit.
+      pos.x = targetX; pos.y = targetY;
+      state = "act";
+      stateT = action === "dance" ? 1.9 : 1.35;
+    } else {
+      const step = Math.min(d, WALK_SPEED * dt);
+      pos.x += (dx / d) * step;
+      pos.y += (dy / d) * step;
+      facing = Math.atan2(dy, dx);
+      walking = true;
+      phase += dt * 15;
+      stateT -= dt;
+    }
+  } else {
+    stateT -= dt;
+    if (stateT <= 0) {
+      if (state === "act") {
+        // Settle into a short freestyle before wandering off again.
+        state = "dance";
+        stateT = 0.9 + Math.random() * 1.6;
+        if (Math.random() < 0.45) say(INVITES[Math.floor(Math.random() * INVITES.length)]);
+      } else {
+        pickSpot();
+      }
+    }
+  }
+
+  // --- tarsius pose ---
+  if (walking) {
+    // Step it out toward the target, with the ears streaming.
+    const sw = Math.sin(phase);
+    tarsius.root.rotation = facing;
+    tarsius.root.position.set(pos.x, pos.y - Math.abs(Math.cos(phase)) * 2.5);
+    tarsius.footL.x = 13 + sw * 10;
+    tarsius.footR.x = 13 - sw * 10;
+    tarsius.footL.y = -8.5 - Math.max(0, Math.cos(phase)) * 4;
+    tarsius.footR.y = 8.5 - Math.max(0, -Math.cos(phase)) * 4;
+    tarsius.armL.rotation = 1.2 + sw * 0.7;
+    tarsius.armR.rotation = -1.2 + sw * 0.7;
+    tarsius.earL.rotation = 0.3 + sw * 0.2;
+    tarsius.earR.rotation = -0.3 - sw * 0.2;
+    const st = 0.05 + Math.abs(Math.cos(phase)) * 0.05;
+    tarsius.root.scale.set(SCALE * (1 - st * 0.6), SCALE * (1 + st));
+  } else if (state === "act") {
+    // The spot's bit: press (hop + squash), poke (lean in), boop (bounce).
+    const p = 1 - Math.max(0, stateT) / 1.35;
+    tarsius.root.rotation = 0;
+    tarsius.footL.x = 13; tarsius.footR.x = 13;
+    tarsius.footL.y = -8.5; tarsius.footR.y = 8.5;
+    tarsius.earL.rotation = 0.3 + Math.sin(bt * 2) * 0.5;
+    tarsius.earR.rotation = -0.3 - Math.sin(bt * 2) * 0.5;
+    if (action === "press") {
+      const hop = Math.sin(Math.min(1, p * 1.35) * Math.PI);
+      tarsius.root.position.set(pos.x, pos.y - hop * 20);
+      tarsius.root.scale.set(SCALE * (1 + hop * 0.1), SCALE * (1 + hop * 0.16 - hop * hop * 0.2));
+      tarsius.armL.rotation = 2.5 - hop * 0.6;
+      tarsius.armR.rotation = -2.5 + hop * 0.6;
+      if (!actionFired && p > 0.45) {
+        actionFired = true;
+        pressEl(actionEl);                       // cosmetic bounce only
+        say("press ENTER THE ARENA!", 2.6);
+      }
+    } else if (action === "poke") {
+      tarsius.root.position.set(pos.x - 14 + Math.sin(p * 26) * 2, pos.y + 6);
+      tarsius.root.rotation = -0.12;
+      tarsius.root.scale.set(SCALE, SCALE);
+      tarsius.armL.rotation = 2.1 + Math.sin(p * 26) * 0.5;
+      tarsius.armR.rotation = -1.4;
+      if (!actionFired && p > 0.4) { actionFired = true; pokeEl(actionEl); }
+    } else if (action === "boop") {
+      const b = Math.abs(Math.sin(p * Math.PI * 2));
+      tarsius.root.position.set(pos.x, pos.y + 8 - b * 12);
+      tarsius.root.scale.set(SCALE * (1 - b * 0.06), SCALE * (1 + b * 0.12));
+      tarsius.armL.rotation = 2.4;
+      tarsius.armR.rotation = -2.4;
+      if (!actionFired && p > 0.3) { actionFired = true; boopEl(actionEl); }
+    } else {
+      const hop = Math.max(0, Math.sin(bt)) ** 1.5;
+      tarsius.root.position.set(pos.x, pos.y - hop * 12);
+      dancePose(bt, SCALE);
+      tarsius.armL.rotation = 2.3 + Math.sin(bt) * 1.05;
+      tarsius.armR.rotation = -2.3 - Math.sin(bt) * 1.05;
+    }
+  } else {
+    // Freestyle dance: hop on the beat, arms pumping, big ear flaps.
+    const hop = Math.max(0, Math.sin(bt)) ** 1.5;
+    tarsius.root.position.set(pos.x, pos.y - hop * 12);
+    tarsius.root.rotation = sway * 0.16;
+    dancePose(bt, SCALE);
+    tarsius.footL.y = -8.5 - hop * 4;
+    tarsius.footR.y = 8.5 - hop * 4;
+    tarsius.footL.x = 13 + sway * 3.5;
+    tarsius.footR.x = 13 - sway * 3.5;
+    tarsius.armL.rotation = 2.3 + Math.sin(bt) * 1.05;
+    tarsius.armR.rotation = -2.3 - Math.sin(bt) * 1.05;
+    tarsius.earL.rotation = 0.3 + Math.sin(bt * 2) * 0.55;
+    tarsius.earR.rotation = -0.3 - Math.sin(bt * 2) * 0.55;
+  }
   tarsius.blinkTarget.scale.y = 1;
+  labelT.position.set(tarsius.root.x, tarsius.root.y + 42 * SCALE);
 
-  // --- jalak: circling flight ---
+  // --- jalak: circles the dancing tarsius, held above it ---
+  orbit.x += (pos.x - orbit.x) * Math.min(1, dt * 2.2);
+  orbit.y += (pos.y + ORBIT_CY - orbit.y) * Math.min(1, dt * 2.2);
   const oa = (t / ORBIT_T) * Math.PI * 2;
-  const ox = Math.cos(oa) * ORBIT_RX;
-  const oy = ORBIT_CY + Math.sin(oa) * ORBIT_RY;
-  jalak.root.position.set(ox, oy);
-  // Face along the orbit tangent. The bird banks into the turn, dipping a wing
-  // toward the inside of the circle.
-  const tx = -Math.sin(oa) * ORBIT_RX;
-  const ty = Math.cos(oa) * ORBIT_RY;
+  const bx = orbit.x + Math.cos(oa) * ORBIT_RX;
+  const by = orbit.y + Math.sin(oa) * ORBIT_RY;
+  jalak.root.position.set(bx, by);
   const bank = Math.cos(oa) * 0.3;
-  jalak.root.rotation = Math.atan2(ty, tx) + bank * 0.35;
-  // Wing beat a touch faster than the dance, foreshortening the span the same
-  // way the in-game bird does.
+  jalak.root.rotation = Math.atan2(Math.cos(oa) * ORBIT_RY, -Math.sin(oa) * ORBIT_RX) + bank * 0.35;
   const flap = Math.sin(t * 11);
   const span = 0.62 + Math.abs(flap) * 0.5;
   jalak.wingL.scale.set(1 - Math.abs(flap) * 0.16, span);
@@ -141,21 +361,87 @@ function dance(t: number): void {
   jalak.wingR.position.y = 2.6 * span + flap * 1.1;
   jalak.tail.rotation = Math.sin(t * 11 - 0.7) * 0.22;
   jalak.head.rotation = -0.08;
-  jalak.root.scale.set(0.9 - Math.abs(flap) * 0.03, 0.9 + flap * 0.05);
-  // Shadow tracks the bird on the stage ellipse, shrinking as it "climbs".
-  birdShadow.position.set(ox * 0.92, 60);
-  birdShadow.scale.set(0.6 - Math.abs(bank) * 0.1, 0.32 - Math.abs(bank) * 0.05);
-  birdShadow.alpha = 0.3 - Math.abs(bank) * 0.08;
+  jalak.root.scale.set(SCALE * (1 - Math.abs(flap) * 0.03), SCALE * (1 + flap * 0.05));
+  birdShadow.position.set(bx, orbit.y + 42);
+  birdShadow.scale.set(0.5 - Math.abs(bank) * 0.08, 0.26 - Math.abs(bank) * 0.04);
+  // The yellow JALAK word rides under the bird, which orbits above the
+  // tarsius — so it always reads on the upper side of the box.
+  labelJ.position.set(bx, by + 16);
+
+  // --- speech bubble ---
+  bubbleCd -= dt;
+  if (bubbleCd <= 0 && bubbleT <= 0) {
+    bubbleCd = 11 + Math.random() * 9;
+    say(INVITES[Math.floor(Math.random() * INVITES.length)]);
+  }
+  if (bubbleT > 0) {
+    bubbleT -= dt;
+    bubble.visible = true;
+    // Flip the bubble below the tarsius when it roams high in the card, so the
+    // invitation never covers the heading or the name field.
+    const above = tarsius.root.y > 96;
+    drawBubble(above);
+    const w = bubbleText.width / 2 + 14;
+    const px = Math.min(Math.max(tarsius.root.x, w), app.screen.width - w);
+    const py = above ? tarsius.root.y - 78 : tarsius.root.y + 74;
+    bubble.position.set(px, py);
+    bubble.alpha = Math.min(1, bubbleT / 0.35);
+  } else {
+    bubble.visible = false;
+  }
+}
+
+/** Freestyle: squash on the landing, stretch at the top of the hop. */
+function dancePose(bt: number, s: number): void {
+  if (!tarsius) return;
+  const hop = Math.max(0, Math.sin(bt)) ** 1.5;
+  const st = hop * 0.18 - (1 - hop) * 0.055 * Math.abs(Math.cos(bt));
+  tarsius.root.scale.set(s * (1 - st * 0.7), s * (1 + st));
+}
+
+/** Cosmetic menu reactions — the mascot never actually activates a control. */
+function pressEl(el?: HTMLElement): void {
+  if (!el) return;
+  el.classList.remove("mascot-press");
+  void el.offsetWidth;             // restart the animation
+  el.classList.add("mascot-press");
+  window.setTimeout(() => el.classList.remove("mascot-press"), 520);
+}
+function pokeEl(el?: HTMLElement): void {
+  if (!el) return;
+  el.classList.remove("mascot-poke");
+  void el.offsetWidth;
+  el.classList.add("mascot-poke");
+  window.setTimeout(() => el.classList.remove("mascot-poke"), 650);
+}
+function boopEl(el?: HTMLElement): void {
+  if (!el) return;
+  el.classList.remove("mascot-boop");
+  void el.offsetWidth;
+  el.classList.add("mascot-boop");
+  window.setTimeout(() => el.classList.remove("mascot-boop"), 620);
 }
 
 export function stopHero(): void {
   if (!app) return;
   if (onTick) app.ticker.remove(onTick);
   onTick = null;
+  ro?.disconnect();
+  ro = null;
+  window.removeEventListener("resize", resize);
   app.destroy(true, { children: true });
   app = null;
   hero = null;
   tarsius = null;
   jalak = null;
   birdShadow = null;
+  bubble = null;
+  bubbleBg = null;
+  bubbleText = null;
+  labelT = null;
+  labelJ = null;
+  host = null;
+  cardEl = null;
+  spots = [];
+  spotI = -1;
 }
