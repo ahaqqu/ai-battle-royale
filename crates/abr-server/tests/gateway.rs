@@ -63,6 +63,19 @@ fn active_action(obs: &serde_json::Value) -> Option<serde_json::Value> {
     }))
 }
 
+/// Poll the port until the spawned server actually accepts TCP. A fixed nap
+/// loses the race on a cold CI runner, where bind can lag the client's first
+/// connect attempt (seen as `Connection refused` in the 0.72s CI failure).
+async fn wait_until_bound(port: u16) {
+    for _ in 0..40 {
+        if tokio::net::TcpStream::connect(("127.0.0.1", port)).await.is_ok() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    panic!("server on 127.0.0.1:{port} never started accepting");
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn m3_gateway_end_to_end() {
     let dir = tempfile::tempdir().unwrap();
@@ -85,7 +98,7 @@ async fn m3_gateway_end_to_end() {
             .expect("server");
     });
     // Give the server a moment to bind.
-    tokio::time::sleep(Duration::from_millis(600)).await;
+    wait_until_bound(port).await;
 
     let url = format!("ws://127.0.0.1:{port}/ws/bot");
     let (a, b) = tokio::join!(
@@ -171,7 +184,7 @@ async fn solo_human_gets_house_fill() {
     tokio::spawn(async move {
         Server::start(cfg, match_cfg).await.expect("server");
     });
-    tokio::time::sleep(Duration::from_millis(600)).await;
+    wait_until_bound(port).await;
 
     let (ws, _) = tokio_tungstenite::connect_async(format!("ws://127.0.0.1:{port}/ws/bot"))
         .await
