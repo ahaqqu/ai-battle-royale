@@ -11,8 +11,8 @@
 #        'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys'
 #   3. ssh-keyscan 62.83.35.220   # → GitHub secret VPS_KNOWN_HOSTS
 #   4. GitHub → Settings → Secrets and variables → Actions:
-#        DEPLOY_SSH_KEY   = contents of ~/.ssh/gh-deploy-key (the PRIVATE key)
-#        VPS_KNOWN_HOSTS  = output of step 3
+#        VPS_DEPLOY_SSH_KEY = contents of ~/.ssh/gh-deploy-key (the PRIVATE key)
+#        VPS_KNOWN_HOSTS    = output of step 3
 #   5. the sudoers drop-in from deploy.sh --bootstrap makes the final restart
 #      passwordless; until that first bootstrap the job only uploads artifacts
 #      and prints a reminder.
@@ -57,7 +57,7 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          echo "${{ secrets.VPS_DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           eval "$(ssh-agent -s)"

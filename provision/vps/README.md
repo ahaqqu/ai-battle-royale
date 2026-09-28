@@ -67,7 +67,7 @@ Actions):
 
 | Secret | Value |
 |---|---|
-| `DEPLOY_SSH_KEY` | contents of `~/.ssh/gh-deploy-key` (the private key) |
+| `VPS_DEPLOY_SSH_KEY` | contents of `~/.ssh/gh-deploy-key` (the private key) |
 | `VPS_KNOWN_HOSTS` | contents of `/tmp/vps_known_hosts` |
 
 After that, every merge to main that passes CI deploys itself. To revoke CI's
