@@ -98,7 +98,7 @@ if [ "$BOOTSTRAP" = 1 ]; then
     #    home), so the invoking user could not even cd into it afterwards.
     #    apply.sh's own sudo calls are no-ops when already root.
     echo "▶ bootstrapping VPS as $GUNBATTE_ADMIN_SSH (sudo password may be prompted once)…"
-    remote_cmd="sudo -v && sudo rsync -a $staging/ $GUNBATTE_DIR/ && sudo env GUNBATTE_GAME_HOST='$GUNBATTE_GAME_HOST' GUNBATTE_SITE_HOST='$GUNBATTE_SITE_HOST' GUNBATTE_EMAIL='$GUNBATTE_EMAIL' GUNBATTE_DIR='$GUNBATTE_DIR' GUNBATTE_PORT='$GUNBATTE_PORT' GUNBATTE_DEPLOY_USER='$GUNBATTE_DEPLOY_USER' bash $GUNBATTE_DIR/provision/vps/apply.sh"
+    remote_cmd="sudo -v && sudo rsync -a $staging/ $GUNBATTE_DIR/ && sudo rm -rf $staging && sudo env GUNBATTE_GAME_HOST='$GUNBATTE_GAME_HOST' GUNBATTE_SITE_HOST='$GUNBATTE_SITE_HOST' GUNBATTE_EMAIL='$GUNBATTE_EMAIL' GUNBATTE_DIR='$GUNBATTE_DIR' GUNBATTE_PORT='$GUNBATTE_PORT' GUNBATTE_DEPLOY_USER='$GUNBATTE_DEPLOY_USER' bash $GUNBATTE_DIR/provision/vps/apply.sh"
     ssh -t "$GUNBATTE_ADMIN_SSH" "$remote_cmd"
 else
     echo "▶ uploading to $GUNBATTE_SSH:$GUNBATTE_DIR …"
