@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build (if needed) and start the AI Battle Royale ladder server.
+# Build (if needed) and start the GUNBATTE ROYALE ladder server.
 #
 # Usage:
 #   ./start-server.sh                    # start on port 8321

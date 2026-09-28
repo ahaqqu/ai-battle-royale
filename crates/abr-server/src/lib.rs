@@ -462,7 +462,7 @@ async fn start_axum(server: Arc<Server>) -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", server.cfg.port)).await?;
     println!(
-        "▶ AI Battle Royale ladder server on http://0.0.0.0:{} (bots: /ws/bot, spectate: /ws/spectate)",
+        "▶ GUNBATTE ROYALE ladder server on http://0.0.0.0:{} (bots: /ws/bot, spectate: /ws/spectate)",
         server.cfg.port
     );
     axum::serve(listener, app).await?;

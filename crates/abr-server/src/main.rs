@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "abr-server", about = "AI Battle Royale ladder server")]
+#[command(name = "abr-server", about = "GUNBATTE ROYALE ladder server")]
 struct Cli {
     #[command(subcommand)]
     cmd: Cmd,

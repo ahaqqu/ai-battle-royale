@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" role="img" aria-label="GUNBATTE ROYALE wordmark">
+  <!-- furigana kana -->
+  <text x="480" y="64" text-anchor="middle"
+        font-family="'Hiragino Maru Gothic ProN','Yu Gothic','Noto Sans JP',sans-serif"
+        font-weight="800" font-size="34" letter-spacing="14" fill="#ff5fd0">がんばって！</text>
+
+  <!-- main word: GUN tangerine, BATTE grape, candy star -->
+  <text x="480" y="230" text-anchor="middle"
+        font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800" font-size="150" letter-spacing="4">
+    <tspan fill="#f5822a">GUN</tspan><tspan fill="#3a2c5a">BATTE</tspan>
+  </text>
+  <g transform="translate(812 118)">
+    <path d="M0 -26 L7 -8 26 -6 12 7 16 26 0 16 -16 26 -12 7 -26 -6 -7 -8 Z"
+          fill="#ff5fd0" stroke="#3a2c5a" stroke-width="5" stroke-linejoin="round"/>
+  </g>
+
+  <!-- crosshair accents flanking ROYALE -->
+  <g stroke="#3a2c5a" stroke-width="6" stroke-linecap="round" opacity="0.8">
+    <g transform="translate(160 318)">
+      <circle r="18" fill="none"/>
+      <line x1="-28" y1="0" x2="28" y2="0"/><line x1="0" y1="-28" x2="0" y2="28"/>
+    </g>
+    <g transform="translate(800 318)">
+      <circle r="18" fill="none"/>
+      <line x1="-28" y1="0" x2="28" y2="0"/><line x1="0" y1="-28" x2="0" y2="28"/>
+    </g>
+  </g>
+  <text x="480" y="344" text-anchor="middle"
+        font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800"
+        font-size="72" letter-spacing="34" fill="#3a2c5a">ROYALE</text>
+</svg>
