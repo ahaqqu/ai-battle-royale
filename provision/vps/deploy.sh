@@ -82,7 +82,8 @@ if [ "$BOOTSTRAP" = 1 ]; then
     # 1. stage on the VPS in the ADMIN's home (no sudo needed to write there).
     staging="/home/$(echo "$GUNBATTE_ADMIN_SSH" | cut -d@ -f1)/gunbatte-staging"
     echo "▶ staging upload to $GUNBATTE_ADMIN_SSH:$staging …"
-    ssh "$GUNBATTE_ADMIN_SSH" "mkdir -p '$staging'"
+    # pre-create the nested parents — rsync only makes the last path component
+    ssh "$GUNBATTE_ADMIN_SSH" "mkdir -p '$staging/viewer/dist' '$staging/website' '$staging/provision/vps'"
     rsync -a --delete "$stage/viewer-dist/" "$GUNBATTE_ADMIN_SSH:$staging/viewer/dist/"
     rsync -a --delete "$stage/website/"     "$GUNBATTE_ADMIN_SSH:$staging/website/"
     rsync -a --delete "$stage/provision/"   "$GUNBATTE_ADMIN_SSH:$staging/provision/"
@@ -95,7 +96,8 @@ if [ "$BOOTSTRAP" = 1 ]; then
     ssh -t "$GUNBATTE_ADMIN_SSH" "$remote_cmd"
 else
     echo "▶ uploading to $GUNBATTE_SSH:$GUNBATTE_DIR …"
-    ssh "$GUNBATTE_SSH" "mkdir -p '$GUNBATTE_DIR'"
+    # pre-create the nested parents — rsync only makes the last path component
+    ssh "$GUNBATTE_SSH" "mkdir -p '$GUNBATTE_DIR/viewer/dist' '$GUNBATTE_DIR/website' '$GUNBATTE_DIR/provision/vps'"
     rsync -a --delete "$stage/viewer-dist/" "$GUNBATTE_SSH:$GUNBATTE_DIR/viewer/dist/"
     rsync -a --delete "$stage/website/"     "$GUNBATTE_SSH:$GUNBATTE_DIR/website/"
     rsync -a --delete "$stage/provision/"   "$GUNBATTE_SSH:$GUNBATTE_DIR/provision/"
