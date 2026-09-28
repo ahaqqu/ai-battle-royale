@@ -1,0 +1,30 @@
+# provision/vps/gunbatte.service — the game server process.
+#
+# Mirrors the kajianq-api.service pattern: one dedicated, unprivileged unit per
+# app, so `systemctl restart gunbatte` can never disturb the other app. The
+# binary binds 127.0.0.1 (nginx on the same host fronts it with TLS), and all
+# mutable state (ladder.db, replays/) is created inside WorkingDirectory.
+#
+# Placeholders (__GUNBATTE_*) are substituted by provision/vps/apply.sh.
+
+[Unit]
+Description=GUNBATTE ROYALE game server (viewer, ladder, bot gateway)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__GUNBATTE_USER__
+Group=__GUNBATTE_USER__
+WorkingDirectory=__GUNBATTE_DIR__
+ExecStart=__GUNBATTE_DIR__/abr-server serve --port __GUNBATTE_PORT__ --bind 127.0.0.1
+Restart=always
+RestartSec=3
+
+# Light hardening: the unit never needs privileges, and its only writable
+# paths are the working directory (ladder.db, replays/) and /tmp.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
