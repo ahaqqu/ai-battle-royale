@@ -39,6 +39,7 @@ jobs:
       GUNBATTE_SSH: ${{ vars.VPS_USER }}@${{ vars.VPS_HOST }}
       GUNBATTE_GAME_HOST: ${{ vars.GUNBATTE_GAME_HOST }}
       GUNBATTE_PORT: ${{ vars.GUNBATTE_PORT }}
+      GUNBATTE_WEB_ROOT: ${{ vars.GUNBATTE_WEB_ROOT }}
       GUNBATTE_SITE_HOST: ${{ vars.GUNBATTE_SITE_HOST }}
       GUNBATTE_EMAIL: ${{ vars.GUNBATTE_EMAIL }}
     steps:
@@ -47,9 +48,12 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Check required variables
+        # Keep this list in sync with the `fetch` calls in deploy.sh — a
+        # variable the script reads but this job does not export fails with
+        # a clear message here instead of mid-deploy.
         run: |
           missing=0
-          for v in VPS_USER VPS_HOST GUNBATTE_GAME_HOST GUNBATTE_PORT; do
+          for v in VPS_USER VPS_HOST GUNBATTE_GAME_HOST GUNBATTE_PORT GUNBATTE_WEB_ROOT; do
             if [ -z "$(printenv "$v")" ]; then
               echo "::error::Repository variable '$v' is not set — add it under Settings → Secrets and variables → Actions → Variables"
               missing=1
