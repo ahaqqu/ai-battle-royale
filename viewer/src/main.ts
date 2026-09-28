@@ -17,6 +17,7 @@ import { Hud } from "./ui/hud.js";
 import { Timeline } from "./ui/timeline.js";
 import { sfx, panVol } from "./audio.js";
 import { startAmbient, stopAmbient } from "./ambient.js";
+import { startHero, stopHero } from "./render/hero.js";
 
 const TICK_RATE = 10;
 
@@ -95,6 +96,7 @@ let replaysPageNum = 0;
 function hideMenus(): void {
   picker.classList.add("hidden");
   replaysPage.classList.add("hidden");
+  stopHero();
   sfx.stopMenuTheme();
 }
 
@@ -110,6 +112,8 @@ async function showPicker(): Promise<void> {
   hideMenus();
   picker.classList.remove("hidden");
   sfx.startMenuTheme();
+  // Home mascots: the dancing tarsius with its jalak circling overhead.
+  void startHero(document.getElementById("hero-host")!);
   // Ambient home screen: the newest recorded match plays behind the menu.
   startAmbient(stage, ensureStage);
 
@@ -160,6 +164,7 @@ async function showPicker(): Promise<void> {
     } else if (!picker.classList.contains("hidden") || !replaysPage.classList.contains("hidden")) {
       hideMenus();
       picker.classList.remove("hidden");
+      void startHero(document.getElementById("hero-host")!);
     }
   });
 
@@ -843,13 +848,13 @@ function playLoop(ts: number): void {
   const zoneLeft = obs.global.zone.next
     ? ` · zone locks ${Math.max(0, Math.round((obs.global.zone.next.locks_at_tick - obs.tick) / 10))}s`
     : "";
-  const pet = obs.you.companion.alive
-    ? `<div class="pbar"><span>PET ${Math.round(obs.you.companion.hp)}</span><div><i style="width:${Math.max(0, obs.you.companion.hp / 30 * 100)}%;background:#c06bff"></i></div></div>`
-    : `<div class="pcd">pet respawning ${obs.you.companion.respawn_in_s ? obs.you.companion.respawn_in_s.toFixed(0) + "s" : "…"}</div>`;
+  const comp = obs.you.companion.alive
+    ? `<div class="pbar"><span>JALAK ${Math.round(obs.you.companion.hp)}</span><div><i style="width:${Math.max(0, obs.you.companion.hp / 30 * 100)}%;background:#35c1f0"></i></div></div>`
+    : `<div class="pcd">jalak respawning ${obs.you.companion.respawn_in_s ? obs.you.companion.respawn_in_s.toFixed(0) + "s" : "…"}</div>`;
   document.getElementById("play-bars")!.innerHTML = `
     <div class="pbar"><span>HP ${Math.round(me.hp)}</span><div><i style="width:${Math.max(0, me.hp)}%;background:${hpColor}"></i></div></div>
     <div class="pbar"><span>EN ${Math.round(me.energy)}</span><div><i style="width:${me.energy}%;background:#35c1f0"></i></div></div>
-    ${pet}
+    ${comp}
     <div class="pbar mini"><span>FIRE</span><div><i style="width:${(1 - Math.min(1, fireCd / 0.5)) * 100}%;background:${fireCd > 0 ? "#8d82b5" : "#ffd93b"}"></i></div></div>
     <div class="pbar mini"><span>SONAR</span><div><i style="width:${(1 - Math.min(1, sonarCd / 15)) * 100}%;background:${sonarCd > 0 ? "#8d82b5" : "#35c1f0"}"></i></div></div>
     <div class="pcd">sprint ${playClient.sprinting ? "ON (no firing)" : "off"} · ${outside ? "<b style='color:#e6455f'>OUTSIDE ZONE — RUN!</b>" : "zone ok"}${zoneLeft}</div>`;
