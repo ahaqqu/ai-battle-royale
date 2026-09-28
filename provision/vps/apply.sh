@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # provision/vps/apply.sh — one-time (and re-runnable) VPS bootstrap.
 #
-# Run ON the VPS, from the deployed app tree, with sudo credentials cached:
-#   sudo -v && GUNBATTE_GAME_HOST=play.example.com GUNBATTE_SITE_HOST=gunbatte.example.com \
-#     GUNBATTE_EMAIL=you@example.com GUNBATTE_DEPLOY_PUBKEY="$(cat ~/.ssh/gunbatte-deploy.pub)" \
-#     ./apply.sh
-#
-# Normally you do not run this by hand: provision/vps/deploy.sh --bootstrap
-# uploads the artifacts and invokes it over ssh for you.
+# Run ON the VPS, as root — provision/vps/deploy.sh --bootstrap does exactly
+# that (sudo env … bash apply.sh). Running it by hand:
+#   sudo -v && GUNBATTE_GAME_HOST=… GUNBATTE_SITE_HOST=… GUNBATTE_EMAIL=… \
+#     GUNBATTE_DEPLOY_USER=kajianq-deploy GUNBATTE_DIR=/home/kajianq-deploy/gunbatte \
+#     GUNBATTE_PORT=8321 bash apply.sh
+# The CI public key is read from deploy.pub next to this script (uploaded by
+# deploy.sh).
 #
 # The deploy identity is kajianq-deploy (the same restricted account the
 # KajianQ provisioning uses — shared username, scoped per-app grants):
@@ -25,7 +25,7 @@ set -euo pipefail
 
 : "${GUNBATTE_GAME_HOST:?set GUNBATTE_GAME_HOST (game hostname, e.g. play.example.com)}"
 : "${GUNBATTE_SITE_HOST:?set GUNBATTE_SITE_HOST (website hostname, e.g. gunbatte.example.com)}"
-: "${GUNBATTE_DEPLOY_PUBKEY:?set GUNBATTE_DEPLOY_PUBKEY (contents of the CI public key)}"
+: "${GUNBATTE_DEPLOY_PUBKEY:?set GUNBATTE_DEPLOY_PUBKEY (contents of the CI public key — deploy.sh takes it from deploy.pub beside this script)}"
 : "${GUNBATTE_DEPLOY_USER:?set GUNBATTE_DEPLOY_USER (restricted deploy identity, e.g. kajianq-deploy)}"
 : "${GUNBATTE_DIR:?set GUNBATTE_DIR (app dir, e.g. /home/kajianq-deploy/gunbatte)}"
 : "${GUNBATTE_PORT:?set GUNBATTE_PORT (loopback port for abr-server, e.g. 8321)}"
