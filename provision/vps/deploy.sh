@@ -58,8 +58,13 @@ if [ "$BOOTSTRAP" = 1 ]; then
     remote_cmd="cd $GUNBATTE_DIR/provision/vps && sudo -v && GUNBATTE_GAME_HOST=$GUNBATTE_GAME_HOST GUNBATTE_SITE_HOST=$GUNBATTE_SITE_HOST GUNBATTE_EMAIL=$GUNBATTE_EMAIL GUNBATTE_DIR=$GUNBATTE_DIR GUNBATTE_PORT=$GUNBATTE_PORT GUNBATTE_USER=$GUNBATTE_USER ./apply.sh"
     ssh -t "$GUNBATTE_SSH" "$remote_cmd"
 else
-    echo "▶ restarting gunbatte.service (passwordless via sudoers drop-in)…"
-    ssh "$GUNBATTE_SSH" "sudo -n systemctl restart gunbatte.service && systemctl is-active gunbatte.service"
+    if ssh "$GUNBATTE_SSH" "systemctl list-unit-files gunbatte.service --no-legend" | grep -q gunbatte; then
+        echo "▶ restarting gunbatte.service (passwordless via sudoers drop-in)…"
+        ssh "$GUNBATTE_SSH" "sudo -n systemctl restart gunbatte.service && systemctl is-active gunbatte.service"
+    else
+        echo "⚠ gunbatte.service is not installed on the VPS yet — artifacts uploaded."
+        echo "  Finish setup once with: ./provision/vps/deploy.sh --bootstrap"
+    fi
 fi
 
 echo "✔ deployed."

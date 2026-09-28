@@ -39,11 +39,41 @@ for the sudo password once. `apply.sh`:
 ## Updates
 
 ```sh
-GUNBATTE_GAME_HOST=play.example.com ./provision/vps/deploy.sh
+GUNBATTE_GAME_HOST=play.gunbatte.ahaqqu.com ./provision/vps/deploy.sh
 ```
 
 No sudo, no prompts: the sudoers drop-in covers the restart. The server's
 state (`ladder.db`, `replays/`) is never touched by uploads.
+
+## Automatic deploys (GitHub Actions)
+
+`.github/workflows/deploy.yml` fires **after CI finishes green on main** and
+runs the same `deploy.sh` — one deploy path for CI and humans. One-time setup:
+
+```sh
+# 1. a dedicated, revocable keypair (no passphrase; CI can't type one):
+ssh-keygen -t ed25519 -f ~/.ssh/gh-deploy-key -N "" -C "github-actions-deploy"
+
+# 2. authorize it on the VPS:
+cat ~/.ssh/gh-deploy-key.pub | ssh ahaqqu@62.83.35.220 \
+  'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys'
+
+# 3. pin the host key:
+ssh-keyscan 62.83.35.220 > /tmp/vps_known_hosts
+```
+
+Then add two GitHub **repository secrets** (Settings → Secrets and variables →
+Actions):
+
+| Secret | Value |
+|---|---|
+| `DEPLOY_SSH_KEY` | contents of `~/.ssh/gh-deploy-key` (the private key) |
+| `VPS_KNOWN_HOSTS` | contents of `/tmp/vps_known_hosts` |
+
+After that, every merge to main that passes CI deploys itself. To revoke CI's
+access, delete its line from `~/.ssh/authorized_keys` on the VPS. Until the
+first `--bootstrap` has run, the workflow only uploads artifacts and prints a
+reminder — the final restart needs the service to exist.
 
 ## Files
 

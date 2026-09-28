@@ -1,0 +1,67 @@
+# Deploy — push-to-deploy for the game + website.
+#
+# Fires AFTER the CI workflow finishes green on main (or on a manual dispatch),
+# then runs the exact same provision/vps/deploy.sh a human would: build viewer
+# + server, rsync to the VPS, restart gunbatte.service. One deploy path for
+# CI and humans.
+#
+# One-time setup (before this workflow can succeed):
+#   1. ssh-keygen -t ed25519 -f ~/.ssh/gh-deploy-key -N "" -C "github-actions"
+#   2. cat ~/.ssh/gh-deploy-key.pub | ssh ahaqqu@62.83.35.220 \
+#        'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys'
+#   3. ssh-keyscan 62.83.35.220   # → GitHub secret VPS_KNOWN_HOSTS
+#   4. GitHub → Settings → Secrets and variables → Actions:
+#        DEPLOY_SSH_KEY   = contents of ~/.ssh/gh-deploy-key (the PRIVATE key)
+#        VPS_KNOWN_HOSTS  = output of step 3
+#   5. the sudoers drop-in from deploy.sh --bootstrap makes the final restart
+#      passwordless; until that first bootstrap the job only uploads artifacts
+#      and prints a reminder.
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      GUNBATTE_GAME_HOST: play.gunbatte.ahaqqu.com
+      GUNBATTE_SSH: ahaqqu@62.83.35.220
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.1.0
+        with:
+          version: latest
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/deploy_key
+
+      - name: Deploy (build + upload + restart)
+        run: ./provision/vps/deploy.sh
