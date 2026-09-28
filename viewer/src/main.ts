@@ -409,8 +409,8 @@ function loop(ts: number): void {
         hud.legendDead(bot);
         hud.legendElim(bot, `t${frameB.tick}`);
         hud.kill((e.killer as number | null) ?? null, bot, data.botNames);
-        // Hitstop on every elimination: 90ms freeze (PLAN §7.3 juice).
-        hitstopUntil = ts + 90;
+        // Hitstop on every elimination: 120ms freeze (PLAN §7.3 juice).
+        hitstopUntil = ts + 120;
       }
     }
   }
@@ -426,12 +426,15 @@ function loop(ts: number): void {
   const shrinking = Math.abs(frameB.zone[2] - frameA.zone[2]) > 0.0001;
   zoneView!.update(frameA.zone, shrinking, frameA.zone[5] > 0);
 
-  // Dash afterimages: dashing mains leave a glowing wake.
+  // Dash afterimages: dashing mains leave a glowing wake; sprinters kick dust.
   for (let s = 0; s < frameA.unitCount; s++) {
     const o = s * 11;
-    if ((frameA.units[o + 9] & 4) !== 0) {
+    const fl = frameA.units[o + 9];
+    if ((fl & 4) !== 0) {
       const bot = frameA.units[o + 1];
       fx!.tracer(frameA.units[o + 3], frameA.units[o + 4], parseInt(botColor(bot).slice(1), 16), false);
+    } else if ((fl & 3) === 3 && Math.random() < 0.1) {
+      fx!.dust(frameA.units[o + 3] - frameA.units[o + 5] * 0.05, frameA.units[o + 4] - frameA.units[o + 6] * 0.05);
     }
   }
 
@@ -504,6 +507,13 @@ let prevMyShots = new Set<number>();
 let killProcessed = 0;
 let lastZoneBeep = 0;
 let bannerTimer = 0;
+// Play-mode FX state: last-seen enemy positions (death blasts), dash/shield
+// rising edges, last companion position, and a camera zoom punch on kills.
+let lastSeenPos = new Map<number, [number, number]>();
+let prevDashOn = false;
+let prevShieldOn = false;
+let prevCompPos: [number, number] | null = null;
+let zoomPunch = 0;
 
 const reticle = document.getElementById("reticle")!;
 const vignette = document.getElementById("vignette")!;
@@ -597,6 +607,9 @@ async function startPlay(name: string): Promise<void> {
       prevMainAlive = true; prevCompAlive = true;
       prevEnemyHp = new Map(); prevMyShots = new Set();
       killProcessed = 0;
+      lastSeenPos = new Map();
+      prevDashOn = false; prevShieldOn = false; prevCompPos = null;
+      zoomPunch = 0;
       playOverHide();
       setPlayStatus("in match — good luck");
     },
@@ -673,8 +686,20 @@ function playLoop(ts: number): void {
   for (const p of obs.seen.players) {
     const bot = p.id - 1;
     if (bot === playYouIndex || bot < 0 || bot >= bots) continue;
+    lastSeenPos.set(p.id, p.pos);
     setUnit(bot * 2, p.id, bot, 0, { pos: p.pos, vel: p.vel, facing: p.facing, hp: p.hp, alive: true, maxhp: 100 });
   }
+
+  // Rising-edge status FX for the local bean: dash launch streak, shield pop.
+  const dashOn = !!me.status?.includes("dashing");
+  const shieldOn = !!me.status?.includes("shielding");
+  if (dashOn && !prevDashOn) {
+    playFx!.dashStreak(me.pos[0], me.pos[1], me.facing ?? 0, playYouIndex);
+    zoomPunch = Math.max(zoomPunch, 0.12);
+  }
+  if (shieldOn && !prevShieldOn) playFx!.shieldPop(me.pos[0], me.pos[1]);
+  prevDashOn = dashOn;
+  prevShieldOn = shieldOn;
   playUnits.update(units, units, 0, bots * 2, true);
 
   const zoneArr = Float32Array.of(
@@ -699,8 +724,9 @@ function playLoop(ts: number): void {
     zone: { center: obs.global.zone.center, radius: obs.global.zone.radius, next: obs.global.zone.next },
   }, playYouIndex);
 
-  // Camera rides the player.
-  stage.setTarget(me.pos[0], me.pos[1], 1.05);
+  // Camera rides the player; zoomPunch kicks in on kills/hits/dashes.
+  stage.setTarget(me.pos[0], me.pos[1], 1.05 + zoomPunch);
+  zoomPunch *= Math.exp(-dt * 5);
 
   // ---------------- combat feel: diff this observation against the last one
   if (me.alive && prevMainAlive) {
@@ -709,6 +735,7 @@ function playLoop(ts: number): void {
       sfx.play("hurt", 0, 0.9);
       flashVignette(0.45 + Math.min(0.4, hpDrop / 30));
       stage.shake(2.5);
+      zoomPunch = Math.max(zoomPunch, 0.18);
       // Point the damage arrow at the likeliest shooter: the closest enemy
       // projectile in flight, else the strongest recent gunshot bearing.
       const threat = obs.seen.projectiles
@@ -749,8 +776,13 @@ function playLoop(ts: number): void {
   prevEnergy = me.energy;
 
   // Companion status pips.
+  if (obs.you.companion.alive && obs.you.companion.pos) prevCompPos = obs.you.companion.pos;
+  if (!prevCompAlive && obs.you.companion.alive && obs.you.companion.pos) {
+    playFx!.sparkle(obs.you.companion.pos[0], obs.you.companion.pos[1]);
+  }
   if (prevCompAlive && !obs.you.companion.alive) {
     sfx.play("boom", 0, 0.4);
+    if (prevCompPos) playFx!.deathBlast(prevCompPos[0], prevCompPos[1], playYouIndex);
     showBanner("companion down", "#ff9d3b", 1300);
   }
   prevCompAlive = obs.you.companion.alive;
@@ -760,8 +792,15 @@ function playLoop(ts: number): void {
   while (killProcessed < feed.length) {
     const k = feed[killProcessed++];
     hud.kill(k.killer, k.victim, names);
+    // Death blast at the victim's last seen position (own death is handled
+    // by the elimination block below — skip it here to avoid doubling).
+    if (k.victim !== playYouIndex) {
+      const pos = lastSeenPos.get(k.victim + 1);
+      if (pos) playFx!.deathBlast(pos[0], pos[1], k.victim);
+    }
     if (k.killer === playYouIndex) {
       sfx.play("kill", 0, 1);
+      zoomPunch = Math.max(zoomPunch, 0.24);
       showBanner(`eliminated ${names[k.victim]}!`, "#43d66e");
     }
   }
@@ -769,7 +808,9 @@ function playLoop(ts: number): void {
   // Your elimination.
   if (prevMainAlive && !me.alive) {
     sfx.play("boom", 0, 1);
+    playFx!.deathBlast(me.pos[0], me.pos[1], playYouIndex);
     flashVignette(0.9);
+    zoomPunch = Math.max(zoomPunch, 0.3);
     showBanner("you were eliminated", "#e6455f", 2400);
     playOverShow("💀", "ELIMINATED", `place revealed at match end — ${obs.global.alive} still fighting`);
   }

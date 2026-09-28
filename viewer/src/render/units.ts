@@ -57,6 +57,7 @@ export class UnitView {
   private facingCur = 0;
   private lastHp01 = 1;
   private flashT = 0;
+  private punchT = 0;
   private dashT = 0;
   private dashWas = false;
   private shieldVis = 0;
@@ -217,62 +218,77 @@ export class UnitView {
     this.name.position.set(0, yTop - 8);
     this.name.visible = showNames && this.kindMain;
 
-    // Hit flash (hp dropped since last frame).
-    if (hp01 < this.lastHp01 - 0.02) this.flashT = 0.16;
+    // Hit flash (hp dropped since last frame): white-out + scale punch.
+    if (hp01 < this.lastHp01 - 0.02) {
+      this.flashT = 0.24;
+      this.punchT = 0.22;
+    }
     this.lastHp01 = hp01;
     if (this.flashT > 0) {
       this.flashT -= dt;
-      this.flash.alpha = Math.max(0, this.flashT / 0.16) * 0.85;
+      this.flash.alpha = Math.max(0, this.flashT / 0.24);
     } else this.flash.alpha = 0;
   }
 
   private animateBean(dt: number, sp: number, sprint: boolean, dash: boolean, _hp01: number, flags: number): void {
-    // Walk cycle: speed-driven phase; feet step, arms counter-swing.
+    // Walk cycle: speed-driven phase; big foot steps, strong arm swing.
     const moving = sp > 12;
-    if (moving) this.phase += dt * (7 + sp * 0.032) * (sprint ? 1.45 : 1);
+    if (moving) this.phase += dt * (8.5 + sp * 0.035) * (sprint ? 1.45 : 1);
     const sw = moving ? Math.sin(this.phase) : 0;
     const ease = Math.min(1, dt * 12);
-    this.footL.x += ((FOOT_X + sw * 8) - this.footL.x) * ease;
-    this.footL.y += ((-FOOT_Y - Math.max(0, Math.cos(this.phase)) * 3) - this.footL.y) * ease;
-    this.footR.x += ((FOOT_X - sw * 8) - this.footR.x) * ease;
-    this.footR.y += ((FOOT_Y - Math.max(0, -Math.cos(this.phase)) * 3) - this.footR.y) * ease;
-    this.armL.rotation += ((1.05 + sw * 0.45) - this.armL.rotation) * ease;
-    this.armR.rotation += ((-1.05 + sw * 0.45) - this.armR.rotation) * ease;
+    this.footL.x += ((FOOT_X + sw * 10.5) - this.footL.x) * ease;
+    this.footL.y += ((-FOOT_Y - Math.max(0, Math.cos(this.phase)) * 4.5) - this.footL.y) * ease;
+    this.footR.x += ((FOOT_X - sw * 10.5) - this.footR.x) * ease;
+    this.footR.y += ((FOOT_Y - Math.max(0, -Math.cos(this.phase)) * 4.5) - this.footR.y) * ease;
+    this.armL.rotation += ((1.15 + sw * 0.65) - this.armL.rotation) * ease;
+    this.armR.rotation += ((-1.15 + sw * 0.65) - this.armR.rotation) * ease;
 
-    // Squash & stretch: motion stretch + walk bounce + dash pulse.
-    const st = Math.min(0.12, sp / 2000);
-    const bounce = moving ? Math.abs(Math.cos(this.phase)) * 0.055 : Math.sin(now2() * 2.6 + this.bot) * 0.025;
+    // Squash & stretch: motion stretch + walk bounce + dash pulse + hit punch.
+    const st = Math.min(0.16, sp / 1600);
+    const bounce = moving ? Math.abs(Math.cos(this.phase)) * 0.08 : Math.sin(now2() * 2.6 + this.bot) * 0.04;
     if (dash && !this.dashWas) this.dashT = 0.32;
     this.dashWas = dash;
     if (this.dashT > 0) this.dashT -= dt;
     const pulse = this.dashT > 0 ? Math.sin((this.dashT / 0.32) * Math.PI) : 0;
-    this.char.scale.set(1 + st + pulse * 0.38, 1 - st * 0.75 + bounce - pulse * 0.26);
+    if (this.punchT > 0) this.punchT -= dt;
+    const punch = this.punchT > 0 ? Math.sin((this.punchT / 0.22) * Math.PI) * 0.2 : 0;
+    this.char.scale.set(1 + st + pulse * 0.5 + punch, 1 - st * 0.75 + bounce - pulse * 0.34 + punch);
 
-    // Shield bubble inflates with a pop.
+    // Shield bubble: a loud glass dome — strong fill, thick rim, rotating
+    // energy arcs and a gentle pulse so it reads even on the bright floor.
     const target = (flags & UF_SHIELD) !== 0 ? 1 : 0;
-    this.shieldVis += (target - this.shieldVis) * Math.min(1, dt * 9);
+    this.shieldVis += (target - this.shieldVis) * Math.min(1, dt * 14);
     this.shield.clear();
     if (this.shieldVis > 0.02) {
-      const r = (MAIN_RX + 10) * (0.55 + 0.45 * this.shieldVis);
-      this.shield.circle(0, 0, r).fill({ color: 0xbfe9ff, alpha: 0.24 * this.shieldVis });
-      this.shield.circle(0, 0, r).stroke({ width: 3, color: 0xffffff, alpha: 0.9 * this.shieldVis });
-      this.shield.circle(-r * 0.35, -r * 0.45, 2.4).fill({ color: 0xffffff, alpha: 0.85 * this.shieldVis });
+      const now = now2();
+      const a = this.shieldVis;
+      const r = (MAIN_RX + 14) * (0.55 + 0.45 * a) * (1 + Math.sin(now * 7) * 0.035);
+      this.shield.circle(0, 0, r).fill({ color: 0x35c1f0, alpha: 0.3 * a });
+      this.shield.circle(0, 0, r * 0.72).fill({ color: 0xbfe9ff, alpha: 0.24 * a });
+      this.shield.circle(0, 0, r).stroke({ width: 5, color: 0xffffff, alpha: 0.95 * a });
+      this.shield.circle(0, 0, r + 4).stroke({ width: 2.5, color: 0x35c1f0, alpha: 0.8 * a });
+      for (const off of [0, Math.PI]) {
+        this.shield.arc(0, 0, r + 8, now * 2.2 + off, now * 2.2 + off + 1.1)
+          .stroke({ width: 3, color: 0xffffff, alpha: 0.75 * a, cap: "round" });
+      }
+      this.shield.circle(-r * 0.35, -r * 0.45, 3).fill({ color: 0xffffff, alpha: 0.9 * a });
+      this.shield.circle(r * 0.3, r * 0.42, 1.8).fill({ color: 0xffffff, alpha: 0.7 * a });
     }
 
     // Blink.
     this.blinkBean(dt);
 
-    this.glow.scale.set(1.7 + (sprint ? 0.35 : 0) + (dash ? 0.7 : 0));
-    this.glow.alpha = 0.2 + (dash ? 0.22 : 0);
+    this.glow.scale.set(1.7 + (sprint ? 0.55 : 0) + (dash ? 0.9 : 0));
+    this.glow.alpha = 0.24 + (sprint ? 0.12 : 0) + (dash ? 0.28 : 0);
     this.shadow.scale.set(0.62, 0.4);
   }
 
   private animatePet(dt: number, sp: number): void {
     // Float bob, faster when the owner moves; nubs trail a mini cycle.
     this.phase += dt * (3 + sp * 0.02);
-    const bob = Math.sin(this.phase) * (3.4 + Math.min(3.4, sp / 80));
+    const bob = Math.sin(this.phase) * (4.2 + Math.min(4, sp / 70));
     this.char.y = bob;
-    this.char.scale.set(1 + Math.cos(this.phase) * 0.035);
+    this.char.scale.set(1 + Math.cos(this.phase) * 0.05);
     this.footL.y = -4.8 + Math.sin(this.phase * 2) * 1.2;
     this.footR.y = 4.8 - Math.sin(this.phase * 2) * 1.2;
     this.blinkBean(dt);
