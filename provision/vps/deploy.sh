@@ -43,6 +43,16 @@ GUNBATTE_WEB_ROOT="$(fetch GUNBATTE_WEB_ROOT)"
 GUNBATTE_SSH="${GUNBATTE_SSH:-$GUNBATTE_DEPLOY_USER@$VPS_HOST}"
 GUNBATTE_DIR="${GUNBATTE_DIR:-/home/$GUNBATTE_DEPLOY_USER/gunbatte}"
 
+# SSH/rsync resilience: the VPS is a long-haul link (~200ms RTT here) where
+# an idle moment can drop the transport mid-upload ("Timeout, server not
+# responding" + broken pipe). Keepalives hold the connection open; a partial
+# transfer resumes on the next run because rsync is incremental.
+SSH_OPTS=(-o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o ConnectTimeout=20)
+RSYNC_OPTS=(-a --partial --timeout=120
+    -e "ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o ConnectTimeout=20")
+ssh() { command ssh "${SSH_OPTS[@]}" "$@"; }
+rsync() { command rsync "${RSYNC_OPTS[@]}" "$@"; }
+
 BOOTSTRAP=0
 [ "${1:-}" = "--bootstrap" ] && BOOTSTRAP=1
 
