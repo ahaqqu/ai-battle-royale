@@ -46,7 +46,7 @@ jobs:
         run: |
           missing=0
           for v in VPS_USER VPS_HOST GUNBATTE_GAME_HOST; do
-            if [ -z "${!v:-}" ]; then
+            if [ -z "$(printenv "$v")" ]; then
               echo "::error::Repository variable '$v' is not set — add it under Settings → Secrets and variables → Actions → Variables"
               missing=1
             fi

@@ -23,7 +23,10 @@ set -euo pipefail
 # repository's GitHub Actions variables — the same source CI reads, so there
 # is exactly one place where deployment values live. Nothing is hardcoded.
 fetch() {
-    local name="$1" val="${!name:-}"
+    local name="$1" val=""
+    # eval instead of ${!name:-} — modifiers are not allowed inside bash's
+    # indirect expansion (it would read the variable name as "name:").
+    eval "val=\"\${$name:-}\""
     if [ -n "$val" ]; then printf '%s\n' "$val"; return 0; fi
     if command -v gh >/dev/null 2>&1; then
         val="$(gh variable get "$name" 2>/dev/null || true)"
