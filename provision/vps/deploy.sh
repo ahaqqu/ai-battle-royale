@@ -89,10 +89,12 @@ if [ "$BOOTSTRAP" = 1 ]; then
     rsync -a --delete "$stage/provision/"   "$GUNBATTE_ADMIN_SSH:$staging/provision/"
     rsync -a "$stage/abr-server"            "$GUNBATTE_ADMIN_SSH:$staging/abr-server"
 
-    # 2. one interactive sudo session moves everything into place and runs
-    #    apply.sh (creates the deploy identity, unit, nginx, TLS, service).
+    # 2. one interactive sudo session: move everything into place, then run
+    #    apply.sh AS ROOT — the app dir belongs to the deploy identity (0700
+    #    home), so the invoking user could not even cd into it afterwards.
+    #    apply.sh's own sudo calls are no-ops when already root.
     echo "▶ bootstrapping VPS as $GUNBATTE_ADMIN_SSH (sudo password may be prompted once)…"
-    remote_cmd="sudo -v && sudo rsync -a $staging/ $GUNBATTE_DIR/ && sudo chown -R $GUNBATTE_DEPLOY_USER:$GUNBATTE_DEPLOY_USER $GUNBATTE_DIR && cd $GUNBATTE_DIR/provision/vps && sudo -v && GUNBATTE_GAME_HOST=$GUNBATTE_GAME_HOST GUNBATTE_SITE_HOST=$GUNBATTE_SITE_HOST GUNBATTE_EMAIL=$GUNBATTE_EMAIL GUNBATTE_DIR=$GUNBATTE_DIR GUNBATTE_PORT=$GUNBATTE_PORT GUNBATTE_DEPLOY_USER=$GUNBATTE_DEPLOY_USER GUNBATTE_DEPLOY_PUBKEY=\"\$(sudo cat $GUNBATTE_DIR/provision/vps/deploy.pub)\" ./apply.sh"
+    remote_cmd="sudo -v && sudo rsync -a $staging/ $GUNBATTE_DIR/ && sudo env GUNBATTE_GAME_HOST='$GUNBATTE_GAME_HOST' GUNBATTE_SITE_HOST='$GUNBATTE_SITE_HOST' GUNBATTE_EMAIL='$GUNBATTE_EMAIL' GUNBATTE_DIR='$GUNBATTE_DIR' GUNBATTE_PORT='$GUNBATTE_PORT' GUNBATTE_DEPLOY_USER='$GUNBATTE_DEPLOY_USER' bash $GUNBATTE_DIR/provision/vps/apply.sh"
     ssh -t "$GUNBATTE_ADMIN_SSH" "$remote_cmd"
 else
     echo "▶ uploading to $GUNBATTE_SSH:$GUNBATTE_DIR …"
