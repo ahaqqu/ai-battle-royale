@@ -72,13 +72,20 @@ jobs:
         run: curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
 
       - name: Set up SSH
+        # A per-step ssh-agent would not survive into the deploy step (fresh
+        # shell each step), so pin the key via ~/.ssh/config instead.
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/deploy_key
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<'EOF'
+          Host *
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+          EOF
+          chmod 600 ~/.ssh/config
 
       - name: Deploy (build + upload + restart)
         run: ./provision/vps/deploy.sh
