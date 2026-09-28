@@ -37,6 +37,10 @@ const COMP_R = 11;
 const FOOT_X = 13;    // paw rest position (front of body)
 const FOOT_Y = 8.5;
 
+/** Slain-the-Boss: the raid boss renders as a scaled crimson tarsius. */
+const BOSS_SCALE = 2.3;
+const BOSS_RED = 0xc22a4a;
+
 /** Jalak (Bali starling) plumage — the white/black/blue signature. */
 const JALAK_WHITE = 0xfbfdff;
 const JALAK_TIP = 0x25293f;
@@ -240,6 +244,9 @@ export class UnitView {
   orbit: Graphics;
   kindMain: boolean;
   bot: number;
+  /** Flipped on the first frame that reports KIND=2 (the raid boss): swaps
+   * the tarsius art for a huge crimson variant and resizes chrome. */
+  private boss = false;
 
   // Animation state.
   private phase = Math.random() * Math.PI * 2; // walk cycle / wing beat
@@ -303,6 +310,7 @@ export class UnitView {
     const o = this.slotOffset(unitsA);
     if (o < 0) { this.root.visible = false; return; }
     const flags = unitsA[o + U.FLAGS];
+    if (unitsA[o + U.KIND] === 2 && !this.boss) this.becomeBoss();
     const alive = (flags & UF_ALIVE) !== 0;
     this.root.visible = alive;
     if (!alive) return;
@@ -330,9 +338,9 @@ export class UnitView {
     else this.animateJalak(dt, sp, this.art);
 
     // HP pill.
-    const w = this.kindMain ? 52 : 26;
-    const h = this.kindMain ? 8 : 6;
-    const yTop = this.kindMain ? -MAIN_RY - 22 : -COMP_R - 16;
+    const w = this.boss ? 120 : this.kindMain ? 52 : 26;
+    const h = this.boss ? 10 : this.kindMain ? 8 : 6;
+    const yTop = this.boss ? -MAIN_RY * BOSS_SCALE - 26 : this.kindMain ? -MAIN_RY - 22 : -COMP_R - 16;
     const colFill = hp01 > 0.55 ? 0x43d66e : hp01 > 0.25 ? 0xffc93c : 0xff5f7e;
     this.hpBar.clear();
     this.hpBar.roundRect(-w / 2 - 2, yTop - 2, w + 4, h + 4, 5.5).fill({ color: 0xffffff, alpha: 0.95 });
@@ -340,7 +348,7 @@ export class UnitView {
     this.hpBar.roundRect(-w / 2 - 2, yTop - 2, w + 4, h + 4, 5.5).stroke({ width: 1.6, color: INK, alpha: 0.55 });
 
     this.name.position.set(0, yTop - 8);
-    this.name.visible = showNames && this.kindMain;
+    this.name.visible = showNames && (this.kindMain || this.boss);
 
     // Hit flash (hp dropped since last frame): white-out + scale punch.
     if (hp01 < this.lastHp01 - 0.02) {
@@ -352,6 +360,18 @@ export class UnitView {
       this.flashT -= dt;
       this.art.flash.alpha = Math.max(0, this.flashT / 0.24);
     } else this.art.flash.alpha = 0;
+  }
+
+  /** Swap the tarsius art for the raid boss: same character, huge, crimson
+   * fur, bigger glow. Runs once when the first boss-kind frame arrives. */
+  private becomeBoss(): void {
+    this.boss = true;
+    this.char.removeChild(this.art.root);
+    this.art = makeTarsius(BOSS_RED);
+    this.art.root.scale.set(BOSS_SCALE);
+    this.char.addChild(this.art.root);
+    this.name.style.fontSize = 15;
+    this.glow.tint = BOSS_RED;
   }
 
   private animateTarsius(dt: number, sp: number, sprint: boolean, dash: boolean, flags: number, art: TarsiusArt): void {
@@ -392,7 +412,8 @@ export class UnitView {
     if (this.shieldVis > 0.02) {
       const now = now2();
       const a = this.shieldVis;
-      const r = (MAIN_RX + 22) * (0.55 + 0.45 * a) * (1 + Math.sin(now * 7) * 0.035);
+      const baseR = this.boss ? MAIN_RY * BOSS_SCALE + 26 : MAIN_RX + 22;
+      const r = baseR * (0.55 + 0.45 * a) * (1 + Math.sin(now * 7) * 0.035);
       this.shield.circle(0, 0, r).fill({ color: 0x35c1f0, alpha: 0.3 * a });
       this.shield.circle(0, 0, r * 0.72).fill({ color: 0xbfe9ff, alpha: 0.24 * a });
       this.shield.circle(0, 0, r).stroke({ width: 5, color: 0xffffff, alpha: 0.95 * a });
@@ -408,9 +429,10 @@ export class UnitView {
     // Blink.
     this.blink(dt, art);
 
-    this.glow.scale.set(1.7 + (sprint ? 0.55 : 0) + (dash ? 0.9 : 0));
+    const gs = this.boss ? BOSS_SCALE : 1;
+    this.glow.scale.set((1.7 + (sprint ? 0.55 : 0) + (dash ? 0.9 : 0)) * gs);
     this.glow.alpha = 0.24 + (sprint ? 0.12 : 0) + (dash ? 0.28 : 0);
-    this.shadow.scale.set(0.62, 0.4);
+    this.shadow.scale.set(0.62 * gs, 0.4 * gs);
   }
 
   /** Jalak flight: the bird hovers beside its owner, wings beating faster the

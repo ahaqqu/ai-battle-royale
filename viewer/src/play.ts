@@ -40,11 +40,35 @@ export interface PlayObs {
 
 export type PlayStatus = "connecting" | "queued" | "playing" | "over" | "disconnected";
 
+/** A private room the socket is waiting in (server's `lobby_joined`/`lobby_roster`). */
+export interface LobbyInfo {
+  code: string;
+  host: string;
+  you: string;
+  mode: "royale" | "boss";
+  members: string[];
+}
+
+/** How this socket enters the server: the public queue, or a private room. */
+export interface LobbyIntent {
+  action: "create" | "join";
+  /** Room code, required for "join". */
+  code?: string;
+}
+
 export interface PlayCallbacks {
   onStatus: (s: PlayStatus, detail?: string) => void;
-  onStart: (youIndex: number, entrants: string[]) => void;
+  onStart: (youIndex: number, entrants: string[], role: "boss" | "raider") => void;
   onObs: (obs: PlayObs) => void;
   onOver: (place: number, replay: string | null) => void;
+  /** You are in a room: show the code + roster (fired on create and on join). */
+  onLobby?: (info: LobbyInfo) => void;
+  /** The roster changed (someone joined or left). */
+  onRoster?: (info: LobbyInfo) => void;
+  /** The room died (host left, or it was consumed by a match). */
+  onLobbyClosed?: (reason: string) => void;
+  /** Server-side rejection (bad code, full room, not the host…). */
+  onError?: (message: string) => void;
 }
 
 interface InputState {
@@ -83,8 +107,20 @@ export class PlayClient {
   mouseScreen = { x: 0, y: 0 };
   /** True while the left button is held (HUD reticle state). */
   firing = false;
+  /** Which mode this socket asked for (boss = Slain the Boss raid). */
+  mode: "royale" | "boss" = "royale";
+  /** This socket's room, while it waits in one. */
+  lobby: LobbyInfo | null = null;
 
-  constructor(private name: string, private cb: PlayCallbacks) {}
+  constructor(
+    private name: string,
+    private cb: PlayCallbacks,
+    mode: "royale" | "boss" = "royale",
+    /** Private-room entry, or null for the public quick-match queue. */
+    private lobbyIntent: LobbyIntent | null = null,
+  ) {
+    this.mode = mode;
+  }
 
   connect(url: string): void {
     this.setStatus("connecting");
@@ -92,8 +128,22 @@ export class PlayClient {
     this.ws = ws;
     ws.onopen = () => {
       // `human` marks this entrant for house-bot fill: the server tops the
-      // match up to 8 with reference brains so solo play never waits.
-      ws.send(JSON.stringify({ type: "register", name: this.name, decision_rate: 1, auto_heel: false, human: true }));
+      // match up to the full size with reference brains so nobody waits.
+      const reg: Record<string, unknown> = {
+        type: "register",
+        name: this.name,
+        decision_rate: 1,
+        auto_heel: false,
+        human: true,
+        mode: this.mode,
+      };
+      if (this.lobbyIntent?.action === "create") {
+        reg.lobby_action = "create";
+      } else if (this.lobbyIntent?.action === "join") {
+        reg.lobby_action = "join";
+        reg.lobby = this.lobbyIntent.code ?? "";
+      }
+      ws.send(JSON.stringify(reg));
     };
     ws.onmessage = (ev) => {
       let v: any;
@@ -104,16 +154,35 @@ export class PlayClient {
       }
       if (v.type === "registered") {
         this.setStatus("queued");
+      } else if (v.type === "lobby_joined" || v.type === "lobby_roster") {
+        const info: LobbyInfo = {
+          code: v.lobby ?? "",
+          host: v.host ?? "",
+          you: this.name,
+          mode: v.mode === "boss" ? "boss" : "royale",
+          members: v.members ?? [],
+        };
+        const first = this.lobby === null;
+        this.lobby = info;
+        if (first) this.cb.onLobby?.(info);
+        else this.cb.onRoster?.(info);
+      } else if (v.type === "lobby_closed") {
+        this.lobby = null;
+        this.cb.onLobbyClosed?.(v.reason ?? "closed");
+      } else if (v.type === "queued_as_boss") {
+        this.setStatus("queued", "boss (waiting for a raid)");
       } else if (v.type === "match_start") {
         this.playing = true;
+        this.lobby = null;
         this.setStatus("playing");
-        this.cb.onStart(v.you_index ?? 0, v.bots ?? []);
+        this.cb.onStart(v.you_index ?? 0, v.bots ?? [], v.role === "boss" ? "boss" : "raider");
       } else if (v.type === "match_over") {
         this.playing = false;
         this.setStatus("over");
         this.cb.onOver(v.place ?? 0, v.replay ?? null);
       } else if (v.type === "error") {
-        this.setStatus("disconnected", v.error);
+        this.setStatus("queued", v.error);
+        this.cb.onError?.(v.error ?? "error");
       } else {
         // Observation.
         const obs = v as PlayObs;
@@ -126,6 +195,14 @@ export class PlayClient {
       this.playing = false;
       this.setStatus("disconnected");
     };
+  }
+
+  /** Host action: start the room's match now (server checks who the host is).
+   * `fill` tops the roster up to that many entrants; `boss` picks the boss in
+   * a raid room ("ai", "boss", or a member name). */
+  startLobby(fill?: number, boss?: string): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ type: "lobby_start", action: "start", fill, boss }));
   }
 
   /** Attach global input listeners (keyboard + mouse). Mouse → world

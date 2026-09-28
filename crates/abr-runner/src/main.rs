@@ -71,8 +71,9 @@ fn main() {
                 (Some(b), _) => b.split(',').map(|s| s.trim().to_string()).collect(),
                 (_, Some(p)) if p == "default8" => abr_core::bots::default8(),
                 (_, Some(p)) if p == "default16" => abr_core::bots::default16(),
+                (_, Some(p)) if p == "boss" => abr_core::bots::boss_raid(),
                 _ => {
-                    eprintln!("--bots <a,b,c> or --preset default8 required");
+                    eprintln!("--bots <a,b,c> or --preset default8|default16|boss required");
                     std::process::exit(2);
                 }
             };
@@ -89,12 +90,22 @@ fn main() {
             for n in bots::BOT_NAMES {
                 println!("  {n}");
             }
+            println!("  boss   (the Slain-the-Boss raid boss brain)");
         }
     }
 }
 
-fn run(names: Vec<String>, seed: u64, out: String, verbose: bool, full_info_dump: bool) {
-    let config = MatchConfig::standard();
+fn run(mut names: Vec<String>, seed: u64, out: String, verbose: bool, full_info_dump: bool) {
+    let mut config = MatchConfig::standard();
+    // A lineup containing "boss" is a Slain-the-Boss raid; the boss is
+    // always the last entrant (that slot becomes UnitKind::Boss).
+    if let Some(pos) = names.iter().position(|n| n == "boss") {
+        config.mode = abr_core::config::GameMode::Boss;
+        if pos != names.len() - 1 {
+            let boss = names.remove(pos);
+            names.push(boss);
+        }
+    }
     let mut engine = MatchEngine::new(config, seed, &names);
     for (b, name) in names.iter().enumerate() {
         let uses_companion = bots::create(name, b as u32)

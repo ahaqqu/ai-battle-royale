@@ -429,6 +429,113 @@ impl RefBot for Berserker {
     }
 }
 
+// ---------------------------------------------------------------------------
+// BossBrain — the Slain-the-Boss raid boss. Slow but huge: holds the arena,
+// shells the nearest raider it can see, charges anything that hugs it, and
+// shields up when a volley lands. Sends its minion to sonar ahead.
+// ---------------------------------------------------------------------------
+
+pub struct BossBrain {
+    rng: Rng,
+    /// Highest hp the boss has seen (it starts full) — enrage at half.
+    peak_hp: f64,
+    /// Tick of the last charge dash (the boss charges sparingly).
+    last_charge: u64,
+}
+
+impl BossBrain {
+    pub fn new(bot: u32) -> Self {
+        BossBrain {
+            rng: Rng::new(7000 + bot as u64),
+            peak_hp: 1.0,
+            last_charge: 0,
+        }
+    }
+}
+
+impl RefBot for BossBrain {
+    fn name(&self) -> &'static str {
+        "boss"
+    }
+    fn uses_companion(&self) -> bool {
+        true
+    }
+    fn act(&mut self, obs: &Observation, _map: &GameMap) -> BotInput {
+        let (mx, my) = (obs.you.main.pos[0], obs.you.main.pos[1]);
+        let hp = obs.you.main.hp;
+        self.peak_hp = self.peak_hp.max(hp);
+        let enraged = hp < self.peak_hp * 0.5;
+
+        // Nearest raider the boss can see (full detail = can lead the shot).
+        let target = obs
+            .seen
+            .players
+            .iter()
+            .min_by(|a, b| a.range.partial_cmp(&b.range).unwrap());
+
+        // Stand-off distance: the cannon outranges raider vision, so hold
+        // ~450 and shell. Enraged, the boss pushes instead.
+        let mut m = match target {
+            Some(t) if t.range > (if enraged { 350.0 } else { 450.0 }) => {
+                move_to(mx, my, t.pos[0], t.pos[1], 1.0)
+            }
+            Some(t) if t.range < (if enraged { 120.0 } else { 260.0 }) => {
+                // Back off — kiting is for the boss too.
+                move_to(mx, my, mx + (mx - t.pos[0]) * 3.0, my + (my - t.pos[1]) * 3.0, 1.0)
+            }
+            _ => MoveInput::stop(),
+        };
+        if target.is_none() {
+            // Nobody visible: drift to the zone, where the raiders must be.
+            let (zx, zy) = zone_target(obs);
+            m = move_to(mx, my, zx, zy, 1.0);
+        }
+
+        let mut action = None;
+        if let Some(t) = target {
+            let d = t.range;
+            // Charge: dash INTO a close raider now and then (enrage: often).
+            let charge_cd: u64 = if enraged { 30 } else { 90 };
+            if d < 240.0
+                && obs.you.main.energy > 40.0
+                && obs.tick.saturating_sub(self.last_charge) > charge_cd
+            {
+                self.last_charge = obs.tick;
+                action = Some(UnitAction::Dash);
+                m = move_to(mx, my, t.pos[0], t.pos[1], 1.0);
+            } else {
+                // Lead full-detail targets; silhouettes get shot as-is.
+                let (tx, ty) = if t.detail == "full" {
+                    let vx = t.vel.map(|v| v[0]).unwrap_or(0.0);
+                    let vy = t.vel.map(|v| v[1]).unwrap_or(0.0);
+                    let lead = (d / 380.0).clamp(0.0, 1.5);
+                    (t.pos[0] + vx * lead, t.pos[1] + vy * lead)
+                } else {
+                    (t.pos[0], t.pos[1])
+                };
+                action = Some(fire_at(tx, ty));
+            }
+        }
+        // Shield up when a big volley just landed and energy allows.
+        if action.is_none() && self.peak_hp - hp > 90.0 && obs.you.main.energy > 30.0 {
+            action = Some(UnitAction::Shield);
+        }
+        if self.rng.below(400) == 0 && action.is_none() {
+            action = Some(UnitAction::Dash);
+        }
+
+        // Minion: sonar ahead, otherwise heel back to the boss.
+        let mut inp = base_input(m, action);
+        if obs.you.companion.cooldown.sonar.unwrap_or(99.0) <= 0.0 {
+            inp.companion.action = Some(UnitAction::Sonar);
+        } else {
+            inp.companion.action = Some(UnitAction::Heel);
+        }
+        inp.intent = Some(if enraged { "THE BOSS IS FURIOUS" } else { "crush them" }.into());
+        inp
+    }
+}
+
 /// Registry: name → constructor. Repeated names get distinct instances.
 pub fn create(name: &str, bot: u32) -> Option<Box<dyn RefBot>> {
     match name {
@@ -438,6 +545,7 @@ pub fn create(name: &str, bot: u32) -> Option<Box<dyn RefBot>> {
         "looter" => Some(Box::new(Looter::new(bot))),
         "survivor" => Some(Box::new(Survivor::new(bot))),
         "berserker" => Some(Box::new(Berserker::new(bot))),
+        "boss" => Some(Box::new(BossBrain::new(bot))),
         _ => None,
     }
 }
@@ -466,5 +574,15 @@ pub fn default16() -> Vec<String> {
     for i in 0..16 {
         v.push(BOT_NAMES[i % BOT_NAMES.len()].to_string());
     }
+    v
+}
+
+/// boss4: a Slain-the-Boss raid — 7 raiders + the boss.
+pub fn boss_raid() -> Vec<String> {
+    let mut v = Vec::new();
+    for i in 0..7 {
+        v.push(BOT_NAMES[i % BOT_NAMES.len()].to_string());
+    }
+    v.push("boss".to_string());
     v
 }

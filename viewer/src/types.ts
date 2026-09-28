@@ -108,7 +108,15 @@ export const BOT_COLORS = [
 ];
 
 /** CamFrame seen-player / projectile weapon entries carry the wire name. */
-export type WeaponName = "pea" | "sprinkler" | "scatter" | "lance" | "bouncer" | "skewer" | "popper";
+export type WeaponName =
+  | "pea"
+  | "sprinkler"
+  | "scatter"
+  | "lance"
+  | "bouncer"
+  | "skewer"
+  | "popper"
+  | "boss_cannon";
 
 /** The gun roster, wire name order. Index 0 = starter pea gun. */
 export const WEAPONS: {
@@ -121,6 +129,8 @@ export const WEAPONS: {
   { name: "bouncer", label: "GUM BOUNCER", color: "#35d6b5", blurb: "ricochets off walls ×3", cd: 0.55 },
   { name: "skewer", label: "LIQUORICE SKEWER", color: "#c06bff", blurb: "pierces up to 3 units", cd: 0.6 },
   { name: "popper", label: "POP ROCK", color: "#ff6a00", blurb: "explodes on impact", cd: 0.95 },
+  // Boss-only gun (Slain the Boss): never in the loot pool.
+  { name: "boss_cannon", label: "BOSS CANNON", color: "#ff2e4d", blurb: "the boss's heavy splash shell", cd: 1.1 },
 ];
 
 /** Wire name → roster index (unknown = pea). */

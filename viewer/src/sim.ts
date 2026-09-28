@@ -74,7 +74,7 @@ export function buildFrame(raw: RawFrame): Frame {
     const o = i * UNIT_STRIDE;
     units[o + U.ID] = u.id;
     units[o + U.BOT] = u.bot;
-    units[o + U.KIND] = u.kind === "main" ? 0 : 1;
+    units[o + U.KIND] = u.kind === "main" ? 0 : u.kind === "boss" ? 2 : 1;
     units[o + U.X] = u.pos[0];
     units[o + U.Y] = u.pos[1];
     units[o + U.VX] = u.vel[0];

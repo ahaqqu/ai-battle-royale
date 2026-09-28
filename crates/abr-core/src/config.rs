@@ -4,6 +4,21 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Which game mode a match runs. Serde default keeps old replays and old
+/// clients parsing: an absent `mode` field means the classic royale.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GameMode {
+    /// Classic last-one-standing (PLAN §2).
+    #[default]
+    Royale,
+    /// Slain the Boss: every entrant except the last is a raider (Tarsius +
+    /// Jalak), the last entrant is the arena boss with its own AI. Raiders
+    /// are one team and cannot hurt each other; the match ends when the
+    /// boss or every raider dies.
+    Boss,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct MatchConfig {
@@ -23,6 +38,10 @@ pub struct MatchConfig {
     pub auto_heel: bool,
     /// Timeout ladder (PLAN §4.3).
     pub timeouts: TimeoutConfig,
+    /// Game mode (default royale; `boss` = slain-the-boss raid).
+    pub mode: GameMode,
+    /// Boss tuning — only read when `mode` is Boss.
+    pub boss: BossConfig,
 }
 
 impl MatchConfig {
@@ -41,6 +60,16 @@ impl MatchConfig {
             loot: LootConfig::default(),
             auto_heel: true,
             timeouts: TimeoutConfig::default(),
+            mode: GameMode::default(),
+            boss: BossConfig::default(),
+        }
+    }
+
+    /// A slain-the-boss raid: same arena rules, boss slot enabled.
+    pub fn boss_raid() -> Self {
+        MatchConfig {
+            mode: GameMode::Boss,
+            ..MatchConfig::standard()
         }
     }
 }
@@ -308,6 +337,67 @@ impl Default for TimeoutConfig {
             max_slow_count: 30,
             max_missed_pct: 20,
             disconnect_grace_ticks: 100,
+        }
+    }
+}
+
+/// The raid boss (Slain the Boss mode). The boss is one entrant: its main
+/// unit gets these stats and the `boss_cannon` gun; its companion is the
+/// minion that respawns per the normal companion rules. The boss ignores
+/// the zone — it IS the endgame — and never swaps its cannon for loot.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct BossConfig {
+    pub radius: f64,
+    pub hp: f64,
+    /// Boss ground speed — kiting is the counterplay, so it is well under
+    /// the mains' 140.
+    pub speed: f64,
+    /// The boss watches the whole plaza.
+    pub vision: f64,
+    pub energy_max: f64,
+    pub energy_regen: f64,
+    /// The boss cannon: a slow heavy shell with a splash burst.
+    pub cannon: BossCannonConfig,
+    /// Raiders a boss match is filled up to (including the boss).
+    pub raid_size: u32,
+}
+
+impl Default for BossConfig {
+    fn default() -> Self {
+        BossConfig {
+            radius: 46.0,
+            hp: 3200.0,
+            speed: 92.0,
+            vision: 1000.0,
+            energy_max: 100.0,
+            energy_regen: 12.0,
+            cannon: BossCannonConfig::default(),
+            raid_size: 8,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct BossCannonConfig {
+    pub damage: f64,
+    pub speed: f64,
+    pub range: f64,
+    pub cooldown_s: f64,
+    pub splash_radius: f64,
+    pub splash_damage: f64,
+}
+
+impl Default for BossCannonConfig {
+    fn default() -> Self {
+        BossCannonConfig {
+            damage: 35.0,
+            speed: 380.0,
+            range: 900.0,
+            cooldown_s: 1.1,
+            splash_radius: 110.0,
+            splash_damage: 22.0,
         }
     }
 }
