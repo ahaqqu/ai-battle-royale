@@ -39,6 +39,7 @@ GUNBATTE_DEPLOY_USER="$(fetch VPS_USER)"
 VPS_HOST="$(fetch VPS_HOST)"
 GUNBATTE_GAME_HOST="$(fetch GUNBATTE_GAME_HOST)"
 GUNBATTE_PORT="$(fetch GUNBATTE_PORT)"
+GUNBATTE_WEB_ROOT="$(fetch GUNBATTE_WEB_ROOT)"
 GUNBATTE_SSH="${GUNBATTE_SSH:-$GUNBATTE_DEPLOY_USER@$VPS_HOST}"
 GUNBATTE_DIR="${GUNBATTE_DIR:-/home/$GUNBATTE_DEPLOY_USER/gunbatte}"
 
@@ -98,7 +99,7 @@ if [ "$BOOTSTRAP" = 1 ]; then
     #    home), so the invoking user could not even cd into it afterwards.
     #    apply.sh's own sudo calls are no-ops when already root.
     echo "▶ bootstrapping VPS as $GUNBATTE_ADMIN_SSH (sudo password may be prompted once)…"
-    remote_cmd="sudo -v && sudo rsync -a $staging/ $GUNBATTE_DIR/ && sudo rm -rf $staging && sudo env GUNBATTE_GAME_HOST='$GUNBATTE_GAME_HOST' GUNBATTE_SITE_HOST='$GUNBATTE_SITE_HOST' GUNBATTE_EMAIL='$GUNBATTE_EMAIL' GUNBATTE_DIR='$GUNBATTE_DIR' GUNBATTE_PORT='$GUNBATTE_PORT' GUNBATTE_DEPLOY_USER='$GUNBATTE_DEPLOY_USER' bash $GUNBATTE_DIR/provision/vps/apply.sh"
+    remote_cmd="sudo -v && sudo rsync -a $staging/ $GUNBATTE_DIR/ && sudo rm -rf $staging && sudo env GUNBATTE_GAME_HOST='$GUNBATTE_GAME_HOST' GUNBATTE_SITE_HOST='$GUNBATTE_SITE_HOST' GUNBATTE_EMAIL='$GUNBATTE_EMAIL' GUNBATTE_DIR='$GUNBATTE_DIR' GUNBATTE_WEB_ROOT='$GUNBATTE_WEB_ROOT' GUNBATTE_PORT='$GUNBATTE_PORT' GUNBATTE_DEPLOY_USER='$GUNBATTE_DEPLOY_USER' bash $GUNBATTE_DIR/provision/vps/apply.sh"
     ssh -t "$GUNBATTE_ADMIN_SSH" "$remote_cmd"
 else
     echo "▶ uploading to $GUNBATTE_SSH:$GUNBATTE_DIR …"
@@ -110,6 +111,14 @@ else
     rsync -a "$stage/abr-server"            "$GUNBATTE_SSH:$GUNBATTE_DIR/abr-server"
     # ladder.db and replays/ live in GUNBATTE_DIR too and are deliberately NOT
     # synced — they are the server's state.
+    # Publish the website to the world-readable web root nginx serves. The
+    # sudoers drop-in must cover this rsync; if it doesn't (older bootstrap),
+    # fall back to a plain copy of already-uploaded files.
+    if ssh "$GUNBATTE_SSH" "sudo -n rsync -a --delete '$GUNBATTE_DIR/website/' '$GUNBATTE_WEB_ROOT/'" 2>/dev/null; then
+        echo "✓ website published to $GUNBATTE_WEB_ROOT"
+    else
+        echo "⚠ could not publish the website to $GUNBATTE_WEB_ROOT (sudoers grant missing?)" >&2
+    fi
     if ssh "$GUNBATTE_SSH" "systemctl list-unit-files gunbatte.service --no-legend" | grep -q gunbatte; then
         echo "▶ restarting gunbatte.service (passwordless via sudoers drop-in)…"
         ssh "$GUNBATTE_SSH" "sudo -n systemctl restart gunbatte.service && systemctl is-active gunbatte.service"
