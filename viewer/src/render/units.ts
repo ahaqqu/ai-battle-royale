@@ -1,11 +1,13 @@
-/** Unit sprites, Fall Guys style: chunky bean characters with big googly
- * eyes, swinging arms, stepping feet, soft drop shadows and squash-stretch
- * juice. Mains are beans; companions are floating puffball "pets".
+/** Unit sprites: chunky tarsius characters — round fur ball (team color),
+ * huge cyan ears with purple cores, cream face mask, big glossy yellow eyes,
+ * cyan paws with claw tips — plus swinging arms, stepping feet, soft drop
+ * shadows and squash-stretch juice. Companions are floating puffball "pets".
  *
  * Everything animates procedurally per rendered frame: positions/facings are
  * interpolated between the two crossed sim frames (60fps motion from 10Hz
- * sim), feet/arms run a speed-driven walk cycle, dashing pops a squash-
- * stretch pulse, shielding inflates a bubble, taking a hit flashes white.
+ * sim), feet/arms run a speed-driven walk cycle, ears wobble with the gait,
+ * dashing pops a squash-stretch pulse, shielding inflates a bubble, taking a
+ * hit flashes white.
  *
  * Frame slots follow the Rust layout: [main₀, comp₀, main₁, comp₁, …] —
  * slot i → bot i>>1, main if i&1==0. */
@@ -14,10 +16,22 @@ import { Container, Graphics, Sprite, Text } from "pixi.js";
 import { botColor, FONT, INK, INK_HEX, shade, U, UNIT_STRIDE, UF_ALIVE, UF_DASH, UF_SHIELD, UF_SPRINT } from "../types.js";
 import { Stage } from "./stage.js";
 
-const MAIN_RX = 21;   // bean half-length along facing
-const MAIN_RY = 17;   // bean half-width
+const MAIN_RX = 20;   // body radius
+const MAIN_RY = 20;
+
+/** Species-constant tarsius colors (only the fur takes the team color).
+ * Ear/paw cyan is deliberately deeper than the sky-blue team color so the
+ * ears never blend into a blue bot's fur. */
+const EAR_CYAN = 0x1fb2e8;
+const EAR_BLUE = 0x3a41d6;
+const EAR_INNER = 0x8b3fd9;
+const PAW_CYAN = 0x1fb2e8;
+const CLAW = 0x8a46e8;
+const FACE_CREAM = 0xf5e7c8;
+const EYE_YELLOW = 0xf7d308;
+const NOSE_PURPLE = 0x8b3fd9;
 const COMP_R = 11;
-const FOOT_X = 13;    // foot rest position (front of body)
+const FOOT_X = 13;    // paw rest position (front of body)
 const FOOT_Y = 8.5;
 
 function lerpAngleDeg(a: number, b: number, t: number): number {
@@ -39,6 +53,8 @@ export class UnitView {
   /** Whole character; rotates to facing. */
   char = new Container();
   body!: Graphics;
+  earL!: Graphics;
+  earR!: Graphics;
   armL!: Graphics;
   armR!: Graphics;
   footL!: Graphics;
@@ -81,7 +97,7 @@ export class UnitView {
     this.glow.tint = col;
     this.glow.blendMode = "add";
 
-    if (this.kindMain) this.buildBean(col);
+    if (this.kindMain) this.buildTarsius(col);
     else this.buildPet(col);
 
     this.shield = new Graphics();
@@ -104,41 +120,91 @@ export class UnitView {
     stage.unitLayer.addChild(this.root);
   }
 
-  /** The Fall Guys bean: arms + feet (animated), egg body, big googly eyes. */
-  private buildBean(col: number): void {
-    const dark = shade(col, 0.72);
-    this.armL = nub(5, 3, dark, 2);
-    this.armR = nub(5, 3, dark, 2);
-    this.footL = nub(6, 4.2, dark, 2.2);
-    this.footR = nub(6, 4.2, dark, 2.2);
-    this.armL.position.set(-7, -16.5);
-    this.armR.position.set(-7, 16.5);
+  /** The tarsius: cyan clawed paws (animated), huge dish ears behind the
+   * head, round fur ball, cream face mask with big yellow eyes, purple nose
+   * and a tiny smile — all facing local +X, which the char container points
+   * along the movement bearing. */
+  private buildTarsius(col: number): void {
+    // Paws: cyan mittens with two purple claw tips.
+    const paw = (rx: number, ry: number, ow: number): Graphics => {
+      const g = new Graphics();
+      g.ellipse(0, 0, rx, ry).fill({ color: PAW_CYAN }).stroke({ width: ow, color: INK, alpha: 0.85 });
+      g.circle(rx * 0.55, -ry * 0.38, 1.35).fill({ color: CLAW });
+      g.circle(rx * 0.62, ry * 0.34, 1.35).fill({ color: CLAW });
+      return g;
+    };
+    this.armL = paw(5.4, 3.8, 2);
+    this.armR = paw(5.4, 3.8, 2);
+    this.armL.position.set(-2, -16);
+    this.armR.position.set(-2, 16);
+    this.footL = paw(6, 4.6, 2.2);
+    this.footR = paw(6, 4.6, 2.2);
     this.footL.position.set(FOOT_X, -FOOT_Y);
     this.footR.position.set(FOOT_X, FOOT_Y);
 
-    this.body = new Graphics();
-    this.body.ellipse(0, 0, MAIN_RX, MAIN_RY).fill({ color: col });
-    // Lighter face/belly patch toward the front.
-    this.body.ellipse(6, 0, 12.5, 11.5).fill({ color: shade(col, 1.28), alpha: 0.5 });
-    this.body.ellipse(0, 0, MAIN_RX, MAIN_RY).stroke({ width: 3, color: INK, alpha: 0.9 });
-    // Gloss sparkle on the back.
-    this.body.circle(-8, -6.5, 3.2).fill({ color: 0xffffff, alpha: 0.65 });
-    this.body.circle(-3, -9.5, 1.7).fill({ color: 0xffffff, alpha: 0.55 });
+    // Ears: the signature read — big swept-back dishes rising well above the
+    // head, cyan rim with a dark-blue then purple inner. Pivots sit behind the
+    // body's sides so the attachment is hidden; animateTarsius wobbles them.
+    const ear = (dir: 1 | -1): Graphics => {
+      const g = new Graphics();
+      g.ellipse(0, dir * 12, 7.4, 15.4).fill({ color: EAR_CYAN }).stroke({ width: 2.6, color: INK, alpha: 0.9 });
+      g.ellipse(-1, dir * 12.5, 4.5, 10.2).fill({ color: EAR_BLUE });
+      g.ellipse(-1.6, dir * 12, 2.5, 6.4).fill({ color: EAR_INNER });
+      return g;
+    };
+    this.earL = ear(-1);
+    this.earR = ear(1);
+    this.earL.position.set(-4, -12.5);
+    this.earR.position.set(-4, 12.5);
 
-    // Big googly eyes, looking where we go.
-    for (const dy of [-6, 6]) {
+    this.body = new Graphics();
+    this.body.circle(0, 0, MAIN_RX).fill({ color: col });
+    this.body.circle(0, 0, MAIN_RX).stroke({ width: 3, color: INK, alpha: 0.9 });
+    // Cream face mask: two eye lobes merged with a wide muzzle patch, plus the
+    // small V that runs up between the eyes (the reference's forehead notch).
+    // Stroke every shape first, then fill them all — interior strokes get
+    // buried under the fills, leaving one clean outline around the union.
+    const mask = [
+      { x: 9.4, y: -6.8, rx: 8.8, ry: 8.8 },
+      { x: 9.4, y: 6.8, rx: 8.8, ry: 8.8 },
+      { x: 10.4, y: 0, rx: 9.6, ry: 9.4 },
+    ];
+    for (const m of mask) {
+      this.body.ellipse(m.x, m.y, m.rx, m.ry).stroke({ width: 3, color: INK, alpha: 0.9 });
+    }
+    for (const m of mask) {
+      this.body.ellipse(m.x, m.y, m.rx, m.ry).fill({ color: FACE_CREAM });
+    }
+    // The reference's signature notch: a fur wedge between the eyes, narrow at
+    // the back of the mask and widening toward the muzzle. Mostly hidden
+    // behind the near-touching eyes — a subtle read at high zoom only.
+    this.body.moveTo(5.4, 0).lineTo(13, -2.6).lineTo(13, 2.6).closePath().fill({ color: col });
+
+    // Big wide-open yellow eyes — no pupils (the reference's wide-eyed stare),
+    // just a large white shine up-left and a small one below-right.
+    for (const dy of [-6.4, 6.4]) {
       const eye = new Graphics();
-      eye.circle(0, 0, 5.2).fill({ color: 0xffffff }).stroke({ width: 1.2, color: INK, alpha: 0.5 });
-      eye.circle(2.4, 0, 2.7).fill({ color: INK });
-      eye.circle(3.4, -1.3, 1).fill({ color: 0xffffff });
-      eye.position.set(11, dy);
+      eye.circle(0, 0, 5.9).fill({ color: EYE_YELLOW }).stroke({ width: 1.9, color: INK, alpha: 0.9 });
+      eye.circle(-1.7, -1.9, 2).fill({ color: 0xffffff });
+      eye.circle(1.6, 2, 0.9).fill({ color: 0xffffff, alpha: 0.9 });
+      eye.position.set(11.4, dy);
       this.face.addChild(eye);
     }
+    const nose = new Graphics();
+    nose.ellipse(0, 0, 2.3, 1.7).fill({ color: NOSE_PURPLE }).stroke({ width: 1.1, color: INK, alpha: 0.8 });
+    nose.position.set(13.4, 0);
+    this.face.addChild(nose);
+    // Smile: a short arc bulging toward the muzzle's front (the face's "chin"
+    // direction is local +X, so the smile opens back toward the eyes).
+    const mouth = new Graphics();
+    mouth.arc(0, 0, 3.2, -Math.PI * 0.36, Math.PI * 0.36).stroke({ width: 1.5, color: INK, alpha: 0.8, cap: "round" });
+    mouth.position.set(15.2, 0);
+    this.face.addChild(mouth);
 
     this.flash = new Graphics();
-    this.flash.ellipse(0, 0, MAIN_RX + 1, MAIN_RY + 1).fill({ color: 0xffffff, alpha: 0 });
+    this.flash.circle(0, 0, MAIN_RX + 1.5).fill({ color: 0xffffff, alpha: 0 });
 
-    this.char.addChild(this.armL, this.armR, this.footL, this.footR, this.body, this.face, this.flash);
+    this.char.addChild(this.earL, this.earR, this.armL, this.armR, this.footL, this.footR, this.body, this.face, this.flash);
   }
 
   /** Floating puffball pet with a face and tiny nub feet. */
@@ -202,7 +268,7 @@ export class UnitView {
     const sprint = (flags & UF_SPRINT) !== 0;
     const dash = (flags & UF_DASH) !== 0;
 
-    if (this.kindMain) this.animateBean(dt, sp, sprint, dash, hp01, flags);
+    if (this.kindMain) this.animateTarsius(dt, sp, sprint, dash, hp01, flags);
     else this.animatePet(dt, sp);
 
     // HP pill.
@@ -230,7 +296,7 @@ export class UnitView {
     } else this.flash.alpha = 0;
   }
 
-  private animateBean(dt: number, sp: number, sprint: boolean, dash: boolean, _hp01: number, flags: number): void {
+  private animateTarsius(dt: number, sp: number, sprint: boolean, dash: boolean, _hp01: number, flags: number): void {
     // Walk cycle: speed-driven phase; big foot steps, strong arm swing.
     const moving = sp > 12;
     if (moving) this.phase += dt * (8.5 + sp * 0.035) * (sprint ? 1.45 : 1);
@@ -242,6 +308,12 @@ export class UnitView {
     this.footR.y += ((FOOT_Y - Math.max(0, -Math.cos(this.phase)) * 4.5) - this.footR.y) * ease;
     this.armL.rotation += ((1.15 + sw * 0.65) - this.armL.rotation) * ease;
     this.armR.rotation += ((-1.15 + sw * 0.65) - this.armR.rotation) * ease;
+
+    // Ears: swept slightly forward, flapping with the gait (gentle idle sway
+    // when standing still) — the big signature read of the character.
+    const flap = moving ? Math.sin(this.phase) * 0.16 : Math.sin(now2() * 2.6 + this.bot) * 0.07;
+    this.earL.rotation = 0.3 + flap;
+    this.earR.rotation = -0.3 - flap;
 
     // Squash & stretch: motion stretch + walk bounce + dash pulse + hit punch.
     const st = Math.min(0.16, sp / 1600);
@@ -262,7 +334,7 @@ export class UnitView {
     if (this.shieldVis > 0.02) {
       const now = now2();
       const a = this.shieldVis;
-      const r = (MAIN_RX + 14) * (0.55 + 0.45 * a) * (1 + Math.sin(now * 7) * 0.035);
+      const r = (MAIN_RX + 22) * (0.55 + 0.45 * a) * (1 + Math.sin(now * 7) * 0.035);
       this.shield.circle(0, 0, r).fill({ color: 0x35c1f0, alpha: 0.3 * a });
       this.shield.circle(0, 0, r * 0.72).fill({ color: 0xbfe9ff, alpha: 0.24 * a });
       this.shield.circle(0, 0, r).stroke({ width: 5, color: 0xffffff, alpha: 0.95 * a });
@@ -276,7 +348,7 @@ export class UnitView {
     }
 
     // Blink.
-    this.blinkBean(dt);
+    this.blink(dt);
 
     this.glow.scale.set(1.7 + (sprint ? 0.55 : 0) + (dash ? 0.9 : 0));
     this.glow.alpha = 0.24 + (sprint ? 0.12 : 0) + (dash ? 0.28 : 0);
@@ -291,7 +363,7 @@ export class UnitView {
     this.char.scale.set(1 + Math.cos(this.phase) * 0.05);
     this.footL.y = -4.8 + Math.sin(this.phase * 2) * 1.2;
     this.footR.y = 4.8 - Math.sin(this.phase * 2) * 1.2;
-    this.blinkBean(dt);
+    this.blink(dt);
     const t2 = now2();
     this.orbit.clear();
     this.orbit.circle(Math.cos(t2 * 3) * 16, Math.sin(t2 * 3) * 16 - 6, 2).fill({ color: 0xffffff, alpha: 0.9 });
@@ -302,7 +374,7 @@ export class UnitView {
   }
 
   /** Both eyes squeeze shut for a beat every few seconds. */
-  private blinkBean(dt: number): void {
+  private blink(dt: number): void {
     if (this.blinkT > 0) {
       this.blinkT -= dt;
       this.face.scale.y = 0.12;

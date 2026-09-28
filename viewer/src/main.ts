@@ -690,7 +690,7 @@ function playLoop(ts: number): void {
     setUnit(bot * 2, p.id, bot, 0, { pos: p.pos, vel: p.vel, facing: p.facing, hp: p.hp, alive: true, maxhp: 100 });
   }
 
-  // Rising-edge status FX for the local bean: dash launch streak, shield pop.
+  // Rising-edge status FX for the local tarsius: dash streak, shield pop.
   const dashOn = !!me.status?.includes("dashing");
   const shieldOn = !!me.status?.includes("shielding");
   if (dashOn && !prevDashOn) {

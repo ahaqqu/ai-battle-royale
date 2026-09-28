@@ -73,7 +73,7 @@ export class Director {
       for (const p of this.acc) {
         maxSpread = Math.max(maxSpread, Math.hypot(p.x - cx, p.y - cy) * 2 + 500);
       }
-      // Zoom floor of 0.55 keeps the beans readable at wide shots.
+      // Zoom floor of 0.55 keeps the tarsius readable at wide shots.
       dx = cx;
       dy = cy;
       dzLog = Math.log(Math.min(1.5, Math.max(0.55, fitZoom(maxSpread + 380))));
