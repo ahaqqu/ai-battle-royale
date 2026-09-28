@@ -33,6 +33,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     env:
+      VPS_USER: ${{ vars.VPS_USER }}
       GUNBATTE_DEPLOY_USER: ${{ vars.VPS_USER }}
       VPS_HOST: ${{ vars.VPS_HOST }}
       GUNBATTE_SSH: ${{ vars.VPS_USER }}@${{ vars.VPS_HOST }}
