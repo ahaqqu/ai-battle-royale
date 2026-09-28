@@ -136,11 +136,13 @@ pub fn load_map(id: &str) -> Option<GameMap> {
 }
 
 /// Segment vs AABB (slab method). Returns Some(t) for the earliest entry
-/// hit with t in [0, 1], None otherwise. `a`,`b` are segment endpoints.
-pub fn segment_aabb(a: Vec2, b: Vec2, min: Vec2, max: Vec2) -> Option<Fix> {
+/// hit with t in [0, 1], plus the axis (0 = x, 1 = y) of the entry slab.
+/// `a`,`b` are segment endpoints.
+pub fn segment_aabb_axis(a: Vec2, b: Vec2, min: Vec2, max: Vec2) -> Option<(Fix, usize)> {
     let d = b.sub(a);
     let mut t_near = fixed::from_int(0);
     let mut t_far = ONE;
+    let mut axis_hit: Option<usize> = None;
     for axis in 0..2 {
         let (p, dd, lo, hi) = match axis {
             0 => (a.x, d.x, min.x, max.x),
@@ -157,7 +159,12 @@ pub fn segment_aabb(a: Vec2, b: Vec2, min: Vec2, max: Vec2) -> Option<Fix> {
             if t0 > t1 {
                 core::mem::swap(&mut t0, &mut t1);
             }
-            t_near = t_near.max(t0);
+            if t0 > t_near || axis_hit.is_none() {
+                t_near = t_near.max(t0);
+                if t0 == t_near {
+                    axis_hit = Some(axis);
+                }
+            }
             t_far = t_far.min(t1);
             if t_near > t_far {
                 return None;
@@ -165,10 +172,19 @@ pub fn segment_aabb(a: Vec2, b: Vec2, min: Vec2, max: Vec2) -> Option<Fix> {
         }
     }
     if t_near <= ONE && t_far >= 0 {
-        Some(t_near)
+        // Ray started inside the slab box on the winning axis: fall back to
+        // the shallower direction so a reflect normal still exists.
+        let axis = axis_hit.unwrap_or(if d.x != 0 { 0 } else { 1 });
+        Some((t_near, axis))
     } else {
         None
     }
+}
+
+/// Segment vs AABB (slab method). Returns Some(t) for the earliest entry
+/// hit with t in [0, 1], None otherwise. `a`,`b` are segment endpoints.
+pub fn segment_aabb(a: Vec2, b: Vec2, min: Vec2, max: Vec2) -> Option<Fix> {
+    segment_aabb_axis(a, b, min, max).map(|(t, _)| t)
 }
 
 /// Line of sight between two points: blocked by full walls only.
@@ -193,6 +209,23 @@ pub fn projectile_wall_hit(map: &GameMap, a: Vec2, b: Vec2) -> Option<Fix> {
         }
     }
     best
+}
+
+/// Earliest wall hit along a→b, plus the hit surface normal (axis-aligned
+/// unit, pointing back toward the ray origin) — used by ricocheting bullets.
+pub fn projectile_wall_hit_n(map: &GameMap, a: Vec2, b: Vec2) -> Option<(Fix, Fix, Fix)> {
+    let mut best: Option<(Fix, usize)> = None;
+    for w in &map.walls {
+        if let Some((t, axis)) = segment_aabb_axis(a, b, w.min, w.max) {
+            if best.is_none() || t < best.unwrap().0 {
+                best = Some((t, axis));
+            }
+        }
+    }
+    let (t, axis) = best?;
+    let d = if axis == 0 { b.x - a.x } else { b.y - a.y };
+    let sign: Fix = if d > 0 { -1 } else { 1 };
+    Some(if axis == 0 { (t, sign, 0) } else { (t, 0, sign) })
 }
 
 /// True if a circle of `radius` at `p` overlaps any wall (for spawn/loot placement).

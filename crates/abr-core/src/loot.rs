@@ -6,6 +6,7 @@ use crate::map::GameMap;
 use crate::params::SimParams;
 use crate::rng::Rng;
 use crate::types::Vec2;
+use crate::weapons::{WeaponKind, PICKUP_WEAPONS};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,6 +16,21 @@ pub enum PickupKind {
     Energy,
     ModCooldown,
     ModSpeed,
+    /// Swaps the picker's gun; the variant rides inside.
+    Weapon(WeaponKind),
+}
+
+impl PickupKind {
+    /// Stable discriminant for digests and compact frames.
+    pub fn idx(self) -> u8 {
+        match self {
+            PickupKind::HpKit => 0,
+            PickupKind::Energy => 1,
+            PickupKind::ModCooldown => 2,
+            PickupKind::ModSpeed => 3,
+            PickupKind::Weapon(w) => 4 + w.idx(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -27,21 +43,36 @@ pub struct Pickup {
 }
 
 pub fn generate(p: &SimParams, map: &GameMap, rng: &mut Rng) -> Vec<Pickup> {
-    let total_w = (p.loot_weight_hp + p.loot_weight_energy + p.loot_weight_mod) as u64;
+    let total_w = (p.loot_weight_hp
+        + p.loot_weight_energy
+        + p.loot_weight_mod
+        + p.loot_weight_weapon) as u64;
     let mut out = Vec::new();
     for id in 1..=p.loot_count {
         let kind = if total_w == 0 {
             PickupKind::HpKit
         } else {
             let roll = rng.below(total_w);
-            if roll < p.loot_weight_hp as u64 {
+            let mut acc = p.loot_weight_hp as u64;
+            if roll < acc {
                 PickupKind::HpKit
-            } else if roll < (p.loot_weight_hp + p.loot_weight_energy) as u64 {
-                PickupKind::Energy
-            } else if rng.below(2) == 0 {
-                PickupKind::ModCooldown
             } else {
-                PickupKind::ModSpeed
+                acc += p.loot_weight_energy as u64;
+                if roll < acc {
+                    PickupKind::Energy
+                } else {
+                    acc += p.loot_weight_mod as u64;
+                    if roll < acc {
+                        if rng.below(2) == 0 {
+                            PickupKind::ModCooldown
+                        } else {
+                            PickupKind::ModSpeed
+                        }
+                    } else {
+                        let w = rng.below(PICKUP_WEAPONS.len() as u64) as usize;
+                        PickupKind::Weapon(PICKUP_WEAPONS[w])
+                    }
+                }
             }
         };
         // Deterministic placement with bounded retries. Sample in a margin

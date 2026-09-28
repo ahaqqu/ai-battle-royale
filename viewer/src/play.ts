@@ -15,15 +15,17 @@ export interface PlayYouUnit {
   cooldown: { fire?: number; sonar?: number };
   status: string[];
   respawn_in_s?: number;
+  /** Mains only: the gun currently equipped ("pea", "scatter", …). */
+  weapon?: string;
 }
 
 export interface PlayObs {
   tick: number;
   you: { main: PlayYouUnit; companion: PlayYouUnit };
   seen: {
-    players: { id: number; pos: [number, number]; vel?: [number, number]; facing?: number; detail: string; hp?: number; viaSonar?: boolean }[];
+    players: { id: number; pos: [number, number]; vel?: [number, number]; facing?: number; detail: string; hp?: number; weapon?: string; viaSonar?: boolean }[];
     companions: { id: number; owner: number; pos: [number, number]; detail: string }[];
-    projectiles: { id: number; pos: [number, number]; vel: [number, number]; owner: number }[];
+    projectiles: { id: number; pos: [number, number]; vel: [number, number]; owner: number; weapon?: string }[];
     pickups: { id: number; pos: [number, number]; kind: string }[];
   };
   heard: { kind: string; bearing: number; band: string }[];

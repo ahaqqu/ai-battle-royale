@@ -41,6 +41,8 @@ pub struct Unit {
     /// Weapon mods (PLAN §2.4): negative fraction / positive fraction.
     pub mod_cooldown_pct: Fix,
     pub mod_speed_pct: Fix,
+    /// The gun this main fires (swapped by weapon pickups).
+    pub weapon: crate::weapons::WeaponKind,
 }
 
 impl Unit {
@@ -77,6 +79,15 @@ pub struct Projectile {
     pub damage: Fix,
     /// Range remaining before it fizzles.
     pub remaining: Fix,
+    /// Which gun fired it (drives bounce/pierce/splash + rendering).
+    pub weapon: crate::weapons::WeaponKind,
+    /// Ricochets left (Bouncer).
+    pub bounces: u8,
+    /// Units it may still punch through (Skewer).
+    pub pierce_left: u8,
+    /// Units already damaged on this flight (prevents double-pierce hits).
+    pub hits: [u32; 4],
+    pub hits_n: u8,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -171,6 +182,7 @@ impl WorldState {
                 last_damager_tick: 0,
                 mod_cooldown_pct: 0.into(),
                 mod_speed_pct: 0.into(),
+                weapon: crate::weapons::WeaponKind::Pea,
             };
             let companion = Unit {
                 id: crate::types::companion_id(b),
@@ -195,6 +207,7 @@ impl WorldState {
                 last_damager_tick: 0,
                 mod_cooldown_pct: 0.into(),
                 mod_speed_pct: 0.into(),
+                weapon: crate::weapons::WeaponKind::Pea,
             };
             units.push(main);
             units.push(companion);
@@ -301,6 +314,7 @@ impl WorldState {
             put_u64(&mut h, u.last_damager.map(|b| b as u64 + 1).unwrap_or(0));
             put_i64(&mut h, u.mod_cooldown_pct);
             put_i64(&mut h, u.mod_speed_pct);
+            put(&mut h, &[u.weapon.idx()]);
         }
         // Projectiles in id order.
         let mut projs: Vec<&Projectile> = self.projectiles.iter().collect();
@@ -312,9 +326,13 @@ impl WorldState {
             put_vec2(&mut h, pr.vel);
             put_i64(&mut h, pr.damage);
             put_i64(&mut h, pr.remaining);
+            put(&mut h, &[pr.weapon.idx(), pr.bounces, pr.pierce_left, pr.hits_n]);
+            for i in 0..pr.hits.len() {
+                put_u64(&mut h, pr.hits[i] as u64);
+            }
         }
         for pk in &self.pickups {
-            put(&mut h, &[pk.taken as u8]);
+            put(&mut h, &[pk.kind.idx(), pk.taken as u8]);
         }
         for z in &self.zone_phases {
             put_vec2(&mut h, z.center);

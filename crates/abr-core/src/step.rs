@@ -17,7 +17,7 @@ use crate::state::{
 use crate::types::{MoveInput, UnitAction, UnitInput, Vec2};
 use crate::zone;
 
-const MAX_PROJECTILES: usize = 512;
+const MAX_PROJECTILES: usize = 900;
 /// Damage must land within this many ticks of death for kill credit;
 /// stale damage never steals a zone kill.
 const KILL_CREDIT_WINDOW_TICKS: u64 = 50;
@@ -209,6 +209,7 @@ pub fn step(
             if unit.sprint || unit.fire_cd > 0 || state.projectiles.len() >= MAX_PROJECTILES {
                 continue;
             }
+            let spec = crate::weapons::spec(p, unit.weapon);
             unit.fire_cd = effective_fire_cooldown(p, unit);
             let d = target.sub(unit.pos);
             let dir_deg = if d.x == 0 && d.y == 0 {
@@ -217,21 +218,44 @@ pub fn step(
                 fixed::atan2_deg(d.y, d.x)
             };
             unit.facing = fixed::norm_deg(dir_deg);
-            let dirv = Vec2::dir(dir_deg);
             let speed = projectile_speed(p, unit);
-            let spawn = unit
-                .pos
-                .add(dirv.scale(unit.radius(p) + fixed::from_int(4)));
-            state.projectiles.push(Projectile {
-                id: state.next_projectile_id,
-                bot: unit.bot,
-                unit_id: unit.id,
-                pos: spawn,
-                vel: dirv.scale(speed),
-                damage: p.proj_damage,
-                remaining: p.proj_range,
-            });
-            state.next_projectile_id += 1;
+            // Pellet fan (shotgun) centered on the aim, plus per-shot wobble
+            // from the seeded RNG — deterministic across re-simulation.
+            let n = spec.pellets.max(1);
+            let mut pid = state.next_projectile_id;
+            for i in 0..n {
+                let fan = if n > 1 && spec.spread_deg > 0 {
+                    -spec.spread_deg / 2 + (i as i32) * (spec.spread_deg / (n as i32 - 1))
+                } else {
+                    0
+                };
+                let jitter = if spec.jitter_deg > 0 {
+                    (state.rng.below(2 * spec.jitter_deg as u64 + 1) as i32) - spec.jitter_deg
+                } else {
+                    0
+                };
+                let deg = fixed::norm_deg(dir_deg + fan + jitter) as i32;
+                let dirv = Vec2::dir(deg);
+                let spawn = unit
+                    .pos
+                    .add(dirv.scale(unit.radius(p) + fixed::from_int(4)));
+                state.projectiles.push(Projectile {
+                    id: pid,
+                    bot: unit.bot,
+                    unit_id: unit.id,
+                    pos: spawn,
+                    vel: dirv.scale(speed),
+                    damage: spec.damage,
+                    remaining: spec.range,
+                    weapon: unit.weapon,
+                    bounces: spec.bounces,
+                    pierce_left: spec.pierce,
+                    hits: [0; 4],
+                    hits_n: 0,
+                });
+                pid += 1;
+            }
+            state.next_projectile_id = pid;
             state.sounds.push(SoundEvent {
                 kind: SoundKind::Gunshot,
                 pos: unit.pos,
@@ -242,6 +266,7 @@ pub fn step(
                 unit_id: unit.id,
                 from: pa(unit.pos),
                 dir: unit.facing,
+                weapon: unit.weapon,
             });
         }
     }
@@ -250,25 +275,59 @@ pub fn step(
     let mut survivors: Vec<Projectile> = Vec::with_capacity(state.projectiles.len());
     let projectiles = std::mem::take(&mut state.projectiles);
     for mut proj in projectiles {
+        let spec = crate::weapons::spec(p, proj.weapon);
         let speed = proj.vel.len();
         let old = proj.pos;
         let new = old.add(proj.vel.scale(dt));
         let mut dead = false;
 
-        if let Some(t) = crate::map::projectile_wall_hit(map, old, new) {
+        if let Some((t, nx, ny)) = crate::map::projectile_wall_hit_n(map, old, new) {
             let at = lerp_point(old, new, t);
-            events.push(Event::ProjectileEnd {
-                id: proj.id,
-                at: [fixed::to_f64(at.x), fixed::to_f64(at.y)],
-                wall: true,
-            });
-            dead = true;
+            if proj.bounces > 0 {
+                // Ricochet: reflect the velocity about the wall normal and
+                // nudge off the surface so we don't re-hit it next tick.
+                let dot = fixed::mul(proj.vel.x, nx) + fixed::mul(proj.vel.y, ny);
+                proj.vel = Vec2::new(
+                    proj.vel.x - fixed::mul(2 * dot, nx),
+                    proj.vel.y - fixed::mul(2 * dot, ny),
+                );
+                proj.pos = at.add(Vec2::new(nx, ny).scale(fixed::from_int(2)));
+                proj.bounces -= 1;
+                proj.remaining -= fixed::mul(spec.range, fixed::from_f64(0.15));
+                events.push(Event::Bounce {
+                    id: proj.id,
+                    at: [fixed::to_f64(at.x), fixed::to_f64(at.y)],
+                });
+                if proj.remaining > 0 {
+                    survivors.push(proj);
+                    continue;
+                }
+                events.push(Event::ProjectileEnd {
+                    id: proj.id,
+                    at: [fixed::to_f64(proj.pos.x), fixed::to_f64(proj.pos.y)],
+                    wall: true,
+                });
+                dead = true;
+            } else {
+                if spec.splash_radius > 0 {
+                    explode(state, &mut events, at, proj.bot, spec, p, tick, None);
+                }
+                events.push(Event::ProjectileEnd {
+                    id: proj.id,
+                    at: [fixed::to_f64(at.x), fixed::to_f64(at.y)],
+                    wall: true,
+                });
+                dead = true;
+            }
         } else {
-            // Earliest unit hit along the sweep. Own units are immune —
-            // the companion is a bullet sponge *for enemies*, not for you.
+            // Earliest *not-already-hit* unit along the sweep. Own units are
+            // immune — the companion is a bullet sponge *for enemies*, not for you.
             let mut best: Option<(Fix, usize)> = None;
             for (ui, unit) in state.units.iter().enumerate() {
                 if !unit.alive || unit.bot == proj.bot {
+                    continue;
+                }
+                if proj.hits[..proj.hits_n as usize].contains(&unit.id) {
                     continue;
                 }
                 let r = unit.radius(p) + fixed::from_int(2);
@@ -280,25 +339,43 @@ pub fn step(
             }
             if let Some((t, ui)) = best {
                 let at = lerp_point(old, new, t);
-                let dmg = apply_damage(&mut state.units[ui], proj.damage, p.shield_reduction);
+                let (vid, vbot, vhp, dmg) = {
+                    let victim = &mut state.units[ui];
+                    let dmg = apply_damage(victim, proj.damage, p.shield_reduction);
+                    if victim.is_main() {
+                        victim.last_damager = Some(proj.bot);
+                        victim.last_damager_tick = tick;
+                    }
+                    (victim.id, victim.bot, victim.hp, dmg)
+                };
                 state.damage_dealt[proj.bot as usize] += dmg.max(0) as u64;
-                let victim = &mut state.units[ui];
-                if victim.is_main() {
-                    victim.last_damager = Some(proj.bot);
-                    victim.last_damager_tick = tick;
-                }
                 events.push(Event::Hit {
-                    unit_id: victim.id,
-                    bot: victim.bot,
+                    unit_id: vid,
+                    bot: vbot,
                     at: [fixed::to_f64(at.x), fixed::to_f64(at.y)],
                     damage: fixed::to_f64(dmg) as f32,
-                    hp_after: fixed::to_f64(victim.hp) as f32,
+                    hp_after: fixed::to_f64(vhp) as f32,
                 });
+                if spec.splash_radius > 0 {
+                    explode(state, &mut events, at, proj.bot, spec, p, tick, Some(ui));
+                }
+                // Skewer: record the hit and keep flying.
+                if proj.pierce_left > 0 {
+                    proj.hits[proj.hits_n as usize % proj.hits.len()] = vid;
+                    proj.hits_n = (proj.hits_n + 1).min(proj.hits.len() as u8);
+                    proj.pierce_left -= 1;
+                    proj.pos = at;
+                    survivors.push(proj);
+                    continue;
+                }
                 dead = true;
             } else {
                 proj.pos = new;
-                proj.remaining -= speed * dt;
+                proj.remaining -= fixed::mul(speed, dt);
                 if proj.remaining <= 0 {
+                    if spec.splash_radius > 0 {
+                        explode(state, &mut events, proj.pos, proj.bot, spec, p, tick, None);
+                    }
                     events.push(Event::ProjectileEnd {
                         id: proj.id,
                         at: [fixed::to_f64(proj.pos.x), fixed::to_f64(proj.pos.y)],
@@ -603,15 +680,59 @@ fn apply_pickup(state: &mut WorldState, ui: usize, kind: PickupKind, p: &SimPara
         PickupKind::ModSpeed => {
             u.mod_speed_pct = p.mod_speed_pct_max.min(u.mod_speed_pct + p.mod_speed_pct)
         }
+        PickupKind::Weapon(w) => u.weapon = w,
+    }
+}
+
+/// Popper detonation: splash every enemy near `at`. The direct-hit victim
+/// (`skip`) already took the full payload and is not splashed again.
+#[allow(clippy::too_many_arguments)]
+fn explode(
+    state: &mut WorldState,
+    events: &mut Vec<Event>,
+    at: Vec2,
+    bot: u32,
+    spec: crate::weapons::WeaponSpec,
+    p: &SimParams,
+    tick: u64,
+    skip: Option<usize>,
+) {
+    events.push(Event::Explosion {
+        bot,
+        at: [fixed::to_f64(at.x), fixed::to_f64(at.y)],
+        radius: fixed::to_f64(spec.splash_radius) as f32,
+    });
+    for (ui, unit) in state.units.iter_mut().enumerate() {
+        if Some(ui) == skip || !unit.alive || unit.bot == bot {
+            continue;
+        }
+        if unit.pos.dist(at) > spec.splash_radius + unit.radius(p) {
+            continue;
+        }
+        let dmg = apply_damage(unit, spec.splash_damage, p.shield_reduction);
+        state.damage_dealt[bot as usize] += dmg.max(0) as u64;
+        if unit.is_main() {
+            unit.last_damager = Some(bot);
+            unit.last_damager_tick = tick;
+        }
+        events.push(Event::Hit {
+            unit_id: unit.id,
+            bot: unit.bot,
+            at: [fixed::to_f64(at.x), fixed::to_f64(at.y)],
+            damage: fixed::to_f64(dmg) as f32,
+            hp_after: fixed::to_f64(unit.hp) as f32,
+        });
     }
 }
 
 pub fn effective_fire_cooldown(p: &SimParams, u: &Unit) -> Fix {
     // mod_cooldown_pct is negative; cooldown shrinks toward its cap.
-    let cd = p.fire_cooldown + fixed::mul(p.fire_cooldown, u.mod_cooldown_pct);
+    let base = crate::weapons::spec(p, u.weapon).cooldown;
+    let cd = base + fixed::mul(base, u.mod_cooldown_pct);
     cd.max(fixed::from_f64(0.05))
 }
 
 pub fn projectile_speed(p: &SimParams, u: &Unit) -> Fix {
-    p.proj_speed + fixed::mul(p.proj_speed, u.mod_speed_pct)
+    let base = crate::weapons::spec(p, u.weapon).speed;
+    base + fixed::mul(base, u.mod_speed_pct)
 }

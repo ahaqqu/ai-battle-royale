@@ -323,3 +323,159 @@ fn zone_next_published_and_contained() {
         "next zone must fit inside current"
     );
 }
+
+/// Loot: gun-swap pickups exist in the schedule (weapons are the fun
+/// centerpiece — if the weights ever drop them, this fails loudly).
+#[test]
+fn loot_generation_includes_weapon_pickups() {
+    use abr_core::loot::PickupKind;
+    let config = MatchConfig::standard();
+    let params = abr_core::params::SimParams::from_config(&config);
+    let map = load_map("arena-1").unwrap();
+    let mut found = 0;
+    for seed in 1..=10u64 {
+        let mut rng = abr_core::rng::Rng::new(seed);
+        for pk in abr_core::loot::generate(&params, &map, &mut rng) {
+            if matches!(pk.kind, PickupKind::Weapon(_)) {
+                found += 1;
+            }
+        }
+    }
+    assert!(found >= 10, "weapon pickups across 10 seeds: {found}");
+}
+
+/// Weapons in play: over a reference-bot match some unit grabs a gun
+/// pickup, and fired shots carry the gun they came from.
+#[test]
+fn weapon_pickups_swap_guns_and_shots_carry_them() {
+    use abr_core::weapons::WeaponKind;
+
+    let names = bots::default16();
+    let config = MatchConfig::standard();
+    let mut engine = MatchEngine::new(config, 42, &names);
+    let map = load_map(&engine.config.map_id).unwrap();
+    let mut brains: Vec<Box<dyn bots::RefBot>> = names
+        .iter()
+        .enumerate()
+        .map(|(b, n)| bots::create(n, b as u32).unwrap())
+        .collect();
+    let mut gun_units = 0u32;
+    let mut fired_weapons: std::collections::BTreeSet<u8> = std::collections::BTreeSet::new();
+    while !engine.state.finished {
+        for b in 0..names.len() as u32 {
+            let obs = engine.observe(b);
+            let input = brains[b as usize].act(&obs, &map);
+            engine.submit(b, input, 0);
+        }
+        let events = engine.step_tick();
+        for u in &engine.state.units {
+            if u.weapon != WeaponKind::Pea {
+                gun_units += 1;
+            }
+        }
+        for e in &events {
+            if let abr_core::Event::Shot { weapon, .. } = e {
+                fired_weapons.insert(weapon.idx());
+            }
+        }
+    }
+    assert!(gun_units > 0, "no bot ever carried a pickup gun");
+    // The default pea gun (0) plus at least one pickup gun fired during the match.
+    assert!(fired_weapons.len() >= 2, "fired weapons: {fired_weapons:?}");
+}
+
+fn aimed_engine(seed: u64) -> MatchEngine {
+    let config = MatchConfig::standard();
+    MatchEngine::new(config, seed, &["camper".into(), "camper".into()])
+}
+
+fn fire_at(x: f64, y: f64) -> BotInput {
+    BotInput {
+        main: UnitInput {
+            r#move: abr_core::types::MoveInput::stop(),
+            action: Some(UnitAction::Fire {
+                target: Vec2::new(from_f64(x), from_f64(y)),
+            }),
+        },
+        companion: UnitInput::default(),
+        intent: None,
+        belief: None,
+    }
+}
+
+/// Bouncer: a shot at a wall ricochets instead of dying.
+#[test]
+fn bouncer_bullet_ricochets_off_walls() {
+    use abr_core::weapons::WeaponKind;
+    let mut engine = aimed_engine(5);
+    engine.state.main_mut(0).pos = Vec2::new(from_f64(1600.0), from_f64(400.0));
+    engine.state.main_mut(0).weapon = WeaponKind::Bouncer;
+    engine.submit(0, fire_at(1600.0, 900.0), 0);
+    let mut bounced = false;
+    for _ in 0..30 {
+        let events = engine.step_tick();
+        if events
+            .iter()
+            .any(|e| matches!(e, abr_core::Event::Bounce { .. }))
+        {
+            bounced = true;
+            break;
+        }
+    }
+    assert!(bounced, "bouncer never ricocheted off the wall");
+}
+
+/// Popper: a shot into a wall detonates and splashes a nearby enemy.
+#[test]
+fn popper_bullet_detonates_and_splashes() {
+    use abr_core::weapons::WeaponKind;
+    let mut engine = aimed_engine(6);
+    engine.state.main_mut(0).pos = Vec2::new(from_f64(1600.0), from_f64(400.0));
+    engine.state.main_mut(0).weapon = WeaponKind::Popper;
+    // An enemy main right by the impact face of the wall (y = 700).
+    engine.state.main_mut(1).pos = Vec2::new(from_f64(1600.0), from_f64(620.0));
+    engine.submit(0, fire_at(1600.0, 900.0), 0);
+    let mut boom = false;
+    for _ in 0..30 {
+        let events = engine.step_tick();
+        if events
+            .iter()
+            .any(|e| matches!(e, abr_core::Event::Explosion { .. }))
+        {
+            boom = true;
+            break;
+        }
+    }
+    assert!(boom, "popper never detonated on a wall");
+    assert!(
+        engine.state.main(1).hp < from_f64(100.0),
+        "splash never hurt the enemy standing next to the blast"
+    );
+}
+
+/// Skewer: one bullet punches through two units in a line.
+#[test]
+fn skewer_bullet_pierces_units() {
+    use abr_core::weapons::WeaponKind;
+    let mut engine = aimed_engine(7);
+    engine.state.main_mut(0).pos = Vec2::new(from_f64(300.0), from_f64(1150.0));
+    engine.state.main_mut(0).weapon = WeaponKind::Skewer;
+    // Two enemies of bot 0 lined up along +X.
+    engine.state.main_mut(1).pos = Vec2::new(from_f64(700.0), from_f64(1150.0));
+    engine.state.companion_mut(1).pos = Vec2::new(from_f64(800.0), from_f64(1150.0));
+    engine.submit(0, fire_at(2000.0, 1150.0), 0);
+    let mut hit_ids: std::collections::BTreeSet<u32> = std::collections::BTreeSet::new();
+    for _ in 0..30 {
+        let events = engine.step_tick();
+        for e in &events {
+            if let abr_core::Event::Hit { unit_id, .. } = e {
+                hit_ids.insert(*unit_id);
+            }
+        }
+        if hit_ids.len() >= 2 {
+            break;
+        }
+    }
+    // Bot 1's main is id 2, its companion id 102.
+    assert!(hit_ids.contains(&2) && hit_ids.contains(&102), "pierce hit: {hit_ids:?}");
+}

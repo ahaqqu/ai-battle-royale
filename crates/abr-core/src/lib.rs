@@ -24,6 +24,7 @@ pub mod step;
 pub mod timeout;
 pub mod trig_tables;
 pub mod types;
+pub mod weapons;
 pub mod zone;
 
 pub use config::MatchConfig;

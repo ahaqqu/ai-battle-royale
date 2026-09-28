@@ -20,6 +20,19 @@ pub enum Event {
         unit_id: u32,
         from: [f64; 2],
         dir: u16,
+        /// Which gun fired (renderer picks the muzzle flash).
+        weapon: crate::weapons::WeaponKind,
+    },
+    /// A Bouncer bullet ricocheted off a wall.
+    Bounce {
+        id: u32,
+        at: [f64; 2],
+    },
+    /// A Popper bullet detonated; splash damage already applied via Hit events.
+    Explosion {
+        bot: u32,
+        at: [f64; 2],
+        radius: f32,
     },
     /// Projectile impact on a unit.
     Hit {

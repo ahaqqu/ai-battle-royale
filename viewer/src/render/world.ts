@@ -2,18 +2,57 @@
  * candy-pellet projectiles, candy-box pickups, bubblegum slime zone. */
 
 import { Container, Graphics, Sprite, Text } from "pixi.js";
-import { botColor, FONT, INK, KIND_COLORS, K, P, PICKUP_STRIDE, PROJ_STRIDE, Z } from "../types.js";
+import { botColor, FONT, INK, KIND_COLORS, K, P, PICKUP_STRIDE, PROJ_STRIDE, shade, WEAPONS, Z } from "../types.js";
 import { drawOutsideOverlay, Stage } from "./stage.js";
+
+/** Gungeon-style bullet sprites: each gun reads differently at a glance —
+ * shape first, color second. All point +X; the layer rotates by velocity. */
+function drawBullet(g: Graphics, w: number, col: number): void {
+  switch (w) {
+    case 1: // sprinkler — tiny gold pill
+      g.roundRect(-4.5, -2.4, 9, 4.8, 2.4).fill({ color: col }).stroke({ width: 1.2, color: INK, alpha: 0.7 });
+      g.circle(3, 0, 1.7).fill({ color: 0xffffff, alpha: 0.95 });
+      break;
+    case 2: // scatter — chunky watermelon pellet
+      g.circle(0, 0, 4.4).fill({ color: col }).stroke({ width: 1.4, color: INK, alpha: 0.7 });
+      g.circle(-1.3, -1.3, 1.4).fill({ color: 0xffffff, alpha: 0.9 });
+      break;
+    case 3: // lance — long white-hot bolt with a bright tip
+      g.roundRect(-12, -2, 24, 4, 2).fill({ color: shade(col, 0.55) });
+      g.moveTo(11, -2.6).lineTo(18, 0).lineTo(11, 2.6).closePath().fill({ color: 0xffffff });
+      g.roundRect(-12, -0.9, 23, 1.8, 0.9).fill({ color: 0xffffff });
+      break;
+    case 4: // bouncer — glossy gumball with a shine band
+      g.circle(0, 0, 5.6).fill({ color: col }).stroke({ width: 1.4, color: INK, alpha: 0.75 });
+      g.arc(0, 0, 3.1, 2.3, 4.1).stroke({ width: 1.7, color: 0xffffff, alpha: 0.6 });
+      g.circle(-1.9, -1.9, 1.9).fill({ color: 0xffffff, alpha: 0.95 });
+      break;
+    case 5: // skewer — slim liquorice needle
+      g.moveTo(-10, 0).lineTo(5, -1.9).lineTo(11, 0).lineTo(5, 1.9).closePath()
+        .fill({ color: col }).stroke({ width: 1.1, color: INK, alpha: 0.7 });
+      g.circle(-4.5, 0, 1.5).fill({ color: 0xffffff, alpha: 0.85 });
+      break;
+    case 6: // popper — fat charged orb with a fuse spark
+      g.circle(0, 0, 6.2).fill({ color: col }).stroke({ width: 1.6, color: INK, alpha: 0.8 });
+      g.circle(-2, -2, 2.1).fill({ color: 0xffffff, alpha: 0.9 });
+      g.circle(3.6, 2.6, 1.5).fill({ color: 0xffd93b });
+      break;
+    default: // pea — the starter candy pellet (owner-colored)
+      g.circle(0, 0, 5.4).fill({ color: 0xffffff });
+      g.circle(0, 0, 4).fill({ color: col }).stroke({ width: 1.4, color: INK, alpha: 0.7 });
+      g.circle(-1.4, -1.4, 1.3).fill({ color: 0xffffff, alpha: 0.9 });
+  }
+}
 
 export class ProjectileLayer {
   private container: Container;
-  private sprites = new Map<number, { ball: Graphics; glow: Sprite; bot: number }>();
+  private sprites = new Map<number, { ball: Graphics; glow: Sprite; key: number }>();
+  private glowTex: Sprite["texture"];
 
   constructor(stage: Stage) {
     this.container = stage.projLayer;
     this.glowTex = stage.glowTex;
   }
-  private glowTex: Sprite["texture"];
 
   /** Match by id across A→B and interpolate; render-only. */
   update(
@@ -28,6 +67,8 @@ export class ProjectileLayer {
     for (let i = 0; i < aCount; i++) {
       const id = a[i * PROJ_STRIDE + P.ID];
       const bot = a[i * PROJ_STRIDE + P.BOT];
+      const weapon = a[i * PROJ_STRIDE + P.WEAPON] ?? 0;
+      const vx = a[i * PROJ_STRIDE + P.VX], vy = a[i * PROJ_STRIDE + P.VY];
       const ax = a[i * PROJ_STRIDE + P.X], ay = a[i * PROJ_STRIDE + P.Y];
       const bi = mapB.get(id);
       let x = ax, y = ay;
@@ -36,33 +77,36 @@ export class ProjectileLayer {
         y = ay + (b[bi * PROJ_STRIDE + P.Y] - ay) * t;
       }
       seen.add(id);
+      // Bullets are gun-colored (pea stays owner-colored) — you read the
+      // threat before you read the shooter.
+      const col = weapon === 0
+        ? parseInt(botColor(bot).slice(1), 16)
+        : parseInt(WEAPONS[weapon]?.color.slice(1) ?? "ffffff", 16);
+      const key = weapon * 1000 + bot;
       let s = this.sprites.get(id);
       if (!s) {
         const ball = new Graphics();
         const glow = new Sprite(this.glowTex);
         glow.anchor.set(0.5);
         glow.blendMode = "add";
-        glow.alpha = 0.35;
+        glow.alpha = 0.4;
         this.container.addChild(glow, ball);
-        s = { ball, glow, bot: -1 };
+        s = { ball, glow, key: -1 };
         this.sprites.set(id, s);
       }
-      if (s.bot !== bot) {
-        const col = parseInt(botColor(bot).slice(1), 16);
+      if (s.key !== key) {
         s.ball.clear();
-        // Candy pellet: colored core, white glaze ring, thin ink edge.
-        s.ball.circle(0, 0, 5.4).fill({ color: 0xffffff });
-        s.ball.circle(0, 0, 4).fill({ color: col }).stroke({ width: 1.4, color: INK, alpha: 0.7 });
-        s.ball.circle(-1.4, -1.4, 1.3).fill({ color: 0xffffff, alpha: 0.9 });
+        drawBullet(s.ball, weapon, col);
         s.glow.tint = col;
-        s.glow.scale.set(0.16);
-        s.bot = bot;
+        s.glow.scale.set(weapon === 3 ? 0.26 : weapon === 6 ? 0.24 : weapon === 1 ? 0.12 : 0.17);
+        s.key = key;
       }
       s.ball.position.set(x, y);
+      s.ball.rotation = Math.atan2(vy, vx);
       s.glow.position.set(x, y);
       s.ball.visible = true;
       s.glow.visible = true;
-      onTrail(x, y, parseInt(botColor(bot).slice(1), 16), true);
+      onTrail(x, y, col, weapon === 3 || weapon === 6);
     }
     // Hide vanished, show current.
     for (const [id, s] of this.sprites) {
@@ -73,7 +117,7 @@ export class ProjectileLayer {
   }
 }
 
-/** Pickups: bobbing candy boxes with a glaze shine. */
+/** Pickups: bobbing candy tins; gun pickups wear a bullet badge. */
 export class PickupLayer {
   private container: Container;
   private sprites = new Map<number, { root: Container; kind: number }>();
@@ -95,17 +139,28 @@ export class PickupLayer {
       if (!s || s.kind !== kind) {
         if (s) this.container.removeChild(s.root);
         const root = new Container();
-        const col = parseInt(KIND_COLORS[kind].slice(1), 16);
+        const isGun = kind >= 4;
+        const col = parseInt((KIND_COLORS[kind] ?? "#ffffff").slice(1), 16);
         const glow = new Sprite(this.stage.glowTex);
         glow.anchor.set(0.5);
         glow.tint = col;
-        glow.alpha = 0.3;
+        glow.alpha = isGun ? 0.45 : 0.3;
         glow.blendMode = "add";
-        glow.scale.set(0.5);
+        glow.scale.set(isGun ? 0.62 : 0.5);
         const g = new Graphics();
-        // Rounded candy tin + ink edge + glaze shine.
-        g.roundRect(-9, -9, 18, 18, 7).fill({ color: col }).stroke({ width: 2.2, color: INK, alpha: 0.85 });
-        g.roundRect(-5.5, -6, 11, 5, 2.5).fill({ color: 0xffffff, alpha: 0.6 });
+        if (isGun) {
+          // Ammo tin: hexagon-ish tin + white bullet badge, extra sparkle.
+          g.roundRect(-11, -9, 22, 18, 6).fill({ color: shade(col, 0.8) })
+            .stroke({ width: 2.4, color: INK, alpha: 0.9 });
+          g.roundRect(-5, -7, 10, 7, 2).fill({ color: 0xffffff });
+          g.roundRect(-5.5, 0.5, 11, 6, 3).fill({ color: 0xffffff })
+            .stroke({ width: 1.2, color: INK, alpha: 0.5 });
+          g.circle(6.5, 6.5, 2.2).fill({ color: 0xffffff, alpha: 0.9 });
+        } else {
+          // Rounded candy tin + ink edge + glaze shine.
+          g.roundRect(-9, -9, 18, 18, 7).fill({ color: col }).stroke({ width: 2.2, color: INK, alpha: 0.85 });
+          g.roundRect(-5.5, -6, 11, 5, 2.5).fill({ color: 0xffffff, alpha: 0.6 });
+        }
         root.addChild(glow, g);
         this.container.addChild(root);
         s = { root, kind };

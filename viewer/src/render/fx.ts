@@ -4,7 +4,7 @@
  * confetti cannon + embers + smoke), every action pops at a glance. */
 
 import { Container, Graphics, Sprite } from "pixi.js";
-import { BOT_COLORS, botColor } from "../types.js";
+import { BOT_COLORS, botColor, WEAPONS, weaponIdx } from "../types.js";
 import { Stage } from "./stage.js";
 
 interface Particle {
@@ -126,11 +126,23 @@ export class Fx {
       switch (e.type) {
         case "shot": {
           if (!from) break;
-          const col = parseInt(botColor(e.bot as number).slice(1), 16);
           // Sim bearings are 0 = +Y screen-down; screen angle = 90 − bearing.
           const dirScreen = 90 - (e.dir as number);
-          this.spawn(from[0], from[1], col, { count: 6, speed: 320, dirDeg: dirScreen, spread: 46, maxLife: 0.16, size0: 12, size1: 2 });
-          this.spawn(from[0], from[1], 0xffffff, { count: 3, speed: 60, maxLife: 0.12, size0: 26, size1: 6 });
+          const w = weaponIdx(typeof e.weapon === "string" ? e.weapon : undefined);
+          const col = w === 0
+            ? parseInt(botColor(e.bot as number).slice(1), 16)
+            : parseInt(WEAPONS[w].color.slice(1), 16);
+          this.muzzleFlash(from[0], from[1], dirScreen, w, col);
+          break;
+        }
+        case "bounce": {
+          if (!at) break;
+          this.bounce(at[0], at[1]);
+          break;
+        }
+        case "explosion": {
+          if (!at) break;
+          this.explosion(at[0], at[1], (e.radius as number) || 90);
           break;
         }
         case "hit": {
@@ -248,6 +260,40 @@ export class Fx {
     this.ring(x, y, 0x9fe0ff, 6, 70, 0.35, 4);
     this.ring(x, y, 0xffffff, 4, 44, 0.25, 2.5);
     this.spawn(x, y, 0xbfe9ff, { count: 10, speed: 190, maxLife: 0.35, size0: 9, size1: 2 });
+  }
+
+  /** Muzzle flash: directional cone + white core, scaled per gun (Gungeon:
+   * the shot itself must read as an event even before the bullet flies). */
+  muzzleFlash(x: number, y: number, dirDeg: number, weapon = 0, col = 0xffffff): void {
+    const s = weapon === 1 ? 0.55 : weapon === 2 ? 1.6 : weapon === 3 ? 1.3 : weapon === 6 ? 1.25 : 1;
+    const spread = weapon === 2 ? 46 : weapon === 3 ? 8 : weapon === 1 ? 16 : 26;
+    this.spawn(x, y, col, {
+      count: Math.round(6 * s) + 2, speed: 330, dirDeg, spread,
+      maxLife: 0.14, size0: 11 * s + 4, size1: 2,
+    });
+    this.spawn(x, y, 0xffffff, { count: 3, speed: 70, maxLife: 0.1, size0: 22 * s + 6, size1: 6 });
+    if (weapon === 3) {
+      // Lance: a hot streak down the barrel.
+      this.spawn(x, y, 0xffffff, { count: 4, speed: 700, dirDeg, spread: 5, maxLife: 0.16, size0: 16, size1: 2 });
+    }
+    this.ring(x, y, col, 4, 34 * s + 10, 0.18, 2.5);
+  }
+
+  /** Bouncer ricochet: rubbery ping puff on the wall. */
+  bounce(x: number, y: number): void {
+    this.spawn(x, y, 0x9fe0ff, { count: 6, speed: 160, maxLife: 0.2, size0: 8, size1: 2 });
+    this.ring(x, y, 0x35d6b5, 3, 30, 0.22, 2.5);
+  }
+
+  /** Pop Rock detonation: orange blast core + twin rings + smoke. */
+  explosion(x: number, y: number, radius = 90): void {
+    this.spawn(x, y, 0xffffff, { count: 1, speed: 0, maxLife: 0.22, size0: 26, size1: 110, drag: 0 });
+    this.spawn(x, y, 0xff6a00, { count: 22, speed: 270, maxLife: 0.45, size0: 12, size1: 2 });
+    this.spawn(x, y, 0xffd93b, { count: 10, speed: 160, maxLife: 0.3, size0: 10, size1: 2 });
+    this.spawn(x, y, 0x6b6f87, { count: 4, shape: "smoke", speed: 40, maxLife: 0.7, size0: 12, size1: 26, drag: 1.2, grav: -40, alphaMax: 0.4 });
+    this.ring(x, y, 0xff6a00, 8, radius, 0.4, 5);
+    this.ring(x, y, 0xffd93b, 4, radius * 0.6, 0.28, 3);
+    this.stage.shake(6);
   }
 
   /** Companion respawn / revive sparkle: happy candy fountain. */

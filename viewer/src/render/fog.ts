@@ -3,7 +3,7 @@
  * audio-bearing wedges for heard events. */
 
 import { Container, Graphics, Text } from "pixi.js";
-import { botColor, CamFrame, FONT, INK_HEX } from "../types.js";
+import { botColor, CamFrame, FONT, INK_HEX, WEAPONS, weaponIdx } from "../types.js";
 import { drawOutsideOverlay, Stage } from "./stage.js";
 
 const MAIN_VISION = 450;
@@ -103,8 +103,12 @@ export class FogView {
       }
     }
     for (const p of cam.seenProjectiles) {
+      const w = weaponIdx(p.weapon);
+      const col = w === 0
+        ? parseInt(botColor(p.owner).slice(1), 16)
+        : parseInt(WEAPONS[w].color.slice(1), 16);
       this.marks.moveTo(p.pos[0], p.pos[1]).lineTo(p.pos[0] - p.vel[0] * 0.04, p.pos[1] - p.vel[1] * 0.04)
-        .stroke({ width: 2.6, color: parseInt(botColor(p.owner).slice(1), 16) });
+        .stroke({ width: w === 3 ? 3.4 : 2.6, color: col });
     }
     for (const pk of cam.seenPickups) {
       this.marks.roundRect(pk.pos[0] - 7, pk.pos[1] - 7, 14, 14, 5)

@@ -5,8 +5,9 @@
 import init, { ReplaySim } from "./wasm/abr_wasm.js";
 import wasmUrl from "./wasm/abr_wasm_bg.wasm?url";
 import {
-  CamFrame, Frame, FrameEvent, KillMarker, MapData, PICKUP_STRIDE,
+  CamFrame, Frame, FrameEvent, KillMarker, MapData, P, PICKUP_STRIDE,
   PlayerCam, PROJ_STRIDE, ReplayData, UNIT_STRIDE, U, UF_ALIVE, UF_DASH, UF_SHIELD, UF_SPRINT, Z,
+  pickupKindIdx, weaponIdx,
 } from "./types.js";
 
 let inited = false;
@@ -34,7 +35,7 @@ function nextTick(): Promise<void> {
 interface RawFrame {
   tick: number;
   units: { id: number; bot: number; kind: string; pos: [number, number]; vel: [number, number]; facing: number; hp: number; max_hp: number; alive: boolean; sprint: boolean; dashing: boolean; shielding: boolean }[];
-  projectiles: { id: number; bot: number; pos: [number, number]; vel: [number, number] }[];
+  projectiles: { id: number; bot: number; pos: [number, number]; vel: [number, number]; weapon?: string }[];
   pickups: { id: number; pos: [number, number]; kind: string }[];
   zone: { center: [number, number]; radius: number; next?: { center: [number, number]; radius: number; locks_at_tick: number } | null };
   events: FrameEvent[];
@@ -43,15 +44,6 @@ interface RawFrame {
   winner: number | null;
   kill_feed: { tick: number; killer: number | null; victim: number }[];
   minds: Record<string, { intent?: string | null; belief?: number[] | null }>;
-}
-
-function kindIdx(kind: string): number {
-  switch (kind) {
-    case "hp_kit": return 0;
-    case "energy": return 1;
-    case "mod_cooldown": return 2;
-    default: return 3;
-  }
 }
 
 /** Rust Vec2 serializes as {x,y}; the renderer wants [x,y]. */
@@ -104,6 +96,7 @@ export function buildFrame(raw: RawFrame): Frame {
     projs[o + 3] = p.pos[1];
     projs[o + 4] = p.vel[0];
     projs[o + 5] = p.vel[1];
+    projs[o + P.WEAPON] = weaponIdx(p.weapon);
   }
   const k = raw.pickups.length;
   const pickups = new Float32Array(k * PICKUP_STRIDE);
@@ -111,7 +104,7 @@ export function buildFrame(raw: RawFrame): Frame {
     const p = raw.pickups[i];
     const o = i * PICKUP_STRIDE;
     pickups[o] = p.id;
-    pickups[o + 1] = kindIdx(p.kind);
+    pickups[o + 1] = pickupKindIdx(p.kind);
     pickups[o + 2] = p.pos[0];
     pickups[o + 3] = p.pos[1];
   }
@@ -204,6 +197,9 @@ export async function buildPlayerCam(
     // same tick, so both cameras stay in sync during playback.
     const stepJson = sim.step();
     if (stepJson === null || stepJson === undefined) break;
+    const raw: RawFrame = JSON.parse(stepJson);
+    const maxHpById = new Map<number, number>();
+    for (const u of raw.units) maxHpById.set(u.id, u.max_hp);
     const obsJson = sim.observe_current(bot);
     if (obsJson) {
       const obs = JSON.parse(obsJson);
@@ -213,13 +209,16 @@ export async function buildPlayerCam(
           comp: { pos: obs.you.companion.pos, alive: obs.you.companion.alive },
         },
         seenPlayers: (obs.seen.players ?? []).map((p: any) => ({
-          id: p.id, pos: p.pos, detail: p.detail, hp: p.hp, viaSonar: p.via_sonar,
+          id: p.id, pos: p.pos, detail: p.detail, viaSonar: p.via_sonar,
+          weapon: p.weapon,
+          // Observation hp is raw (0..maxHp); the fog view wants a 0..1 fraction.
+          hp: p.hp == null ? undefined : Math.max(0, p.hp) / (maxHpById.get(p.id) ?? 100),
         })),
         seenCompanions: (obs.seen.companions ?? []).map((c: any) => ({
           id: c.id, owner: c.owner, pos: c.pos, detail: c.detail,
         })),
         seenProjectiles: (obs.seen.projectiles ?? []).map((p: any) => ({
-          id: p.id, pos: p.pos, vel: p.vel, owner: p.owner,
+          id: p.id, pos: p.pos, vel: p.vel, owner: p.owner, weapon: p.weapon,
         })),
         seenPickups: (obs.seen.pickups ?? []).map((p: any) => ({ id: p.id, pos: p.pos, kind: p.kind })),
         heard: (obs.heard ?? []).map((h: any) => ({ kind: h.kind, bearing: h.bearing, band: h.band })),
