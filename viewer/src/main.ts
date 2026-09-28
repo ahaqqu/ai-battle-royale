@@ -4,7 +4,7 @@
 import { Graphics } from "pixi.js";
 import { CamMode, Frame, MapData, ReplayData, botColor, WEAPONS, weaponIdx } from "./types.js";
 import { buildPlayerCam, LoadedReplay, loadReplay } from "./sim.js";
-import { PlayClient } from "./play.js";
+import { LobbyInfo, PlayClient } from "./play.js";
 import { Stage } from "./render/stage.js";
 import { drawArena } from "./render/arena.js";
 import { UnitViews } from "./render/units.js";
@@ -35,6 +35,7 @@ const loadStatus = document.getElementById("load-status")!;
 const loadBar = document.getElementById("load-bar")!;
 const picker = document.getElementById("picker")!;
 const replaysPage = document.getElementById("replays-page")!;
+const lobbyPage = document.getElementById("lobby-page")!;
 
 const stage = new Stage();
 const hud = new Hud();
@@ -75,6 +76,14 @@ async function boot(): Promise<void> {
     const replayParam = params.get("replay");
     if (replayParam) {
       await startReplayUrl(replayParam);
+    } else if (params.has("join")) {
+      // A shared invite link: the code in the URL puts you straight in the room.
+      await startPlay(nameFromUrl(), params.get("mode") === "boss" ? "boss" : "royale", {
+        action: "join",
+        code: params.get("join")!,
+      });
+    } else if (params.has("host")) {
+      await startPlay(nameFromUrl(), params.get("mode") === "boss" ? "boss" : "royale", { action: "create" });
     } else if (params.has("play")) {
       const mode = params.get("mode") === "boss" ? "boss" : "royale";
       await startPlay((params.get("name") || "human").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human", mode);
@@ -117,6 +126,7 @@ let replaysPageNum = 0;
 function hideMenus(): void {
   picker.classList.add("hidden");
   replaysPage.classList.add("hidden");
+  lobbyPage.classList.add("hidden");
   stopHero();
   sfx.stopMenuTheme();
 }
@@ -154,9 +164,14 @@ async function showPicker(): Promise<void> {
     await startReplay(text, f.name);
   });
 
-  // Hybrid play: humans enter the same queue as the AI bots.
+  // Hybrid play: humans enter the same queue as the AI bots — either the
+  // public quick-match queue, or a private lobby whose code they share.
   const playBtn = document.getElementById("play-btn") as HTMLButtonElement | null;
   const nameInput = document.getElementById("play-name") as HTMLInputElement | null;
+  const playerName = (): string =>
+    (nameInput?.value || nameInput?.placeholder || "human")
+      .replace(/[^a-zA-Z0-9_-]/g, "")
+      .slice(0, 16) || "human";
   if (playBtn && nameInput) {
     // Seed a random funny name as the placeholder hint: the field stays empty,
     // so it reads as a suggestion the user can take or replace — but a bare
@@ -164,19 +179,24 @@ async function showPicker(): Promise<void> {
     const suggestion = funnyName();
     nameInput.placeholder = suggestion;
     playBtn.addEventListener("click", () => {
-      const name = (nameInput.value || suggestion).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
-      location.href = "?play=1&name=" + encodeURIComponent(name);
-    });
-    // Slain the Boss: queue as a raider for a co-op raid on the AI boss.
-    const bossBtn = document.getElementById("boss-btn") as HTMLButtonElement | null;
-    bossBtn?.addEventListener("click", () => {
-      const name = (nameInput.value || suggestion).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
-      location.href = "?play=1&mode=boss&name=" + encodeURIComponent(name);
+      location.href = "?play=1&name=" + encodeURIComponent(playerName());
     });
     nameInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") playBtn.click();
     });
   }
+  // Slain the Boss: queue as a raider for a co-op raid on the AI boss.
+  document.getElementById("boss-btn")?.addEventListener("click", () => {
+    location.href = "?play=1&mode=boss&name=" + encodeURIComponent(playerName());
+  });
+  // Private room: the room's code and mode ride in the URL, so a share link is
+  // just this page plus `?join=CODE`.
+  document.getElementById("lobby-royale-btn")!.addEventListener("click", () => {
+    void openLobby({ mode: "royale", create: true, name: playerName() });
+  });
+  document.getElementById("lobby-boss-btn")!.addEventListener("click", () => {
+    void openLobby({ mode: "boss", create: true, name: playerName() });
+  });
 
   document.getElementById("browse-replays-btn")!.addEventListener("click", () => {
     location.hash = "#replays";
@@ -622,7 +642,14 @@ function setPlayStatus(s: string, detail?: string): void {
   document.getElementById("play-hud")!.classList.remove("hidden");
 }
 
-async function startPlay(name: string, mode: "royale" | "boss" = "royale"): Promise<void> {
+/** The one entry into a live match. `lobby` turns it into a private room:
+ * the server keeps this socket out of the public queue, the room overlay shows
+ * the share code + roster, and the host presses START when everyone is in. */
+async function startPlay(
+  name: string,
+  mode: "royale" | "boss" = "royale",
+  lobby: { action: "create" | "join"; code?: string } | null = null,
+): Promise<void> {
   hideMenus();
   stopAmbient(stage);
   await ensureStage();
@@ -635,20 +662,56 @@ async function startPlay(name: string, mode: "royale" | "boss" = "royale"): Prom
   playFx = new Fx(stage);
   playFog = new FogView(stage);
 
-  document.getElementById("topbar")!.classList.remove("hidden");
-  document.getElementById("killfeed")!.classList.remove("hidden");
-  document.getElementById("play-hud")!.classList.remove("hidden");
-  reticle.classList.remove("hidden");
-  setPlayStatus("connecting…");
+  if (lobby) {
+    // The room screen replaces the match HUD until the match begins.
+    showLobbyRoom(lobby);
+  } else {
+    showMatchHud();
+    setPlayStatus("connecting…");
+  }
 
   playClient = new PlayClient(name, {
     onStatus: setPlayStatus,
-    onStart: (youIndex, entrants) => {
+    onLobby: (info) => {
+      lobbyInfo = info;
+      // A roster arrived: the room exists — reveal it (hiding the setup form)
+      // and make the URL shareable.
+      document.getElementById("lobby-setup")!.classList.add("hidden");
+      document.getElementById("lobby-room")!.classList.remove("hidden");
+      setLobbyNotice("", false);
+      history.replaceState(
+        null,
+        "",
+        `${location.pathname}?${new URLSearchParams({ mode: info.mode, name, join: info.code })}`,
+      );
+      renderLobby(info, name);
+    },
+    onRoster: (info) => {
+      lobbyInfo = info;
+      renderLobby(info, name);
+    },
+    onLobbyClosed: (reason) => {
+      lobbyInfo = null;
+      renderLobby(null, name);
+      setLobbyNotice(`lobby closed — ${reason}`, true);
+    },
+    onError: (msg) => setLobbyNotice(msg, true),
+    onStart: (youIndex, entrants, role) => {
       playEntrants = entrants;
       playYouIndex = youIndex;
       const realNames = entrants.map((n, i) => (i === youIndex ? n + " (YOU)" : n));
       playUnits = new UnitViews(stage, realNames);
-      hud.setHeader(realNames, mode === "boss" ? "SLAIN THE BOSS — raid!" : "live match", 0);
+      showMatchHud();
+      if (lobby) hideLobbyRoom();
+      // The room's own mode wins: an invite code can be pasted into a link
+      // whose ?mode disagrees (a royale link with a raid room's code).
+      const header =
+        (lobbyInfo?.mode ?? mode) === "boss"
+          ? role === "boss"
+            ? "SLAIN THE BOSS — you ARE the boss"
+            : "SLAIN THE BOSS — raid!"
+          : "live match";
+      hud.setHeader(realNames, header, 0);
       prevHp = 100; prevEnergy = 100;
       prevMainAlive = true; prevCompAlive = true;
       prevEnemyHp = new Map(); prevProjectiles = new Map(); prevWeapon = null;
@@ -678,17 +741,178 @@ async function startPlay(name: string, mode: "royale" | "boss" = "royale"): Prom
         playOverShow("💀", `#${place} PLACE`, `${watch}five more minutes. then you're re-queued`);
       }
     },
-  }, mode);
+  }, mode, lobby ? (lobby.action === "create" ? { action: "create" } : { action: "join", code: lobby.code ?? "" }) : null);
 
   document.getElementById("play-leave")!.addEventListener("click", () => {
     playClient?.leave();
     location.href = location.pathname; // back to the home screen
   });
 
+  if (lobby) {
+    wireLobbyRoom(name, mode, lobby);
+    wireLobbySetup(name, mode);
+  }
+
   const wsProto = location.protocol === "https:" ? "wss" : "ws";
   playClient.attachInput(document.getElementById("stage-host")!, (x, y) => stage.screenToWorld(x, y));
   playClient.connect(wsProto + "://" + location.host + "/ws/bot");
   requestAnimationFrame(playLoop);
+}
+
+/* ---------- private lobby screen (drawn over the arena) ---------- */
+
+/** The room the current socket sits in, from the server's roster messages. */
+let lobbyInfo: LobbyInfo | null = null;
+
+function showLobbyRoom(lobby: { action: "create" | "join"; code?: string }): void {
+  lobbyPage.classList.remove("hidden");
+  // The setup form stays up until the server answers with a roster: a bad code
+  // then leaves the form in place instead of stranding an empty room screen.
+  document.getElementById("lobby-setup")!.classList.remove("hidden");
+  document.getElementById("lobby-room")!.classList.add("hidden");
+  setLobbyNotice(lobby.action === "create" ? "opening your room\u2026" : "joining\u2026", false);
+}
+
+/** Wire the lobby setup form (shown before a room exists, and if a code was
+ * rejected): the two create buttons and the join box all navigate to a URL
+ * that carries the intent, so a reload or a shared link is self-contained. */
+function wireLobbySetup(name: string, mode: "royale" | "boss"): void {
+  const nameEl = document.getElementById("lobby-name") as HTMLInputElement;
+  const codeEl = document.getElementById("lobby-code") as HTMLInputElement;
+  nameEl.value = name === "human" ? "" : name;
+  nameEl.placeholder = name;
+  codeEl.value = "";
+  const fresh = (): string =>
+    (nameEl.value || name).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
+  const goHost = (m: "royale" | "boss"): void => {
+    location.href = `${location.pathname}?${new URLSearchParams({ mode: m, name: fresh(), host: "1" })}`;
+  };
+  const goJoin = (): void => {
+    const code = codeEl.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 8);
+    if (code.length < 4) {
+      setLobbyNotice("type the 4-letter code from your invite link", true);
+      return;
+    }
+    location.href = `${location.pathname}?${new URLSearchParams({ mode, name: fresh(), join: code })}`;
+  };
+  document.getElementById("lobby-create-royale")!.onclick = () => goHost("royale");
+  document.getElementById("lobby-create-boss")!.onclick = () => goHost("boss");
+  document.getElementById("lobby-join")!.onclick = goJoin;
+  codeEl.onkeydown = (e) => { if (e.key === "Enter") goJoin(); };
+}
+
+function hideLobbyRoom(): void {
+  lobbyPage.classList.add("hidden");
+}
+
+function showMatchHud(): void {
+  document.getElementById("topbar")!.classList.remove("hidden");
+  document.getElementById("killfeed")!.classList.remove("hidden");
+  document.getElementById("play-hud")!.classList.remove("hidden");
+  reticle.classList.remove("hidden");
+}
+
+function setLobbyNotice(msg: string, bad: boolean): void {
+  const el = document.getElementById("lobby-err")!;
+  el.textContent = msg;
+  el.classList.toggle("hidden", msg === "");
+  el.style.color = bad ? "var(--danger)" : "var(--ink-dim)";
+}
+
+/** Wire the room screen's controls: copy the invite link, host START, leave. */
+function wireLobbyRoom(
+  name: string,
+  mode: "royale" | "boss",
+  lobby: { action: "create" | "join"; code?: string },
+): void {
+  const invite = (): string => {
+    const q = new URLSearchParams({ join: lobbyInfo?.code ?? lobby.code ?? "", mode, name });
+    return `${location.origin}${location.pathname}?${q.toString()}`;
+  };
+  document.getElementById("lobby-copy")!.onclick = async () => {
+    const url = invite();
+    try {
+      await navigator.clipboard.writeText(url);
+      setLobbyNotice("invite link copied ✓", false);
+    } catch {
+      setLobbyNotice(url, false); // clipboard blocked: show it to copy by hand
+    }
+  };
+  document.getElementById("lobby-start")!.onclick = () => {
+    // A raid room defaults to the built-in boss AI ("ai"); a royale room just
+    // fills the roster up to 8.
+    playClient?.startLobby(undefined, mode === "boss" ? "ai" : undefined);
+  };
+  document.getElementById("lobby-leave")!.onclick = () => {
+    playClient?.leave();
+    location.href = location.pathname; // back to the home screen
+  };
+}
+
+/** Paint the room roster: share code, mode, members with host/boss tags. */
+function renderLobby(info: LobbyInfo | null, you: string): void {
+  document.getElementById("lobby-code-label")!.textContent = info?.code ?? "…";
+  const mode = info?.mode ?? "royale";
+  const isHost = info !== null && info.host === you;
+  document.getElementById("lobby-mode-label")!.textContent =
+    mode === "boss" ? "boss raid — raiders vs one giant tarsius" : "royale — last tarsius standing";
+  const list = document.getElementById("lobby-members")!;
+  list.innerHTML = "";
+  const members = info?.members ?? [you];
+  for (const m of members) {
+    const li = document.createElement("li");
+    const left = document.createElement("span");
+    left.textContent = m;
+    if (m === you) {
+      const tag = document.createElement("span");
+      tag.className = "you";
+      tag.textContent = "(you)";
+      left.appendChild(tag);
+    }
+    li.appendChild(left);
+    const tags = document.createElement("span");
+    if (info && m === info.host) {
+      const t = document.createElement("span");
+      t.className = "tag host";
+      t.textContent = "host";
+      tags.appendChild(t);
+    }
+    li.appendChild(tags);
+    list.appendChild(li);
+  }
+  if (mode === "boss") {
+    // The boss is not a room member by default — the server's AI plays it
+    // (the host can cast a member instead, from the bot protocol).
+    const li = document.createElement("li");
+    const left = document.createElement("span");
+    left.textContent = "THE BOSS";
+    left.style.color = "var(--danger)";
+    li.appendChild(left);
+    const t = document.createElement("span");
+    t.className = "tag boss";
+    t.textContent = "server AI";
+    li.appendChild(t);
+    list.appendChild(li);
+  }
+  document.getElementById("lobby-host-controls")!.classList.toggle("hidden", !isHost);
+  document.getElementById("lobby-wait")!.classList.toggle("hidden", isHost);
+  if (isHost) setLobbyNotice("", false);
+}
+
+/** Home-screen entry: navigate to a URL that carries the room intent, so a
+ * reload and every shared link is self-contained. */
+function openLobby(opts: { mode: "royale" | "boss"; create?: boolean; join?: string; name?: string }): void {
+  const name = (opts.name ?? nameFromUrl()).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
+  const q = new URLSearchParams({ mode: opts.mode, name });
+  if (opts.create) q.set("host", "1");
+  else q.set("join", (opts.join ?? "").toUpperCase());
+  location.href = `${location.pathname}?${q.toString()}`;
+}
+
+/** The name a share link asked for. */
+function nameFromUrl(): string {
+  const raw = new URLSearchParams(location.search).get("name") ?? "";
+  return raw.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
 }
 
 function playLoop(ts: number): void {

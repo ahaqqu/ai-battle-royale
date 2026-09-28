@@ -106,8 +106,18 @@
             <h3>▶ PLAY LIVE — humans welcome</h3>
             <p>Play as <b>Tarsius</b>, the grumpiest sharpshooter in the arena. He'd rather nap, but his chatty <b>Jalak</b> won't stop shouting GUNBATTE! Same queue as the AI bots, strict fog, equal terms.</p>
             <input id="play-name" maxlength="16" placeholder="your name" />
-            <button id="play-btn">ENTER THE ARENA</button>
-            <button id="boss-btn">⚔ SLAIN THE BOSS</button>
+            <div class="play-modes">
+              <div class="play-mode-col">
+                <div class="play-mode-tag">quick match — anyone, right now</div>
+                <button id="play-btn">👥 ROYALE</button>
+                <button id="boss-btn" class="danger">⚔ SLAIN THE BOSS</button>
+              </div>
+              <div class="play-mode-col">
+                <div class="play-mode-tag">private room — share a code, start together</div>
+                <button id="lobby-royale-btn">👥 LOBBY</button>
+                <button id="lobby-boss-btn" class="danger">⚔ BOSS LOBBY</button>
+              </div>
+            </div>
           </div>
           <div class="home-keys" aria-hidden="true">
             <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span class="home-keys-sep">+</span><kbd class="home-keys-wide">SPACE</kbd><span class="home-keys-sep">·</span><kbd>Q</kbd><kbd>E</kbd><kbd>F</kbd>
@@ -120,6 +130,38 @@
         </div>
         <!-- Mascot layer: overlays the card exactly; clicks pass through. -->
         <div id="hero-host" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <!-- lobby: private room — create or join by share code, host starts -->
+    <div id="lobby-page" class="hidden">
+      <div class="picker-card lobby-card">
+        <div class="logo small">PRIVATE<span>LOBBY</span></div>
+        <div id="lobby-setup">
+          <p class="lobby-lede">Open a room, text the code to your friends, and start the match when everyone's in. Works for both modes — a boss raid casts its last player (or the AI) as the boss.</p>
+          <input id="lobby-name" maxlength="16" placeholder="your name" />
+          <div class="lobby-modes">
+            <button id="lobby-create-royale" class="lobby-mode">👥 ROYALE ROOM</button>
+            <button id="lobby-create-boss" class="lobby-mode danger">⚔ BOSS RAID ROOM</button>
+          </div>
+          <div class="lobby-join-row">
+            <input id="lobby-code" maxlength="8" placeholder="CODE" autocomplete="off" spellcheck="false" />
+            <button id="lobby-join">JOIN</button>
+          </div>
+        </div>
+        <div id="lobby-room" class="hidden">
+          <div class="lobby-code-badge"><span id="lobby-code-label">—</span>
+            <button id="lobby-copy" title="Copy the invite link">COPY LINK</button>
+          </div>
+          <div id="lobby-mode-label" class="lobby-mode-label"></div>
+          <ol id="lobby-members"></ol>
+          <div id="lobby-host-controls">
+            <button id="lobby-start">▶ START MATCH</button>
+            <p class="lobby-hint">starts immediately — the roster is topped up with house bots</p>
+          </div>
+          <p id="lobby-wait" class="lobby-hint hidden">waiting for the host to start…</p>
+          <button id="lobby-leave" class="lobby-ghost">← leave lobby</button>
+        </div>
       </div>
     </div>
 

@@ -235,3 +235,333 @@ async fn solo_human_gets_house_fill() {
     assert!(body.contains("solo-human"), "standings: {body}");
     assert!(!body.contains("house·"), "house bots must not appear: {body}");
 }
+
+/// Lobby (PLAN extension): a host creates a room, shares the code, an
+/// invitee joins, the host starts by hand — and the match drafts exactly the
+/// room's roster (topped up with house bots), never the public queue.
+/// Works the same for royale and boss; this is the royale half.
+#[tokio::test(flavor = "multi_thread")]
+async fn lobby_host_and_invitee_play_a_private_royale() {
+    let dir = tempfile::tempdir().unwrap();
+    let replay_dir = dir.path().join("replays");
+    let port = 8935;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: replay_dir.clone(),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 8,
+        spectate_delay_s: 0,
+    };
+    let mut match_cfg = MatchConfig::standard();
+    match_cfg.match_max_s = 25;
+    tokio::spawn(async move {
+        Server::start(cfg, match_cfg).await.expect("server");
+    });
+    tokio::time::sleep(Duration::from_millis(600)).await;
+
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+    let (ws, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    let (mut host_tx, mut host_rx) = ws.split();
+    host_tx
+        .send(Message::Text(
+            json!({"type":"register","name":"lobby-host","decision_rate":1,"human":true,
+                   "lobby_action":"create"})
+                .to_string(),
+        ))
+        .await
+        .unwrap();
+
+    // Host learns the share code.
+    let code = loop {
+        let msg = tokio::time::timeout(Duration::from_secs(10), host_rx.next())
+            .await
+            .expect("host hears back")
+            .unwrap()
+            .unwrap();
+        let Message::Text(t) = msg else { continue };
+        let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+        if v["type"] == "lobby_joined" {
+            assert_eq!(v["host"], "lobby-host");
+            assert_eq!(v["members"].as_array().unwrap().len(), 1);
+            break v["lobby"].as_str().unwrap().to_string();
+        }
+    };
+    assert_eq!(code.len(), 4, "share code looks like K7QP: {code}");
+
+    // The public scheduler must not steal a lobby member: a human-flagged
+    // solo queuer would normally be house-filled within one 2s pass, so if the
+    // host were visible to the queue a match_start would land here.
+    let quiet = tokio::time::Instant::now() + Duration::from_millis(4600);
+    while tokio::time::Instant::now() < quiet {
+        match tokio::time::timeout_at(quiet, host_rx.next()).await {
+            Ok(Some(Ok(Message::Text(t)))) => {
+                let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                assert_ne!(
+                    v["type"], "match_start",
+                    "the public queue drafted a lobby member: {v}"
+                );
+            }
+            Ok(Some(Ok(_))) => {}
+            _ => break,
+        }
+    }
+    // The invitee joins the room by code.
+    let (ws2, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    let (mut guest_tx, mut guest_rx) = ws2.split();
+    guest_tx
+        .send(Message::Text(
+            json!({"type":"register","name":"lobby-guest","decision_rate":1,"human":true,
+                   "lobby_action":"join","lobby":code})
+                .to_string(),
+        ))
+        .await
+        .unwrap();
+
+    let mut host_started = false;
+    let mut guest_started = false;
+    let mut host_roster = 0usize;
+    let mut started_sent = false;
+    // Host sees the roster update, then starts the match by hand.
+    let started_at = tokio::time::Instant::now();
+    while started_at.elapsed() < Duration::from_secs(30) && !(host_started && guest_started) {
+        tokio::select! {
+            msg = host_rx.next() => {
+                let Some(Ok(Message::Text(t))) = msg else { break };
+                let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                match v["type"].as_str() {
+                    Some("lobby_roster") => {
+                        host_roster = v["members"].as_array().unwrap().len();
+                        if host_roster >= 2 && !started_sent {
+                            // The whole point of a lobby: the host presses start.
+                            started_sent = true;
+                            host_tx
+                                .send(Message::Text(
+                                    json!({"type":"lobby_start","action":"start"}).to_string(),
+                                ))
+                                .await
+                                .unwrap();
+                        }
+                    }
+                    Some("match_start") => {
+                        host_started = true;
+                        let entrants: Vec<String> = v["bots"].as_array().unwrap().iter()
+                            .filter_map(|b| b.as_str().map(String::from)).collect();
+                        assert!(entrants.contains(&"lobby-host".to_string()));
+                        assert!(entrants.contains(&"lobby-guest".to_string()),
+                            "the invitee plays: {entrants:?}");
+                        assert_eq!(entrants.len(), 8, "house-filled to 8: {entrants:?}");
+                        host_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok();
+                    }
+                    Some("error") => panic!("host got error: {v}"),
+                    _ => { host_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok(); }
+                }
+            }
+            msg = guest_rx.next() => {
+                let Some(Ok(Message::Text(t))) = msg else { break };
+                let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                if v["type"] == "lobby_joined" {
+                    assert_eq!(v["lobby"], code);
+                    assert_eq!(v["members"].as_array().unwrap().len(), 2);
+                } else if v["type"] == "match_start" {
+                    guest_started = true;
+                }
+                guest_tx.send(Message::Text(active_action(&v).unwrap_or(json!({"tick":0})).to_string())).await.ok();
+            }
+        }
+    }
+    assert!(host_started && guest_started, "both lobby members entered the match");
+    assert_eq!(host_roster, 2, "host saw the invitee in the roster");
+
+    // Manual start actually plays the match out: both get placements.
+    let mut host_over: Option<serde_json::Value> = None;
+    let mut guest_over: Option<serde_json::Value> = None;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
+    while tokio::time::Instant::now() < deadline && (host_over.is_none() || guest_over.is_none()) {
+        tokio::select! {
+            msg = host_rx.next() => {
+                let Some(Ok(Message::Text(t))) = msg else { break };
+                let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                if v["type"] == "match_over" { host_over = Some(v); }
+                else if v["type"].is_null() { host_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok(); }
+            }
+            msg = guest_rx.next() => {
+                let Some(Ok(Message::Text(t))) = msg else { break };
+                let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                if v["type"] == "match_over" { guest_over = Some(v); }
+                else if v["type"].is_null() { guest_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok(); }
+            }
+        }
+    }
+    let host_over = host_over.expect("host saw match_over");
+    assert!(host_over["place"].as_i64().is_some(), "host: {host_over}");
+    let guest_over = guest_over.expect("guest saw match_over");
+    assert!(guest_over["place"].as_i64().is_some(), "guest: {guest_over}");
+
+    // The room's match is a real, verifiable replay with mode royale.
+    let replay_url = host_over["replay"].as_str().expect("replay url");
+    let replay_path = replay_dir.join(replay_url.trim_start_matches("/replays/"));
+    let replay: abr_core::replay::Replay =
+        serde_json::from_slice(&std::fs::read(&replay_path).unwrap()).unwrap();
+    assert_eq!(replay.header.config.mode, abr_core::config::GameMode::Royale);
+    abr_core::replay::verify_replay(&replay).expect("lobby replay verifies byte-identically");
+}
+
+/// Lobby + Slain the Boss: a boss-lobby casts one member (the host's pick) as
+/// the arena boss, fills the raider slots with house bots, and the raid runs
+/// to a real, verifiable finish.
+#[tokio::test(flavor = "multi_thread")]
+async fn boss_lobby_casts_a_member_as_the_boss() {
+    let dir = tempfile::tempdir().unwrap();
+    let replay_dir = dir.path().join("replays");
+    let port = 8936;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: replay_dir.clone(),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 8,
+        spectate_delay_s: 0,
+    };
+    let mut match_cfg = MatchConfig::standard();
+    match_cfg.match_max_s = 40;
+    tokio::spawn(async move {
+        Server::start(cfg, match_cfg).await.expect("server");
+    });
+    tokio::time::sleep(Duration::from_millis(600)).await;
+
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+    // Host: a raider who creates the raid room.
+    let (ws, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    let (mut host_tx, mut host_rx) = ws.split();
+    host_tx
+        .send(Message::Text(
+            json!({"type":"register","name":"raid-leader","decision_rate":1,"human":true,
+                   "mode":"boss","lobby_action":"create"})
+                .to_string(),
+        ))
+        .await
+        .unwrap();
+    let code = loop {
+        let msg = tokio::time::timeout(Duration::from_secs(10), host_rx.next())
+            .await
+            .expect("host hears back")
+            .unwrap()
+            .unwrap();
+        let Message::Text(t) = msg else { continue };
+        let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+        if v["type"] == "lobby_joined" {
+            assert_eq!(v["mode"], "boss");
+            break v["lobby"].as_str().unwrap().to_string();
+        }
+    };
+
+    // Guest: registers as a raider but claims the boss role in the lobby.
+    let (ws2, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    let (mut boss_tx, mut boss_rx) = ws2.split();
+    boss_tx
+        .send(Message::Text(
+            json!({"type":"register","name":"guest-boss","decision_rate":1,"human":true,
+                   "mode":"boss","boss":true,"lobby_action":"join","lobby":code})
+                .to_string(),
+        ))
+        .await
+        .unwrap();
+
+    // Host starts the raid by hand, casting the guest as the boss.
+    let mut waiting = true;
+    while waiting {
+        let msg = tokio::time::timeout(Duration::from_secs(10), host_rx.next())
+            .await
+            .expect("host hears back")
+            .unwrap()
+            .unwrap();
+        let Message::Text(t) = msg else { continue };
+        let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+        if v["type"] == "lobby_roster" {
+            assert_eq!(v["members"].as_array().unwrap().len(), 2);
+            host_tx
+                .send(Message::Text(json!({"type":"lobby_start","action":"start"}).to_string()))
+                .await
+                .unwrap();
+            waiting = false;
+        }
+    }
+
+    // Both players see the raid start; the boss role lands on the guest.
+    let mut host_role: Option<String> = None;
+    let mut boss_role: Option<String> = None;
+    let mut host_is_boss = false;
+    let mut boss_is_boss = false;
+    let started = tokio::time::Instant::now();
+    while started.elapsed() < Duration::from_secs(20) && (host_role.is_none() || boss_role.is_none()) {
+        tokio::select! {
+            msg = host_rx.next() => {
+                let Some(Ok(Message::Text(t))) = msg else { break };
+                let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                if v["type"] == "match_start" {
+                    assert_eq!(v["mode"], "boss");
+                    host_is_boss = v["role"] == "boss";
+                    host_role = v["role"].as_str().map(String::from);
+                    let entrants: Vec<String> = v["bots"].as_array().unwrap().iter()
+                        .filter_map(|b| b.as_str().map(String::from)).collect();
+                    // The boss is the last entrant (its slot becomes the boss unit).
+                    assert_eq!(entrants.last().map(String::as_str), Some("guest-boss"),
+                        "cast boss sits in the last slot: {entrants:?}");
+                }
+                host_tx.send(Message::Text(active_action(&v).unwrap_or(json!({"tick":0})).to_string())).await.ok();
+            }
+            msg = boss_rx.next() => {
+                let Some(Ok(Message::Text(t))) = msg else { break };
+                let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                if v["type"] == "match_start" {
+                    boss_is_boss = v["role"] == "boss";
+                    boss_role = v["role"].as_str().map(String::from);
+                }
+                boss_tx.send(Message::Text(active_action(&v).unwrap_or(json!({"tick":0})).to_string())).await.ok();
+            }
+        }
+    }
+    assert!(!host_is_boss, "the host raided, not bossed");
+    assert!(boss_is_boss, "the guest was cast as the boss");
+    assert_eq!(host_role.as_deref(), Some("raider"));
+    assert_eq!(boss_role.as_deref(), Some("boss"));
+
+    // Play it out; the boss guest must survive longer than a walkover.
+    let mut over: Option<(String, serde_json::Value)> = None;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(180);
+    while tokio::time::Instant::now() < deadline && over.is_none() {
+        tokio::select! {
+            msg = host_rx.next() => {
+                let Some(Ok(Message::Text(t))) = msg else { break };
+                let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                if v["type"] == "match_over" { over = Some(("raid-leader".into(), v)); }
+                else if v["type"].is_null() { host_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok(); }
+            }
+            msg = boss_rx.next() => {
+                let Some(Ok(Message::Text(t))) = msg else { break };
+                let v: serde_json::Value = serde_json::from_str(&t).unwrap();
+                if v["type"] == "match_over" { over = Some(("guest-boss".into(), v)); }
+                else if v["type"].is_null() { boss_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok(); }
+            }
+        }
+    }
+    let (who, _o) = over.expect("the raid finished");
+
+    // The raid replay verifies and is a boss-mode match.
+    let replay_url = _o["replay"].as_str().expect("replay url");
+    let replay_path = replay_dir.join(replay_url.trim_start_matches("/replays/"));
+    let replay: abr_core::replay::Replay =
+        serde_json::from_slice(&std::fs::read(&replay_path).unwrap()).unwrap();
+    assert_eq!(replay.header.config.mode, abr_core::config::GameMode::Boss);
+    assert!(replay.header.bot_names.last().map(|n| n == "guest-boss").unwrap_or(false),
+        "guest-boss was the raid boss: {:?}", replay.header.bot_names);
+    let verified = abr_core::replay::verify_replay(&replay).expect("raid replay verifies");
+    assert!(verified.ticks > 0, "raid had substance ({who})");
+}
