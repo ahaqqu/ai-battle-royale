@@ -10,7 +10,7 @@
  * anything on the user's behalf. */
 
 import { Application, Container, Graphics, Sprite, Text } from "pixi.js";
-import { FONT, INK_HEX, botColor } from "../types.js";
+import { FONT, botColor } from "../types.js";
 import { JalakArt, TarsiusArt, makeJalak, makeTarsius } from "./units.js";
 import { makeGlowTexture } from "./stage.js";
 
@@ -52,8 +52,6 @@ let birdShadow: Sprite | null = null;
 let bubble: Container | null = null;
 let bubbleBg: Graphics | null = null;
 let bubbleText: Text | null = null;
-let labelT: Text | null = null;
-let labelJ: Text | null = null;
 let onTick: (() => void) | null = null;
 
 let spots: Spot[] = [];
@@ -104,12 +102,6 @@ export async function startHero(hostEl: HTMLElement): Promise<void> {
   hero.addChild(birdShadow, tarsius.root, jalak.root);
   a.stage.addChild(hero);
 
-  // Name tags follow their characters, so the yellow JALAK word rides up with
-  // the bird while TARSIUS stays with the dancer below it.
-  labelT = nameTag("TARSIUS", "#ff8fb8");
-  labelJ = nameTag("JALAK", "#ffd93b");
-  a.stage.addChild(labelT, labelJ);
-
   // Speech bubble for the invitations.
   bubble = new Container();
   bubbleBg = new Graphics();
@@ -136,20 +128,6 @@ export async function startHero(hostEl: HTMLElement): Promise<void> {
 
   onTick = () => tick(performance.now() / 1000);
   a.ticker.add(onTick);
-}
-
-function nameTag(text: string, col: string): Text {
-  const t = new Text({
-    text,
-    style: {
-      fontFamily: FONT, fontSize: 10.5, fontWeight: "800",
-      fill: col, letterSpacing: 1.2,
-      stroke: { color: INK_HEX, width: 3.5, join: "round" },
-    },
-  });
-  t.anchor.set(0.5, 1);
-  t.alpha = 0.92;
-  return t;
 }
 
 /** Read the menu's real controls and turn them into roam targets, so the
@@ -216,24 +194,32 @@ function say(text: string, hold = 3.4): void {
   bubbleT = hold;
 }
 
-/** Redraw the bubble's body + tail so the tail always points at the tarsius. */
+/** Redraw the bubble's body + tail so the tail always points at the tarsius.
+ * The body is centered on the text, and the tail's white fill overlaps the
+ * body's edge so the border reads as one continuous outline: only the tail's
+ * two free sides get stroked, so no seam line crosses its base. */
 function drawBubble(tailDown: boolean): void {
   if (!bubbleText || !bubbleBg) return;
   const w = Math.max(96, bubbleText.width + 24);
-  const h = bubbleText.height + 16;
-  const ty = (h - 6) / 2;
-  const dir = tailDown ? -1 : 1;
+  const h = bubbleText.height + 14;
+  const half = h / 2;
+  const dir = tailDown ? 1 : -1;          // +1: tail hangs from the bottom edge
+  const edge = half - 2;                  // tail base tucks 2px inside the body
+  const tip = half + 9;
+  const fill = { color: 0xffffff, alpha: 0.96 };
+  const line = { width: 2, color: 0x6b5b9a, alpha: 0.5, join: "round" } as const;
   bubbleBg.clear();
-  bubbleBg.roundRect(-w / 2, -h / 2, w, h - 6, 10).fill({ color: 0xffffff, alpha: 0.96 })
-    .stroke({ width: 2, color: 0x6b5b9a, alpha: 0.5 });
-  bubbleBg.moveTo(-6, ty * dir).lineTo(0, (ty + 9) * dir).lineTo(6, ty * dir).closePath()
-    .fill({ color: 0xffffff, alpha: 0.96 });
+  bubbleBg.roundRect(-w / 2, -half, w, h, 10).fill(fill).stroke(line);
+  bubbleBg.moveTo(-6, edge * dir).lineTo(0, tip * dir).lineTo(6, edge * dir)
+    .closePath().fill(fill);
+  bubbleBg.moveTo(-6, edge * dir).lineTo(0, tip * dir).lineTo(6, edge * dir)
+    .stroke(line);
 }
 
 /** Frame driver: roam → act → freestyle, with the bird orbiting the whole way
  * and the invitations surfacing from time to time. */
 function tick(t: number): void {
-  if (!app || !tarsius || !jalak || !birdShadow || !labelT || !labelJ || !bubble || !bubbleText) return;
+  if (!app || !tarsius || !jalak || !birdShadow || !bubble || !bubbleText) return;
   const dt = Math.min(0.05, app.ticker.deltaMS / 1000);
   const bt = t * BEAT * Math.PI;          // beat phase
   const sway = Math.sin(bt * 0.5);
@@ -342,7 +328,6 @@ function tick(t: number): void {
     tarsius.earR.rotation = -0.3 - Math.sin(bt * 2) * 0.55;
   }
   tarsius.blinkTarget.scale.y = 1;
-  labelT.position.set(tarsius.root.x, tarsius.root.y + 42 * SCALE);
 
   // --- jalak: circles the dancing tarsius, held above it ---
   orbit.x += (pos.x - orbit.x) * Math.min(1, dt * 2.2);
@@ -364,9 +349,6 @@ function tick(t: number): void {
   jalak.root.scale.set(SCALE * (1 - Math.abs(flap) * 0.03), SCALE * (1 + flap * 0.05));
   birdShadow.position.set(bx, orbit.y + 42);
   birdShadow.scale.set(0.5 - Math.abs(bank) * 0.08, 0.26 - Math.abs(bank) * 0.04);
-  // The yellow JALAK word rides under the bird, which orbits above the
-  // tarsius — so it always reads on the upper side of the box.
-  labelJ.position.set(bx, by + 16);
 
   // --- speech bubble ---
   bubbleCd -= dt;
@@ -379,11 +361,11 @@ function tick(t: number): void {
     bubble.visible = true;
     // Flip the bubble below the tarsius when it roams high in the card, so the
     // invitation never covers the heading or the name field.
-    const above = tarsius.root.y > 96;
-    drawBubble(above);
+    const bubbleAbove = tarsius.root.y > 96;
+    drawBubble(bubbleAbove);           // bubble above ⇒ tail hangs down at it
     const w = bubbleText.width / 2 + 14;
     const px = Math.min(Math.max(tarsius.root.x, w), app.screen.width - w);
-    const py = above ? tarsius.root.y - 78 : tarsius.root.y + 74;
+    const py = bubbleAbove ? tarsius.root.y - 78 : tarsius.root.y + 74;
     bubble.position.set(px, py);
     bubble.alpha = Math.min(1, bubbleT / 0.35);
   } else {
@@ -438,8 +420,6 @@ export function stopHero(): void {
   bubble = null;
   bubbleBg = null;
   bubbleText = null;
-  labelT = null;
-  labelJ = null;
   host = null;
   cardEl = null;
   spots = [];
