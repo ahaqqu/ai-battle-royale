@@ -65,8 +65,10 @@ cp -r "$repo/provision" "$stage/provision"
 if [ "$BOOTSTRAP" = 1 ]; then
     GUNBATTE_SITE_HOST="$(fetch GUNBATTE_SITE_HOST)"
     GUNBATTE_EMAIL="$(fetch GUNBATTE_EMAIL)"
-    VPS_ADMIN_USER="$(fetch VPS_ADMIN_USER)"
-    GUNBATTE_ADMIN_SSH="${GUNBATTE_ADMIN_SSH:-$VPS_ADMIN_USER@$VPS_HOST}"
+    # --bootstrap is run by a human and is the ONLY path that touches the
+    # admin account. CI never sees an admin identity — so the admin SSH
+    # target is never stored in GitHub config; you name it here, each time.
+    : "${GUNBATTE_ADMIN_SSH:?--bootstrap runs as the admin, which CI never does — export GUNBATTE_ADMIN_SSH=admin-user@vps-host for this one command}"
     pub_file="${GUNBATTE_DEPLOY_PUBKEY_FILE:-$HOME/.ssh/gunbatte-deploy.pub}"
     if [ ! -f "$pub_file" ]; then
         echo "!! CI public key not found at $pub_file" >&2
