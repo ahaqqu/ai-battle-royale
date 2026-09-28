@@ -19,12 +19,25 @@
 # at upload time, so the repo copy stays generic.
 set -euo pipefail
 
-GUNBATTE_DEPLOY_USER="${GUNBATTE_DEPLOY_USER:-kajianq-deploy}"
-GUNBATTE_SSH="${GUNBATTE_SSH:-$GUNBATTE_DEPLOY_USER@62.83.35.220}"
-GUNBATTE_ADMIN_SSH="${GUNBATTE_ADMIN_SSH:-ahaqqu@62.83.35.220}"
+# All configuration comes from the environment or, when unset, from the
+# repository's GitHub Actions variables — the same source CI reads, so there
+# is exactly one place where deployment values live. Nothing is hardcoded.
+fetch() {
+    local name="$1" val="${!name:-}"
+    if [ -n "$val" ]; then printf '%s\n' "$val"; return 0; fi
+    if command -v gh >/dev/null 2>&1; then
+        val="$(gh variable get "$name" 2>/dev/null || true)"
+        if [ -n "$val" ]; then printf '%s\n' "$val"; return 0; fi
+    fi
+    echo "!! $name is not set — export it, or add it as a GitHub repository variable (Settings → Secrets and variables → Actions → Variables)" >&2
+    return 1
+}
+GUNBATTE_DEPLOY_USER="$(fetch VPS_USER)"
+VPS_HOST="$(fetch VPS_HOST)"
+GUNBATTE_GAME_HOST="$(fetch GUNBATTE_GAME_HOST)"
+GUNBATTE_PORT="$(fetch GUNBATTE_PORT)"
+GUNBATTE_SSH="${GUNBATTE_SSH:-$GUNBATTE_DEPLOY_USER@$VPS_HOST}"
 GUNBATTE_DIR="${GUNBATTE_DIR:-/home/$GUNBATTE_DEPLOY_USER/gunbatte}"
-GUNBATTE_PORT="${GUNBATTE_PORT:-8321}"
-: "${GUNBATTE_GAME_HOST:?set GUNBATTE_GAME_HOST (game hostname, e.g. play.example.com)}"
 
 BOOTSTRAP=0
 [ "${1:-}" = "--bootstrap" ] && BOOTSTRAP=1
@@ -50,8 +63,10 @@ cp -r "$repo/website/assets" "$repo/website/style.css" "$stage/website/"
 cp -r "$repo/provision" "$stage/provision"
 
 if [ "$BOOTSTRAP" = 1 ]; then
-    : "${GUNBATTE_SITE_HOST:?--bootstrap needs GUNBATTE_SITE_HOST (website hostname)}"
-    : "${GUNBATTE_EMAIL:?--bootstrap needs GUNBATTE_EMAIL (for the certbot account)}"
+    GUNBATTE_SITE_HOST="$(fetch GUNBATTE_SITE_HOST)"
+    GUNBATTE_EMAIL="$(fetch GUNBATTE_EMAIL)"
+    VPS_ADMIN_USER="$(fetch VPS_ADMIN_USER)"
+    GUNBATTE_ADMIN_SSH="${GUNBATTE_ADMIN_SSH:-$VPS_ADMIN_USER@$VPS_HOST}"
     pub_file="${GUNBATTE_DEPLOY_PUBKEY_FILE:-$HOME/.ssh/gunbatte-deploy.pub}"
     if [ ! -f "$pub_file" ]; then
         echo "!! CI public key not found at $pub_file" >&2

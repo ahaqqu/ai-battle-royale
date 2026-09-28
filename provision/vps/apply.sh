@@ -26,9 +26,9 @@ set -euo pipefail
 : "${GUNBATTE_GAME_HOST:?set GUNBATTE_GAME_HOST (game hostname, e.g. play.example.com)}"
 : "${GUNBATTE_SITE_HOST:?set GUNBATTE_SITE_HOST (website hostname, e.g. gunbatte.example.com)}"
 : "${GUNBATTE_DEPLOY_PUBKEY:?set GUNBATTE_DEPLOY_PUBKEY (contents of the CI public key)}"
-GUNBATTE_DEPLOY_USER="${GUNBATTE_DEPLOY_USER:-kajianq-deploy}"
-GUNBATTE_DIR="${GUNBATTE_DIR:-/home/$GUNBATTE_DEPLOY_USER/gunbatte}"
-GUNBATTE_PORT="${GUNBATTE_PORT:-8321}"
+: "${GUNBATTE_DEPLOY_USER:?set GUNBATTE_DEPLOY_USER (restricted deploy identity, e.g. kajianq-deploy)}"
+: "${GUNBATTE_DIR:?set GUNBATTE_DIR (app dir, e.g. /home/kajianq-deploy/gunbatte)}"
+: "${GUNBATTE_PORT:?set GUNBATTE_PORT (loopback port for abr-server, e.g. 8321)}"
 
 here="$(cd "$(dirname "$0")" && pwd)"
 
