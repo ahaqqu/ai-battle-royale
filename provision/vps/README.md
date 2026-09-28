@@ -51,8 +51,11 @@ state (`ladder.db`, `replays/`) is never touched by uploads.
 runs the same `deploy.sh` — one deploy path for CI and humans. **All values
 live as repository variables** (Settings → Secrets and variables → Actions):
 `VPS_USER`, `VPS_HOST`, `GUNBATTE_GAME_HOST`, `GUNBATTE_SITE_HOST`,
-`VPS_ADMIN_USER`, `GUNBATTE_PORT`. deploy.sh reads the same variables via
-`gh`, so there is exactly one source of configuration. One-time key setup:
+`GUNBATTE_PORT`, `GUNBATTE_EMAIL`. deploy.sh reads the same variables via
+`gh`, so there is exactly one source of configuration. CI never holds an
+admin identity — the admin account appears only when **you** run the
+one-time bootstrap, named by the `GUNBATTE_ADMIN_SSH` env var. One-time key
+setup:
 
 ```sh
 # 1. a dedicated, revocable keypair for the deploy identity (no passphrase):
