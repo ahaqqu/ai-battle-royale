@@ -258,6 +258,8 @@ pub struct LootConfig {
     pub weight_hp: u32,
     pub weight_energy: u32,
     pub weight_mod: u32,
+    /// Weight of gun-swap pickups (one of the six special guns).
+    pub weight_weapon: u32,
     pub hp_kit_amount: f64,
     pub energy_pack_amount: f64,
     pub mod_cooldown_pct: f64,
@@ -270,9 +272,10 @@ impl Default for LootConfig {
         LootConfig {
             count: 28,
             spawn_window_s: 180.0,
-            weight_hp: 40,
-            weight_energy: 40,
-            weight_mod: 20,
+            weight_hp: 35,
+            weight_energy: 30,
+            weight_mod: 15,
+            weight_weapon: 35,
             hp_kit_amount: 35.0,
             energy_pack_amount: 40.0,
             mod_cooldown_pct: 20.0,

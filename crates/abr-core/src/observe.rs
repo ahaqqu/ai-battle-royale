@@ -39,6 +39,9 @@ pub struct OwnUnit {
     pub facing: u16,
     pub hp: f64,
     pub energy: f64,
+    /// Mains only: the gun currently equipped.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub weapon: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mods: Option<Mods>,
     pub cooldown: OwnCooldown,
@@ -81,6 +84,9 @@ pub struct SeenPlayer {
     pub facing: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hp: Option<f64>,
+    /// Full detail only: which gun the enemy is carrying.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub weapon: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -105,6 +111,8 @@ pub struct SeenProjectile {
     pub vel: [f64; 2],
     pub owner: u32,
     pub owner_kind: String,
+    /// Which gun fired it (renderer picks bullet shape/color).
+    pub weapon: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -245,6 +253,7 @@ pub fn observe(
                 vel: detail_full.then(|| [f(u.vel.x), f(u.vel.y)]),
                 facing: detail_full.then_some(u.facing),
                 hp: detail_full.then(|| f(u.hp)),
+                weapon: detail_full.then(|| weapon_str(u.weapon).to_string()),
                 status: detail_full.then(|| unit_status(u)),
                 via_sonar: (best.is_none()).then_some(true),
             });
@@ -274,6 +283,7 @@ pub fn observe(
                 vel: [f(pr.vel.x), f(pr.vel.y)],
                 owner: pr.bot,
                 owner_kind: "main".to_string(),
+                weapon: weapon_str(pr.weapon).to_string(),
             });
             continue;
         }
@@ -286,6 +296,7 @@ pub fn observe(
                     vel: [f(pr.vel.x), f(pr.vel.y)],
                     owner: pr.bot,
                     owner_kind: "main".to_string(),
+                    weapon: weapon_str(pr.weapon).to_string(),
                 });
                 break;
             }
@@ -303,7 +314,7 @@ pub fn observe(
                 seen.pickups.push(SeenPickup {
                     id: pk.id,
                     pos: [f(pk.pos.x), f(pk.pos.y)],
-                    kind: pickup_kind_str(pk.kind).to_string(),
+                    kind: pickup_kind_str(pk.kind),
                 });
                 break;
             }
@@ -396,6 +407,11 @@ fn own_unit(u: &crate::state::Unit, p: &SimParams, companion: bool, tick: u64) -
         facing: u.facing,
         hp: f(u.hp),
         energy: f(u.energy),
+        weapon: if companion {
+            None
+        } else {
+            Some(weapon_str(u.weapon).to_string())
+        },
         mods: if companion {
             None
         } else if u.mod_cooldown_pct != 0 || u.mod_speed_pct != 0 {
@@ -461,12 +477,26 @@ fn band_str(d: Fix) -> &'static str {
     }
 }
 
-fn pickup_kind_str(k: crate::loot::PickupKind) -> &'static str {
+fn pickup_kind_str(k: crate::loot::PickupKind) -> String {
     match k {
-        crate::loot::PickupKind::HpKit => "hp_kit",
-        crate::loot::PickupKind::Energy => "energy",
-        crate::loot::PickupKind::ModCooldown => "mod_cooldown",
-        crate::loot::PickupKind::ModSpeed => "mod_speed",
+        crate::loot::PickupKind::HpKit => "hp_kit".to_string(),
+        crate::loot::PickupKind::Energy => "energy".to_string(),
+        crate::loot::PickupKind::ModCooldown => "mod_cooldown".to_string(),
+        crate::loot::PickupKind::ModSpeed => "mod_speed".to_string(),
+        crate::loot::PickupKind::Weapon(w) => format!("weapon_{}", weapon_str(w)),
+    }
+}
+
+/// Snake-case gun name used across the wire (observations + events).
+fn weapon_str(w: crate::weapons::WeaponKind) -> &'static str {
+    match w {
+        crate::weapons::WeaponKind::Pea => "pea",
+        crate::weapons::WeaponKind::Sprinkler => "sprinkler",
+        crate::weapons::WeaponKind::Scatter => "scatter",
+        crate::weapons::WeaponKind::Lance => "lance",
+        crate::weapons::WeaponKind::Bouncer => "bouncer",
+        crate::weapons::WeaponKind::Skewer => "skewer",
+        crate::weapons::WeaponKind::Popper => "popper",
     }
 }
 
@@ -560,6 +590,7 @@ pub fn spectator_frame(
                 vel: [f(pr.vel.x), f(pr.vel.y)],
                 owner: pr.bot,
                 owner_kind: "main".to_string(),
+                weapon: weapon_str(pr.weapon).to_string(),
             })
             .collect(),
         pickups: state
@@ -569,7 +600,7 @@ pub fn spectator_frame(
             .map(|pk| SeenPickup {
                 id: pk.id,
                 pos: [f(pk.pos.x), f(pk.pos.y)],
-                kind: pickup_kind_str(pk.kind).to_string(),
+                kind: pickup_kind_str(pk.kind),
             })
             .collect(),
         zone: ZoneJson {

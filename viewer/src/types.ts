@@ -3,7 +3,7 @@
 
 export const ARENA = 3200;
 export const UNIT_STRIDE = 11;
-export const PROJ_STRIDE = 7;
+export const PROJ_STRIDE = 8;
 export const PICKUP_STRIDE = 4;
 
 /** Unit float layout (UNIT_STRIDE per unit):
@@ -13,10 +13,11 @@ export const enum U {
 }
 export const UF_ALIVE = 1, UF_SPRINT = 2, UF_DASH = 4, UF_SHIELD = 8;
 
-/** Projectile layout: [id, bot, x, y, vx, vy, damage] */
-export const enum P { ID = 0, BOT = 1, X = 2, Y = 3, VX = 4, VY = 5, DMG = 6 }
+/** Projectile layout: [id, bot, x, y, vx, vy, damage, weapon] */
+export const enum P { ID = 0, BOT = 1, X = 2, Y = 3, VX = 4, VY = 5, DMG = 6, WEAPON = 7 }
 
-/** Pickup layout: [id, kindIdx(0 hp,1 energy,2 cd mod,3 spd mod), x, y] */
+/** Pickup layout: [id, kindIdx, x, y] — kindIdx 0-3 are the candy tins,
+ * 4-9 are the gun pickups (index into WEAPONS). */
 export const enum K { ID = 0, KIND = 1, X = 2, Y = 3 }
 
 /** Zone layout: [cx, cy, r, nextCx, nextCy, nextR, aliveCount] */
@@ -71,9 +72,9 @@ export interface ReplayData {
 /** Player-cam data: what one bot actually saw, per tick (strict fog). */
 export interface CamFrame {
   me: { main: { pos: [number, number]; alive: boolean }; comp: { pos: [number, number] | null; alive: boolean } };
-  seenPlayers: { id: number; pos: [number, number]; detail: string; hp?: number; viaSonar?: boolean }[];
+  seenPlayers: { id: number; pos: [number, number]; detail: string; hp?: number; weapon?: string; viaSonar?: boolean }[];
   seenCompanions: { id: number; owner: number; pos: [number, number]; detail: string }[];
-  seenProjectiles: { id: number; pos: [number, number]; vel: [number, number]; owner: number }[];
+  seenProjectiles: { id: number; pos: [number, number]; vel: [number, number]; owner: number; weapon?: string }[];
   seenPickups: { id: number; pos: [number, number]; kind: string }[];
   heard: { kind: string; bearing: number; band: string }[];
   zone: { center: [number, number]; radius: number; next?: { center: [number, number]; radius: number } | null };
@@ -106,8 +107,51 @@ export const BOT_COLORS = [
   "#00e0c8", // 15 turquoise
 ];
 
-export const KIND_COLORS = ["#43d66e", "#35c1f0", "#c06bff", "#ffa03c"];
-export const KIND_LABELS = ["HP KIT", "ENERGY", "COOLDOWN MOD", "SPEED MOD"];
+/** CamFrame seen-player / projectile weapon entries carry the wire name. */
+export type WeaponName = "pea" | "sprinkler" | "scatter" | "lance" | "bouncer" | "skewer" | "popper";
+
+/** The gun roster, wire name order. Index 0 = starter pea gun. */
+export const WEAPONS: {
+  name: WeaponName; label: string; color: string; blurb: string; cd: number;
+}[] = [
+  { name: "pea", label: "PEA POPPER", color: "#8d82b5", blurb: "starter bubblegun", cd: 0.5 },
+  { name: "sprinkler", label: "SPRINKLER", color: "#ffd93b", blurb: "hyper SMG — wobbly but wild", cd: 0.16 },
+  { name: "scatter", label: "SCATTERSHOT", color: "#ff5f7e", blurb: "6-pellet boom cone", cd: 0.95 },
+  { name: "lance", label: "SUGAR LANCE", color: "#7df0ff", blurb: "slow bolt, huge damage", cd: 1.7 },
+  { name: "bouncer", label: "GUM BOUNCER", color: "#35d6b5", blurb: "ricochets off walls ×3", cd: 0.55 },
+  { name: "skewer", label: "LIQUORICE SKEWER", color: "#c06bff", blurb: "pierces up to 3 units", cd: 0.6 },
+  { name: "popper", label: "POP ROCK", color: "#ff6a00", blurb: "explodes on impact", cd: 0.95 },
+];
+
+/** Wire name → roster index (unknown = pea). */
+export function weaponIdx(name?: string | null): number {
+  if (!name) return 0;
+  const i = WEAPONS.findIndex((w) => w.name === name);
+  return i < 0 ? 0 : i;
+}
+
+/** Pickup kind indices: 0-3 candy tins, 4-9 = weapon_<name> wire kinds. */
+export function pickupKindIdx(kind: string): number {
+  switch (kind) {
+    case "hp_kit": return 0;
+    case "energy": return 1;
+    case "mod_cooldown": return 2;
+    case "mod_speed": return 3;
+    default: {
+      if (kind.startsWith("weapon_")) return 4 + weaponIdx(kind.slice(7)) - 1;
+      return 3;
+    }
+  }
+}
+
+export const KIND_COLORS = [
+  "#43d66e", "#35c1f0", "#c06bff", "#ffa03c",
+  ...WEAPONS.slice(1).map((w) => w.color),
+];
+export const KIND_LABELS = [
+  "HP KIT", "ENERGY", "COOLDOWN MOD", "SPEED MOD",
+  ...WEAPONS.slice(1).map((w) => w.label),
+];
 
 /** Chunky rounded display font used everywhere (HUD + in-canvas text). */
 export const FONT = '"Baloo 2", "Fredoka", "Trebuchet MS", "Inter", sans-serif';

@@ -2,7 +2,7 @@
  * hybrid human play client (humans join the same queue as AI bots). */
 
 import { Graphics } from "pixi.js";
-import { CamMode, Frame, MapData, ReplayData, botColor } from "./types.js";
+import { CamMode, Frame, MapData, ReplayData, botColor, WEAPONS, weaponIdx } from "./types.js";
 import { buildPlayerCam, LoadedReplay, loadReplay } from "./sim.js";
 import { PlayClient } from "./play.js";
 import { Stage } from "./render/stage.js";
@@ -536,7 +536,9 @@ let prevEnergy = 100;
 let prevMainAlive = true;
 let prevCompAlive = true;
 let prevEnemyHp = new Map<number, number>();
-let prevMyShots = new Set<number>();
+/** Last observation's projectile set: new = muzzle flash, gone popper = boom. */
+let prevProjectiles = new Map<number, { x: number; y: number; w: number; mine: boolean }>();
+let prevWeapon: string | null = null;
 let killProcessed = 0;
 let lastZoneBeep = 0;
 let bannerTimer = 0;
@@ -588,6 +590,10 @@ function updateReticle(): void {
   const obs = playClient.lastObs;
   reticle.classList.toggle("cd", !!obs && (obs.you.main.cooldown.fire ?? 0) > 0);
   reticle.classList.toggle("sprint", playClient.sprinting);
+  // The reticle wears the gun's color — you always know what you're holding.
+  if (obs) {
+    reticle.style.setProperty("--gun", WEAPONS[weaponIdx(obs.you.main.weapon)].color);
+  }
 }
 
 function playOverShow(crown: string, title: string, sub: string): void {
@@ -638,7 +644,7 @@ async function startPlay(name: string): Promise<void> {
       hud.setHeader(realNames, "live match", 0);
       prevHp = 100; prevEnergy = 100;
       prevMainAlive = true; prevCompAlive = true;
-      prevEnemyHp = new Map(); prevMyShots = new Set();
+      prevEnemyHp = new Map(); prevProjectiles = new Map(); prevWeapon = null;
       killProcessed = 0;
       lastSeenPos = new Map();
       prevDashOn = false; prevShieldOn = false; prevCompPos = null;
@@ -749,7 +755,11 @@ function playLoop(ts: number): void {
       main: { pos: me.pos, alive: me.alive },
       comp: { pos: obs.you.companion.pos, alive: obs.you.companion.alive },
     },
-    seenPlayers: obs.seen.players,
+    seenPlayers: obs.seen.players.map((p) => ({
+      ...p,
+      // Server observations carry raw hp (0..100); the fog view wants a fraction.
+      hp: p.hp === undefined ? undefined : Math.max(0, p.hp) / 100,
+    })),
     seenCompanions: obs.seen.companions,
     seenProjectiles: obs.seen.projectiles,
     seenPickups: obs.seen.pickups,
@@ -800,10 +810,52 @@ function playLoop(ts: number): void {
       prevEnemyHp.set(p.id, p.hp);
     }
 
-    // Your own muzzle: new projectiles you own since last tick.
-    const myShots = new Set(obs.seen.projectiles.filter((p) => p.owner === me.id).map((p) => p.id));
-    for (const id of myShots) if (!prevMyShots.has(id)) sfx.play("shot", 0, 0.5);
-    prevMyShots = myShots;
+    // Bullet FX: play mode gets no event stream, so diff the projectile set
+    // against the last observation — a new bullet is a muzzle flash, a
+    // vanished Pop Rock detonates where we last saw it.
+    const seenProjs = new Map<number, { x: number; y: number; vx: number; vy: number; w: number; mine: boolean }>();
+    for (const p of obs.seen.projectiles) {
+      seenProjs.set(p.id, {
+        x: p.pos[0], y: p.pos[1], vx: p.vel[0], vy: p.vel[1],
+        w: weaponIdx(p.weapon), mine: p.owner === me.id,
+      });
+    }
+    for (const [id, pr] of seenProjs) {
+      if (prevProjectiles.has(id)) continue;
+      const wcol = pr.w === 0 ? undefined : WEAPONS[pr.w].color;
+      const col = wcol ? parseInt(wcol.slice(1), 16) : undefined;
+      if (pr.mine) {
+        // Own muzzle rides my facing; the bullet spawns just past the barrel.
+        const a = (90 - (me.facing ?? 0)) * Math.PI / 180;
+        playFx!.muzzleFlash(
+          me.pos[0] + Math.cos(a) * 18, me.pos[1] + Math.sin(a) * 18,
+          90 - (me.facing ?? 0), pr.w, col,
+        );
+        sfx.play("shot", 0, 0.5);
+      } else {
+        // Enemy shots flash where the bullet first appeared in view.
+        playFx!.muzzleFlash(pr.x, pr.y, Math.atan2(pr.vy, pr.vx) * 180 / Math.PI, pr.w, col);
+      }
+    }
+    for (const [id, pr] of prevProjectiles) {
+      if (seenProjs.has(id) || pr.w !== 6) continue;
+      playFx!.explosion(pr.x, pr.y);
+      const dx = pr.x - me.pos[0], dy = pr.y - me.pos[1];
+      const pan = Math.max(-1, Math.min(1, dx / Math.max(60, Math.hypot(dx, dy)) * 0.85));
+      sfx.play("boom", pan, 0.55);
+    }
+    prevProjectiles = seenProjs;
+
+    // Gun pickup: banner + sparkle when the observation says our gun changed.
+    const wName = me.weapon ?? "pea";
+    if (prevWeapon !== null && wName !== prevWeapon) {
+      const w = WEAPONS[weaponIdx(wName)];
+      showBanner(`picked up ${w.label}!`, w.color, 1900);
+      sfx.play("pickup", 0, 1);
+      playFx!.sparkle(me.pos[0], me.pos[1]);
+      zoomPunch = Math.max(zoomPunch, 0.1);
+    }
+    prevWeapon = wName;
   }
   prevHp = me.hp;
   prevEnergy = me.energy;
@@ -870,6 +922,7 @@ function playLoop(ts: number): void {
 
   // HUD.
   hud.stats(obs.tick, obs.global.alive, zonePhaseOfFloat(obs.global.zone.radius), false);
+  const gun = WEAPONS[weaponIdx(me.weapon)];
   const fireCd = me.cooldown.fire ?? 0;
   const sonarCd = obs.you.companion.cooldown.sonar ?? 0;
   const hpColor = me.hp > 55 ? "#43d66e" : me.hp > 25 ? "#ffc93c" : "#ff5f7e";
@@ -883,8 +936,9 @@ function playLoop(ts: number): void {
     <div class="pbar"><span>HP ${Math.round(me.hp)}</span><div><i style="width:${Math.max(0, me.hp)}%;background:${hpColor}"></i></div></div>
     <div class="pbar"><span>EN ${Math.round(me.energy)}</span><div><i style="width:${me.energy}%;background:#35c1f0"></i></div></div>
     ${comp}
-    <div class="pbar mini"><span>FIRE</span><div><i style="width:${(1 - Math.min(1, fireCd / 0.5)) * 100}%;background:${fireCd > 0 ? "#8d82b5" : "#ffd93b"}"></i></div></div>
+    <div class="pbar mini"><span>FIRE</span><div><i style="width:${(1 - Math.min(1, fireCd / gun.cd)) * 100}%;background:${fireCd > 0 ? "#8d82b5" : gun.color}"></i></div></div>
     <div class="pbar mini"><span>SONAR</span><div><i style="width:${(1 - Math.min(1, sonarCd / 15)) * 100}%;background:${sonarCd > 0 ? "#8d82b5" : "#35c1f0"}"></i></div></div>
+    <div class="pcd">GUN <b style="color:${gun.color}">${gun.label}</b> — ${gun.blurb}</div>
     <div class="pcd">sprint ${playClient.sprinting ? "ON (no firing)" : "off"} · ${outside ? "<b style='color:#e6455f'>OUTSIDE ZONE — RUN!</b>" : "zone ok"}${zoneLeft}</div>`;
 
   playFx!.update(dt);
