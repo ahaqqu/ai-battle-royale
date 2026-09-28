@@ -84,7 +84,12 @@ export class PlayClient {
   /** True while the left button is held (HUD reticle state). */
   firing = false;
 
-  constructor(private name: string, private cb: PlayCallbacks) {}
+  constructor(
+    private name: string,
+    private cb: PlayCallbacks,
+    /** "boss" queues a Slain-the-Boss raid instead of a royale. */
+    private mode: "royale" | "boss" = "royale",
+  ) {}
 
   connect(url: string): void {
     this.setStatus("connecting");
@@ -93,7 +98,7 @@ export class PlayClient {
     ws.onopen = () => {
       // `human` marks this entrant for house-bot fill: the server tops the
       // match up to 8 with reference brains so solo play never waits.
-      ws.send(JSON.stringify({ type: "register", name: this.name, decision_rate: 1, auto_heel: false, human: true }));
+      ws.send(JSON.stringify({ type: "register", name: this.name, decision_rate: 1, auto_heel: false, human: true, mode: this.mode }));
     };
     ws.onmessage = (ev) => {
       let v: any;

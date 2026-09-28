@@ -74,12 +74,25 @@ pub struct SimParams {
 
     pub timeouts: crate::config::TimeoutConfig,
     pub auto_heel: bool,
+
+    // --- Slain the Boss mode (read only when `mode` is Boss) ---
+    pub mode: crate::config::GameMode,
+    pub boss_radius: Fix,
+    pub boss_hp: Fix,
+    pub boss_speed: Fix,
+    pub boss_vision: Fix,
+    pub boss_energy_max: Fix,
+    pub boss_cannon: crate::weapons::WeaponSpec,
+    /// Raiders per boss match, boss included.
+    pub raid_size: u32,
 }
 
 impl SimParams {
     pub fn from_config(cfg: &MatchConfig) -> Self {
         let f = fixed::from_f64;
         let tick_rate = cfg.tick_rate_hz.max(1) as u64;
+        let boss = &cfg.boss;
+        let cannon = &boss.cannon;
         SimParams {
             tick_rate,
             dt: fixed::div(ONE, f(tick_rate as f64)),
@@ -142,6 +155,26 @@ impl SimParams {
             pickup_radius: f(cfg.loot.pickup_radius),
             timeouts: cfg.timeouts.clone(),
             auto_heel: cfg.auto_heel,
+            mode: cfg.mode,
+            boss_radius: f(boss.radius),
+            boss_hp: f(boss.hp),
+            boss_speed: f(boss.speed),
+            boss_vision: f(boss.vision),
+            boss_energy_max: f(boss.energy_max),
+            boss_cannon: crate::weapons::WeaponSpec {
+                damage: f(cannon.damage),
+                speed: f(cannon.speed),
+                range: f(cannon.range),
+                cooldown: f(cannon.cooldown_s),
+                pellets: 1,
+                spread_deg: 0,
+                jitter_deg: 0,
+                bounces: 0,
+                pierce: 0,
+                splash_radius: f(cannon.splash_radius),
+                splash_damage: f(cannon.splash_damage),
+            },
+            raid_size: boss.raid_size,
         }
     }
 }

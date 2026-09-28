@@ -25,6 +25,9 @@ pub enum WeaponKind {
     Skewer,
     /// Pop rock: explodes on impact, splashing nearby enemies.
     Popper,
+    /// Slain-the-Boss boss gun: a slow heavy splash shell. Never in the
+    /// loot pool — appended last so every existing `idx` stays stable.
+    BossCannon,
 }
 
 pub const PICKUP_WEAPONS: [WeaponKind; 6] = [
@@ -47,6 +50,7 @@ impl WeaponKind {
             WeaponKind::Bouncer => 4,
             WeaponKind::Skewer => 5,
             WeaponKind::Popper => 6,
+            WeaponKind::BossCannon => 7,
         }
     }
 
@@ -58,6 +62,7 @@ impl WeaponKind {
             4 => WeaponKind::Bouncer,
             5 => WeaponKind::Skewer,
             6 => WeaponKind::Popper,
+            7 => WeaponKind::BossCannon,
             _ => WeaponKind::Pea,
         }
     }
@@ -140,5 +145,7 @@ pub fn spec(p: &SimParams, kind: WeaponKind) -> WeaponSpec {
         WeaponKind::Bouncer => s(13.0, 430.0, 1100.0, 0.55, 1, 0, 2, 3, 0, 0.0, 0.0),
         WeaponKind::Skewer => s(11.0, 640.0, 1100.0, 0.6, 1, 0, 0, 0, 3, 0.0, 0.0),
         WeaponKind::Popper => s(16.0, 330.0, 850.0, 0.95, 1, 0, 3, 0, 0, 90.0, 10.0),
+        // The boss cannon reads its stats from BossConfig — never a loot gun.
+        WeaponKind::BossCannon => p.boss_cannon,
     }
 }

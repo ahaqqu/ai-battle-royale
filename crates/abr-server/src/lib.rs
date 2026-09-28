@@ -9,7 +9,7 @@ pub mod db;
 pub mod house;
 pub mod page;
 
-use abr_core::config::MatchConfig;
+use abr_core::config::{GameMode, MatchConfig};
 use abr_core::engine::MatchEngine;
 use abr_core::replay::ReplayRecorder;
 use abr_core::types::BotInput;
@@ -42,6 +42,10 @@ pub struct BotHandle {
     pub human: bool,
     /// An in-process house bot (never re-queued, hidden from standings).
     pub house: bool,
+    /// Which match mode this entrant queued for (royale unless it asked).
+    pub mode: GameMode,
+    /// This entrant wants to BE the boss in a Slain-the-Boss raid.
+    pub wants_boss: bool,
     pub connected: Arc<AtomicBool>,
     pub out_tx: mpsc::Sender<String>,
     pub in_rx: Arc<Mutex<mpsc::Receiver<BotMsg>>>,
@@ -111,6 +115,13 @@ struct RegisterMsg {
     auto_heel: bool,
     #[serde(default)]
     human: bool,
+    /// "royale" (default) or "boss" — queue for a Slain-the-Boss raid.
+    #[serde(default)]
+    mode: String,
+    /// Register AS the raid boss: the server casts this entrant as the boss
+    /// of the next raid instead of spawning the built-in boss brain.
+    #[serde(default)]
+    boss: bool,
 }
 
 fn default_rate() -> u64 {
@@ -154,13 +165,38 @@ impl Server {
         start_axum(net).await
     }
 
-    /// Called every 2s: draft a match if enough idle bots and a free lane.
+    /// Called every 2s: draft a match between idle bots when a lane is free.
+    /// Slain-the-Boss raids are drafted first: any queued boss-mode entrant
+    /// (or a registered boss AI) starts a raid, topped up with house bots.
     async fn schedule_tick(&self) {
         if self.lane_count.available_permits() == 0 {
             return;
         }
         let mut lobby = self.lobby.lock().await;
         lobby.retain(|h| h.connected.load(Ordering::Relaxed));
+        let raid_queued = lobby.iter().any(|h| h.mode == GameMode::Boss || h.wants_boss);
+        let raid = if raid_queued {
+            self.draft_boss_raid(&mut lobby)
+        } else {
+            None
+        };
+        if let Some((drafted, config)) = raid {
+            drop(lobby);
+            let permit = self.lane_count.clone().acquire_owned().await.unwrap();
+            let server = Arc::new(Self {
+                cfg: self.cfg.clone(),
+                db: self.db.clone(),
+                config: self.config.clone(),
+                lobby: self.lobby.clone(),
+                spectate_tx: self.spectate_tx.clone(),
+                lane_count: self.lane_count.clone(),
+            });
+            tokio::spawn(async move {
+                run_match(server, drafted, config).await;
+                drop(permit);
+            });
+            return;
+        }
         // A queued human wants a match NOW — house bots make up the numbers,
         // so solo play never waits for other bots to connect (README "play live").
         let has_human = lobby.iter().any(|h| h.human);
@@ -189,16 +225,67 @@ impl Server {
             spectate_tx: self.spectate_tx.clone(),
             lane_count: self.lane_count.clone(),
         });
+        let config = self.config.clone();
         tokio::spawn(async move {
-            run_match(server, drafted).await;
+            run_match(server, drafted, config).await;
             drop(permit);
         });
+    }
+
+    /// Draft one Slain-the-Boss raid from the queue: raiders = boss-mode
+    /// entrants topped up to `raid_size` with house bots, boss slot = a
+    /// registered boss AI if one queued, else the built-in boss brain.
+    fn draft_boss_raid(
+        &self,
+        lobby: &mut Vec<Arc<BotHandle>>,
+    ) -> Option<(Vec<Arc<BotHandle>>, MatchConfig)> {
+        let raid_size = self.config.boss.raid_size.max(2) as usize;
+        // The raiders (boss-mode queuers; a registered boss takes no raider slot).
+        let mut drafted: Vec<Arc<BotHandle>> = lobby
+            .iter()
+            .position(|h| h.wants_boss)
+            .map(|bi| {
+                lobby
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, h)| *i != bi && h.mode == GameMode::Boss)
+                    .map(|(_, h)| h.clone())
+                    .collect()
+            })
+            .unwrap_or_else(|| {
+                lobby
+                    .iter()
+                    .filter(|h| h.mode == GameMode::Boss)
+                    .cloned()
+                    .collect()
+            });
+        drafted.truncate(raid_size - 1);
+        // The boss: a registered boss AI, else the built-in brain.
+        let boss_handle = match lobby.iter().position(|h| h.wants_boss) {
+            Some(bi) => lobby.remove(bi),
+            None => house::spawn_boss(&self.db),
+        };
+        lobby.retain(|h| h.mode != GameMode::Boss);
+
+        while drafted.len() < raid_size - 1 {
+            let brain = house::HOUSE_ROSTER[drafted.len() % house::HOUSE_ROSTER.len()];
+            drafted.push(house::spawn(&self.db, brain));
+        }
+        // The boss entrant is always last (that slot becomes UnitKind::Boss).
+        drafted.push(boss_handle);
+
+        let config = MatchConfig {
+            mode: GameMode::Boss,
+            ..self.config.clone()
+        };
+        Some((drafted, config))
     }
 }
 
 /// The 10Hz match loop (PLAN §4.2): obs at t=0, 50ms reply deadline, ~50ms
-/// resolution window, simultaneous resolution.
-async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>) {
+/// resolution window, simultaneous resolution. `config` decides the mode —
+/// royale drafts pass the server default, raids pass a Boss-mode clone.
+async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>, config: MatchConfig) {
     let n = handles.len();
     let names: Vec<String> = handles.iter().map(|h| h.name.clone()).collect();
     let seed = std::time::SystemTime::now()
@@ -206,14 +293,19 @@ async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>) {
         .map(|d| d.subsec_nanos() as u64 ^ d.as_secs())
         .unwrap_or(42)
         | 1;
-    let mut engine = MatchEngine::new(server.config.clone(), seed, &names);
+    let mut engine = MatchEngine::new(config.clone(), seed, &names);
     for (b, h) in handles.iter().enumerate() {
         engine.configure_bot(b as u32, h.decision_rate, h.auto_heel);
     }
     let mut recorder = ReplayRecorder::new(&engine, &names);
+    let boss_bot = if config.mode == GameMode::Boss {
+        Some(n - 1)
+    } else {
+        None
+    };
 
     // Tell the bots what they're in for.
-    for h in &handles {
+    for (b, h) in handles.iter().enumerate() {
         let _ = h
             .out_tx
             .send(
@@ -225,12 +317,23 @@ async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>) {
                     "deadline_ms": engine.config.deadline_ms,
                     "tick_rate": engine.config.tick_rate_hz,
                     "seedless": true,
+                    "mode": if config.mode == GameMode::Boss { "boss" } else { "royale" },
+                    "role": if Some(b) == boss_bot { "boss" } else { "raider" },
                 })
                 .to_string(),
             )
             .await;
     }
-    println!("▶ match started: {} entrants: {}", n, names.join(", "));
+    println!(
+        "▶ match started: {} entrants: {}{}",
+        n,
+        names.join(", "),
+        if boss_bot.is_some() {
+            format!("  [SLAIN THE BOSS — boss: {}]", names[n - 1])
+        } else {
+            String::new()
+        }
+    );
 
     let tick_ms: u64 = 1000 / server.config.tick_rate_hz.max(1) as u64;
     let deadline = Duration::from_millis(server.config.deadline_ms);
@@ -506,6 +609,8 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
         decision_rate: 1,
         auto_heel: false,
         human: false,
+        mode: String::new(),
+        boss: false,
     });
     if reg.name.is_empty() || reg.name.len() > 32 {
         let _ = ws_tx
@@ -538,6 +643,12 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
         auto_heel: reg.auto_heel,
         human: reg.human,
         house: false,
+        mode: if reg.mode.eq_ignore_ascii_case("boss") {
+            GameMode::Boss
+        } else {
+            GameMode::Royale
+        },
+        wants_boss: reg.boss,
         connected: connected.clone(),
         out_tx: out_tx.clone(),
         in_rx: Arc::new(Mutex::new(in_rx)),

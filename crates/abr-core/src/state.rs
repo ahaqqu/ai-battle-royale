@@ -50,22 +50,43 @@ impl Unit {
         match self.kind {
             UnitKind::Main => p.main_radius,
             UnitKind::Companion => p.comp_radius,
+            UnitKind::Boss => p.boss_radius,
         }
     }
     pub fn max_hp(&self, p: &SimParams) -> Fix {
         match self.kind {
             UnitKind::Main => p.main_hp,
             UnitKind::Companion => p.comp_hp,
+            UnitKind::Boss => p.boss_hp,
         }
     }
     pub fn max_energy(&self, p: &SimParams) -> Fix {
         match self.kind {
             UnitKind::Main => p.energy_max,
             UnitKind::Companion => p.comp_energy_max,
+            UnitKind::Boss => p.boss_energy_max,
         }
     }
+    /// Ground speed per tick — the boss is slower than the raiders (kiting
+    /// is the counterplay).
+    pub fn base_speed(&self, p: &SimParams) -> Fix {
+        match self.kind {
+            UnitKind::Main => p.main_speed,
+            UnitKind::Companion => p.comp_speed,
+            UnitKind::Boss => p.boss_speed,
+        }
+    }
+    /// Mains fire, dash, shield and count for eliminations; the boss does
+    /// everything a main does except pick up loot.
     pub fn is_main(&self) -> bool {
         self.kind == UnitKind::Main
+    }
+    pub fn is_boss(&self) -> bool {
+        self.kind == UnitKind::Boss
+    }
+    /// A "combatant main": mains plus the boss (death = elimination).
+    pub fn is_combatant(&self) -> bool {
+        self.kind != UnitKind::Companion
     }
 }
 
@@ -214,7 +235,7 @@ impl WorldState {
         }
         let zone_phases = zone::generate_schedule(p, &mut rng);
         let pickups = crate::loot::generate(p, map, &mut rng);
-        WorldState {
+        let mut state = WorldState {
             tick: 0,
             bots,
             units,
@@ -230,7 +251,36 @@ impl WorldState {
             placements: Vec::new(),
             rng,
             damage_dealt: vec![0; bots as usize],
+        };
+        // Slain the Boss: the last entrant is the raid boss. Its main unit
+        // becomes `UnitKind::Boss` — boss stats, boss cannon — while its
+        // companion stays the respawning minion.
+        if p.mode == crate::config::GameMode::Boss {
+            let boss_bot = state.boss_bot();
+            let boss = state.main_mut(boss_bot);
+            boss.kind = UnitKind::Boss;
+            boss.hp = p.boss_hp;
+            boss.energy = p.boss_energy_max;
+            boss.weapon = crate::weapons::WeaponKind::BossCannon;
         }
+        state
+    }
+
+    /// The entrant index whose main is the raid boss (boss mode only).
+    #[inline]
+    pub fn boss_bot(&self) -> u32 {
+        self.bots - 1
+    }
+
+    /// True when the two entrants are on the same side. Royale: never
+    /// (everyone is hostile). Boss mode: every non-boss entrant raids
+    /// together — teammates cannot hurt each other.
+    #[inline]
+    pub fn same_team(&self, a: u32, b: u32, mode: crate::config::GameMode) -> bool {
+        if a == b {
+            return true;
+        }
+        mode == crate::config::GameMode::Boss && a != self.boss_bot() && b != self.boss_bot()
     }
 
     #[inline]

@@ -75,6 +75,9 @@ pub struct Seen {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SeenPlayer {
     pub id: u32,
+    /// "main" for raiders, "boss" for the raid boss (absent in old replays).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
     pub pos: [f64; 2],
     pub range: f64,
     pub detail: String,
@@ -184,7 +187,11 @@ pub fn observe(
         sensors.push(Sensed {
             idx: 0,
             pos: main.pos,
-            radius: p.main_vision,
+            radius: if main.is_boss() {
+                p.boss_vision
+            } else {
+                p.main_vision
+            },
         });
     }
     if comp.alive {
@@ -209,6 +216,7 @@ pub fn observe(
             continue;
         }
         let is_main = u.is_main();
+        let is_boss = u.is_boss();
         // Vision: nearest sensor with LOS.
         let mut best: Option<(Fix, usize)> = None;
         for s in &sensors {
@@ -240,9 +248,17 @@ pub fn observe(
             Some((d, _)) => d,
             None => sonar_range.expect("visible by sonar"),
         };
-        if is_main {
+        if is_main || is_boss {
             seen.players.push(SeenPlayer {
                 id: u.id,
+                kind: Some(
+                    if is_boss {
+                        "boss"
+                    } else {
+                        "main"
+                    }
+                    .to_string(),
+                ),
                 pos: [f(u.pos.x), f(u.pos.y)],
                 range: f(range),
                 detail: if detail_full {
@@ -276,13 +292,21 @@ pub fn observe(
 
     // --- seen: projectiles (own always; enemy only inside vision, PLAN §3.2)
     for pr in &state.projectiles {
+        let owner_kind = if state
+            .unit_by_id(pr.unit_id)
+            .is_some_and(|u| u.is_boss())
+        {
+            "boss"
+        } else {
+            "main"
+        };
         if pr.bot == viewer {
             seen.projectiles.push(SeenProjectile {
                 id: pr.id,
                 pos: [f(pr.pos.x), f(pr.pos.y)],
                 vel: [f(pr.vel.x), f(pr.vel.y)],
                 owner: pr.bot,
-                owner_kind: "main".to_string(),
+                owner_kind: owner_kind.to_string(),
                 weapon: weapon_str(pr.weapon).to_string(),
             });
             continue;
@@ -295,7 +319,7 @@ pub fn observe(
                     pos: [f(pr.pos.x), f(pr.pos.y)],
                     vel: [f(pr.vel.x), f(pr.vel.y)],
                     owner: pr.bot,
-                    owner_kind: "main".to_string(),
+                    owner_kind: owner_kind.to_string(),
                     weapon: weapon_str(pr.weapon).to_string(),
                 });
                 break;
@@ -497,6 +521,7 @@ fn weapon_str(w: crate::weapons::WeaponKind) -> &'static str {
         crate::weapons::WeaponKind::Bouncer => "bouncer",
         crate::weapons::WeaponKind::Skewer => "skewer",
         crate::weapons::WeaponKind::Popper => "popper",
+        crate::weapons::WeaponKind::BossCannon => "boss_cannon",
     }
 }
 
@@ -563,7 +588,9 @@ pub fn spectator_frame(
             .map(|u| SpecUnit {
                 id: u.id,
                 bot: u.bot,
-                kind: if u.is_main() {
+                kind: if u.is_boss() {
+                    "boss".to_string()
+                } else if u.is_main() {
                     "main".to_string()
                 } else {
                     "companion".to_string()

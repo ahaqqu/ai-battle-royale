@@ -101,6 +101,10 @@ pub fn owner_of_companion(id: u32) -> u32 {
 pub enum UnitKind {
     Main,
     Companion,
+    /// Slain-the-Boss raid boss: the main unit of the last entrant. Fires,
+    /// dashes and shields like a main but with boss stats and its cannon;
+    /// it never picks up loot and ignores the zone.
+    Boss,
 }
 
 /// What a bot sends for one unit for one tick (PLAN §4.4).

@@ -479,3 +479,183 @@ fn skewer_bullet_pierces_units() {
     // Bot 1's main is id 2, its companion id 102.
     assert!(hit_ids.contains(&2) && hit_ids.contains(&102), "pierce hit: {hit_ids:?}");
 }
+
+// ---------------------------------------------------------------------------
+// Slain the Boss (mode 3): raiders + AI boss on one entrant slot.
+// ---------------------------------------------------------------------------
+
+fn run_boss_match(names: &[String], seed: u64, mut config: MatchConfig) -> (MatchEngine, ReplayRecorder, f64) {
+    config.mode = abr_core::config::GameMode::Boss;
+    let names = {
+        let mut v = names.to_vec();
+        if let Some(pos) = v.iter().position(|n| n == "boss") {
+            if pos != v.len() - 1 {
+                let b = v.remove(pos);
+                v.push(b);
+            }
+        }
+        v
+    };
+    let mut engine = MatchEngine::new(config, seed, &names);
+    for (b, name) in names.iter().enumerate() {
+        let uses_companion = bots::create(name, b as u32)
+            .map(|bt| bt.uses_companion())
+            .unwrap_or(false);
+        engine.configure_bot(b as u32, 1, !uses_companion && engine.config.auto_heel);
+    }
+    let map = load_map(&engine.config.map_id).unwrap();
+    let mut brains: Vec<Box<dyn bots::RefBot>> = names
+        .iter()
+        .enumerate()
+        .map(|(b, n)| bots::create(n, b as u32).unwrap())
+        .collect();
+    let mut recorder = ReplayRecorder::new(&engine, &names);
+    let t0 = Instant::now();
+    while !engine.state.finished {
+        for b in 0..names.len() as u32 {
+            let obs = engine.observe(b);
+            let input = brains[b as usize].act(&obs, &map);
+            engine.submit(b, input.clone(), 0);
+            recorder.record_submit(b, input);
+        }
+        engine.step_tick();
+        recorder.record_tick(engine.state.digest());
+    }
+    let elapsed = t0.elapsed().as_secs_f64();
+    recorder.finish(&engine);
+    (engine, recorder, elapsed)
+}
+
+/// A full raid between reference raiders and the boss brain runs to a
+/// verdict and the replay re-simulates byte-identically.
+#[test]
+fn boss_raid_completes_and_replay_verifies() {
+    let mut names = bots::default8();
+    names.truncate(7);
+    names.push("boss".into());
+    let (engine, recorder, _) = run_boss_match(&names, 11, MatchConfig::standard());
+
+    assert!(engine.state.finished);
+    let boss_bot = engine.state.boss_bot();
+    let winner = engine.state.winner.expect("raid has a winner");
+    assert!(winner < engine.state.bots);
+    if winner == boss_bot {
+        // Boss held: every raider fell.
+        assert_eq!(engine.state.alive_mains(), 0, "boss win means all raiders dead");
+    } else {
+        // Raiders won: the boss is down and stays down.
+        assert!(!engine.state.main(boss_bot).alive);
+    }
+    let replay: Replay = serde_json::from_str(&recorder.to_json()).unwrap();
+    verify_replay(&replay).expect("boss raid replay must verify");
+}
+
+/// Raiders are one team: their bullets pass through each other and their
+/// companions, and splash never friendly-fires — but the boss is hurt.
+#[test]
+fn raiders_cannot_friendly_fire_but_hurt_the_boss() {
+    let mut engine = MatchEngine::new(
+        abr_core::config::MatchConfig::boss_raid(),
+        9,
+        &["camper".into(), "camper".into(), "boss".into()],
+    );
+    // Line the two raiders up along +X: bot 1's main directly ahead of bot 0.
+    engine.state.main_mut(0).pos = Vec2::new(from_f64(300.0), from_f64(1150.0));
+    engine.state.main_mut(1).pos = Vec2::new(from_f64(700.0), from_f64(1150.0));
+    engine.state.main_mut(1).hp = from_f64(100.0);
+    engine.state.companion_mut(1).pos = Vec2::new(from_f64(800.0), from_f64(1150.0));
+    let boss_bot = engine.state.boss_bot();
+    engine.state.main_mut(boss_bot).pos = Vec2::new(from_f64(1000.0), from_f64(1150.0));
+
+    engine.submit(0, fire_at(2000.0, 1150.0), 0);
+    let mut boss_hit = false;
+    for _ in 0..30 {
+        let events = engine.step_tick();
+        boss_hit |= events
+            .iter()
+            .any(|e| matches!(e, abr_core::Event::Hit { bot: b, .. } if *b == boss_bot));
+        if boss_hit {
+            break;
+        }
+    }
+    assert_eq!(
+        engine.state.main(1).hp,
+        from_f64(100.0),
+        "a raider bullet must pass through a teammate"
+    );
+    assert!(
+        engine.state.main(boss_bot).hp < engine.state.main(boss_bot).max_hp(&engine.params),
+        "the same volley must damage the boss"
+    );
+    assert!(boss_hit, "expected a Hit event on the boss");
+}
+
+/// A short boss-hp config lets one volley end the raid with a raider win.
+#[test]
+fn slaying_the_boss_ends_the_match_raiders_win() {
+    use abr_core::weapons::WeaponKind;
+    let mut config = abr_core::config::MatchConfig::boss_raid();
+    config.boss.hp = 30.0;
+    let mut engine = MatchEngine::new(config, 13, &["camper".into(), "boss".into()]);
+    let boss_bot = engine.state.boss_bot();
+    engine.state.main_mut(0).pos = Vec2::new(from_f64(400.0), from_f64(1150.0));
+    engine.state.main_mut(0).weapon = WeaponKind::Lance;
+    engine.state.main_mut(boss_bot).pos = Vec2::new(from_f64(700.0), from_f64(1150.0));
+
+    engine.submit(0, fire_at(1500.0, 1150.0), 0);
+    let mut ended = false;
+    for _ in 0..30 {
+        engine.step_tick();
+        if engine.state.finished {
+            ended = true;
+            break;
+        }
+    }
+    assert!(ended, "slaying the boss must end the raid");
+    assert!(
+        !engine.state.main(boss_bot).alive,
+        "the boss must be dead when raiders win"
+    );
+    assert_eq!(
+        engine.state.winner,
+        Some(0),
+        "the surviving raider takes first place"
+    );
+    // The boss is ranked last.
+    let boss_place = engine.state.main(boss_bot).placement.unwrap();
+    assert_eq!(boss_place, 2);
+}
+
+/// Zone ticks down raiders but never the boss, and the raid ends when every
+/// raider is dead — the boss takes first place.
+#[test]
+fn boss_ignores_zone_and_wins_when_raiders_fall() {
+    let mut config = abr_core::config::MatchConfig::boss_raid();
+    config.zone.damage_per_phase = vec![50.0];
+    config.zone.radii = vec![200.0];
+    config.zone.hold_s_min = 0.0;
+    config.zone.hold_s_max = 0.0;
+    config.zone.shrink_s = 0.0;
+    let mut engine = MatchEngine::new(config, 17, &["camper".into(), "boss".into()]);
+    let boss_bot = engine.state.boss_bot();
+    // Put the raider far outside the tiny zone; the boss anywhere.
+    engine.state.main_mut(0).pos = Vec2::new(from_f64(3000.0), from_f64(3000.0));
+    engine.state.companion_mut(0).pos = Vec2::new(from_f64(2950.0), from_f64(3000.0));
+
+    let mut ended = false;
+    for _ in 0..400 {
+        engine.step_tick();
+        assert_eq!(
+            engine.state.main(boss_bot).hp,
+            engine.state.main(boss_bot).max_hp(&engine.params),
+            "the boss must never take zone damage"
+        );
+        if engine.state.finished {
+            ended = true;
+            break;
+        }
+    }
+    assert!(ended, "zone death of the last raider must end the raid");
+    assert_eq!(engine.state.winner, Some(boss_bot), "the boss holds the arena");
+    assert!(!engine.state.main(0).alive);
+}

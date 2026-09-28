@@ -56,7 +56,7 @@ pub fn step(
             continue;
         }
         let is_main = unit.is_main();
-        let base_speed = if is_main { p.main_speed } else { p.comp_speed };
+        let base_speed = unit.base_speed(p);
         let input = &inputs[ui];
         let mut move_in: MoveInput = input.map(|i| i.r#move).unwrap_or_default();
         let acting = input.and_then(|i| i.action);
@@ -75,8 +75,8 @@ pub fn step(
             }
         }
 
-        let (vel, facing) = if is_main && unit.dashing > 0 {
-            let v = unit.dash_dir.scale(fixed::mul(p.main_speed, p.dash_mult));
+        let (vel, facing) = if unit.is_combatant() && unit.dashing > 0 {
+            let v = unit.dash_dir.scale(fixed::mul(base_speed, p.dash_mult));
             let f = fixed::norm_deg(fixed::atan2_deg(unit.dash_dir.y, unit.dash_dir.x));
             (v, f)
         } else if move_in.throttle > 0 {
@@ -171,7 +171,7 @@ pub fn step(
 
     // ------------------------------------------------- 3. dashes
     for (ui, unit) in state.units.iter_mut().enumerate() {
-        if !unit.alive || !unit.is_main() || unit.dashing > 0 {
+        if !unit.alive || !unit.is_combatant() || unit.dashing > 0 {
             continue;
         }
         if inputs[ui].and_then(|i| i.action) == Some(UnitAction::Dash) && unit.energy >= p.dash_cost
@@ -201,7 +201,7 @@ pub fn step(
 
     // ------------------------------------------------- 4. projectile spawns (fire)
     for (ui, unit) in state.units.iter_mut().enumerate() {
-        if !unit.alive || !unit.is_main() {
+        if !unit.alive || !unit.is_combatant() {
             continue;
         }
         if let Some(UnitAction::Fire { target }) = inputs[ui].and_then(|i| i.action) {
@@ -320,11 +320,12 @@ pub fn step(
                 dead = true;
             }
         } else {
-            // Earliest *not-already-hit* unit along the sweep. Own units are
-            // immune — the companion is a bullet sponge *for enemies*, not for you.
+            // Earliest *not-already-hit* unit along the sweep. Teammates are
+            // immune — the companion is a bullet sponge *for enemies*, not
+            // for you (and in boss mode raiders never friendly-fire).
             let mut best: Option<(Fix, usize)> = None;
             for (ui, unit) in state.units.iter().enumerate() {
-                if !unit.alive || unit.bot == proj.bot {
+                if !unit.alive || state.same_team(unit.bot, proj.bot, p.mode) {
                     continue;
                 }
                 if proj.hits[..proj.hits_n as usize].contains(&unit.id) {
@@ -397,7 +398,7 @@ pub fn step(
             continue;
         }
         match inputs[ui].and_then(|i| i.action) {
-            Some(UnitAction::Shield) if unit.is_main() => {
+            Some(UnitAction::Shield) if unit.is_combatant() => {
                 if unit.shielding == 0 && unit.energy >= p.shield_cost {
                     unit.energy -= p.shield_cost;
                     unit.shielding = p.shield_ticks;
@@ -441,6 +442,10 @@ pub fn step(
         let zn = cur_zone;
         for unit in state.units.iter_mut() {
             if !unit.alive {
+                continue;
+            }
+            // The boss IS the endgame — it never burns to the zone.
+            if unit.is_boss() {
                 continue;
             }
             if unit.pos.dist(zn.center) > zn.radius {
@@ -510,18 +515,18 @@ pub fn step(
         .map(|(i, _)| i)
         .collect();
     for ui in died {
-        let (is_main, bot, pos, killer, uid) = {
+        let (eliminated, bot, pos, killer, uid) = {
             let unit = &state.units[ui];
-            let killer = if unit.is_main() {
+            let killer = if unit.is_combatant() {
                 unit.last_damager
                     .filter(|_| tick - unit.last_damager_tick <= KILL_CREDIT_WINDOW_TICKS)
             } else {
                 None
             };
-            (unit.is_main(), unit.bot, unit.pos, killer, unit.id)
+            (unit.is_combatant(), unit.bot, unit.pos, killer, unit.id)
         };
         state.units[ui].alive = false;
-        if is_main {
+        if eliminated {
             state.units[ui].placement = Some(alive_before);
             if let Some(k) = killer {
                 state.main_mut(k).kills += 1;
@@ -608,33 +613,93 @@ pub fn step(
     }
 
     // ------------------------------------------------- 13. win check
-    let alive_now = state.alive_mains();
-    if !state.finished && (alive_now <= 1 || tick >= p.match_max_ticks) {
-        state.finished = true;
-        let mut survivors: Vec<&Unit> = state
-            .units
-            .iter()
-            .filter(|u| u.is_main() && u.alive)
-            .collect();
-        // hp desc, kills desc, bot asc — documented deterministic tie-break.
-        survivors.sort_by(|a, b| {
-            b.hp.cmp(&a.hp)
-                .then(b.kills.cmp(&a.kills))
-                .then(a.bot.cmp(&b.bot))
-        });
-        for u in survivors {
-            state.placements.push(u.bot);
+    if p.mode == crate::config::GameMode::Boss {
+        finish_boss_raid(state, tick, p.match_max_ticks, &mut events);
+    } else {
+        let alive_now = state.alive_mains();
+        if !state.finished && (alive_now <= 1 || tick >= p.match_max_ticks) {
+            state.finished = true;
+            let mut survivors: Vec<&Unit> = state
+                .units
+                .iter()
+                .filter(|u| u.is_main() && u.alive)
+                .collect();
+            // hp desc, kills desc, bot asc — documented deterministic tie-break.
+            survivors.sort_by(|a, b| {
+                b.hp.cmp(&a.hp)
+                    .then(b.kills.cmp(&a.kills))
+                    .then(a.bot.cmp(&b.bot))
+            });
+            for u in survivors {
+                state.placements.push(u.bot);
+            }
+            for (rank, b) in state.placements.clone().iter().enumerate() {
+                state.main_mut(*b).placement = Some(rank as u32 + 1);
+            }
+            state.winner = state.placements.first().copied();
+            events.push(Event::MatchEnded {
+                winner: state.winner,
+            });
         }
-        for (rank, b) in state.placements.clone().iter().enumerate() {
-            state.main_mut(*b).placement = Some(rank as u32 + 1);
-        }
-        state.winner = state.placements.first().copied();
-        events.push(Event::MatchEnded {
-            winner: state.winner,
-        });
     }
 
     events
+}
+
+/// Slain-the-Boss endgame: the raid ends when the boss falls (raiders win,
+/// ranked hp → kills → bot; the boss is last) or when every raider is dead
+/// or the clock runs out (boss holds the arena — boss wins, first place).
+fn finish_boss_raid(state: &mut WorldState, tick: u64, max_ticks: u64, events: &mut Vec<Event>) {
+    if state.finished {
+        return;
+    }
+    let boss_bot = state.boss_bot();
+    let boss_alive = state.main(boss_bot).alive;
+    let raiders_alive = state.alive_mains();
+    if boss_alive && raiders_alive > 0 && tick < max_ticks {
+        return;
+    }
+    state.finished = true;
+    // Surviving raiders ranked hp desc, kills desc, bot asc; dead raiders in
+    // reverse death order (their placement at death, ascending); boss last
+    // when slain, first when it holds.
+    let mut survivors: Vec<&Unit> = state
+        .units
+        .iter()
+        .filter(|u| u.is_main() && u.alive)
+        .collect();
+    survivors.sort_by(|a, b| {
+        b.hp.cmp(&a.hp)
+            .then(b.kills.cmp(&a.kills))
+            .then(a.bot.cmp(&b.bot))
+    });
+    let mut fallen: Vec<u32> = state
+        .units
+        .iter()
+        .filter(|u| u.is_main() && !u.alive && u.bot != boss_bot)
+        .map(|u| u.bot)
+        .collect();
+    fallen.sort_by_key(|b| state.main(*b).placement.unwrap_or(u32::MAX));
+    let boss_won = boss_alive;
+    if boss_won {
+        state.placements.push(boss_bot);
+    }
+    for u in survivors {
+        state.placements.push(u.bot);
+    }
+    for b in fallen {
+        state.placements.push(b);
+    }
+    if !boss_won {
+        state.placements.push(boss_bot);
+    }
+    for (rank, b) in state.placements.clone().iter().enumerate() {
+        state.main_mut(*b).placement = Some(rank as u32 + 1);
+    }
+    state.winner = state.placements.first().copied();
+    events.push(Event::MatchEnded {
+        winner: state.winner,
+    });
 }
 
 fn cur_lock_tick(phases: &[crate::zone::ZonePhase], phase: usize) -> u64 {
@@ -702,8 +767,11 @@ fn explode(
         at: [fixed::to_f64(at.x), fixed::to_f64(at.y)],
         radius: fixed::to_f64(spec.splash_radius) as f32,
     });
+    let mode = p.mode;
+    let boss_bot = state.boss_bot();
+    let friendly = |b: u32| b == bot || (mode == crate::config::GameMode::Boss && b != boss_bot);
     for (ui, unit) in state.units.iter_mut().enumerate() {
-        if Some(ui) == skip || !unit.alive || unit.bot == bot {
+        if Some(ui) == skip || !unit.alive || friendly(unit.bot) {
             continue;
         }
         if unit.pos.dist(at) > spec.splash_radius + unit.radius(p) {

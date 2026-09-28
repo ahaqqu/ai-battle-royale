@@ -76,7 +76,8 @@ async function boot(): Promise<void> {
     if (replayParam) {
       await startReplayUrl(replayParam);
     } else if (params.has("play")) {
-      await startPlay((params.get("name") || "human").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human");
+      const mode = params.get("mode") === "boss" ? "boss" : "royale";
+      await startPlay((params.get("name") || "human").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human", mode);
     } else {
       await showPicker();
     }
@@ -165,6 +166,12 @@ async function showPicker(): Promise<void> {
     playBtn.addEventListener("click", () => {
       const name = (nameInput.value || suggestion).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
       location.href = "?play=1&name=" + encodeURIComponent(name);
+    });
+    // Slain the Boss: queue as a raider for a co-op raid on the AI boss.
+    const bossBtn = document.getElementById("boss-btn") as HTMLButtonElement | null;
+    bossBtn?.addEventListener("click", () => {
+      const name = (nameInput.value || suggestion).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
+      location.href = "?play=1&mode=boss&name=" + encodeURIComponent(name);
     });
     nameInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") playBtn.click();
@@ -615,7 +622,7 @@ function setPlayStatus(s: string, detail?: string): void {
   document.getElementById("play-hud")!.classList.remove("hidden");
 }
 
-async function startPlay(name: string): Promise<void> {
+async function startPlay(name: string, mode: "royale" | "boss" = "royale"): Promise<void> {
   hideMenus();
   stopAmbient(stage);
   await ensureStage();
@@ -641,7 +648,7 @@ async function startPlay(name: string): Promise<void> {
       playYouIndex = youIndex;
       const realNames = entrants.map((n, i) => (i === youIndex ? n + " (YOU)" : n));
       playUnits = new UnitViews(stage, realNames);
-      hud.setHeader(realNames, "live match", 0);
+      hud.setHeader(realNames, mode === "boss" ? "SLAIN THE BOSS — raid!" : "live match", 0);
       prevHp = 100; prevEnergy = 100;
       prevMainAlive = true; prevCompAlive = true;
       prevEnemyHp = new Map(); prevProjectiles = new Map(); prevWeapon = null;
@@ -671,7 +678,7 @@ async function startPlay(name: string): Promise<void> {
         playOverShow("💀", `#${place} PLACE`, `${watch}five more minutes. then you're re-queued`);
       }
     },
-  });
+  }, mode);
 
   document.getElementById("play-leave")!.addEventListener("click", () => {
     playClient?.leave();
