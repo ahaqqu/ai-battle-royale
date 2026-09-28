@@ -227,11 +227,14 @@ function render(stage: Stage, scene: AmbientScene, A: Frame, B: Frame, t: number
   const shrinking = Math.abs(B.zone[2] - A.zone[2]) > 0.0001;
   scene.zone.update(A.zone, shrinking, A.zone[5] > 0);
 
-  // Dash afterimages, same as the replay viewer.
+  // Dash afterimages + sprint dust, same as the replay viewer.
   for (let s = 0; s < A.unitCount; s++) {
     const o = s * 11;
-    if ((A.units[o + 9] & 4) !== 0) {
+    const fl = A.units[o + 9];
+    if ((fl & 4) !== 0) {
       scene.fx.tracer(A.units[o + 3], A.units[o + 4], parseInt(botColor(A.units[o + 1]).slice(1), 16), false);
+    } else if ((fl & 3) === 3 && Math.random() < 0.1) {
+      scene.fx.dust(A.units[o + 3] - A.units[o + 5] * 0.05, A.units[o + 4] - A.units[o + 6] * 0.05);
     }
   }
 
