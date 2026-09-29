@@ -209,7 +209,7 @@ export async function buildPlayerCam(
           comp: { pos: obs.you.companion.pos, alive: obs.you.companion.alive },
         },
         seenPlayers: (obs.seen.players ?? []).map((p: any) => ({
-          id: p.id, pos: p.pos, detail: p.detail, viaSonar: p.via_sonar,
+          id: p.id, pos: p.pos, detail: p.detail,
           weapon: p.weapon,
           // Observation hp is raw (0..maxHp); the fog view wants a 0..1 fraction.
           hp: p.hp == null ? undefined : Math.max(0, p.hp) / (maxHpById.get(p.id) ?? 100),

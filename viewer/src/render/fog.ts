@@ -12,7 +12,6 @@ const KIND_COLORS: Record<string, number> = {
   gunshot: 0xff5f7e,
   dash: 0xff9d3b,
   footstep: 0xffd93b,
-  sonar: 0x35c1f0,
 };
 
 export class FogView {
@@ -92,7 +91,7 @@ export class FogView {
         }
       } else {
         // Silhouette: pale position-only blob.
-        this.marks.circle(p.pos[0], p.pos[1], p.viaSonar ? 11 : 9).fill({ color: 0xc7d4ec, alpha: p.viaSonar ? 0.5 : 0.75 });
+        this.marks.circle(p.pos[0], p.pos[1], 9).fill({ color: 0xc7d4ec, alpha: 0.75 });
       }
     }
     for (const c of cam.seenCompanions) {

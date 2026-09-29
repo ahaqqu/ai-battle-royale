@@ -70,11 +70,6 @@ pub enum Event {
         kind: PickupKind,
         at: [f64; 2],
     },
-    Sonar {
-        bot: u32,
-        unit_id: u32,
-        at: [f64; 2],
-    },
     Dash {
         bot: u32,
         unit_id: u32,

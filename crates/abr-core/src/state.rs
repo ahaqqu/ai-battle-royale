@@ -23,7 +23,6 @@ pub struct Unit {
     pub energy: Fix,
     /// Seconds remaining (Fix).
     pub fire_cd: Fix,
-    pub sonar_cd: Fix,
     /// Ticks remaining on dash / shield.
     pub dashing: u64,
     pub shielding: u64,
@@ -116,7 +115,6 @@ pub enum SoundKind {
     Gunshot,
     Dash,
     Footstep,
-    Sonar,
 }
 
 /// An audio emission during the current tick; filtered per-bot by `observe`.
@@ -137,13 +135,6 @@ pub struct KillEntry {
 }
 
 #[derive(Clone, Debug)]
-pub struct SonarActive {
-    pub bot: u32,
-    pub pos: Vec2,
-    pub until_tick: u64,
-}
-
-#[derive(Clone, Debug)]
 pub struct WorldState {
     pub tick: u64,
     pub bots: u32,
@@ -152,7 +143,6 @@ pub struct WorldState {
     pub pickups: Vec<Pickup>,
     pub zone_phases: Vec<ZonePhase>,
     pub kill_feed: Vec<KillEntry>,
-    pub sonars: Vec<SonarActive>,
     /// Sounds emitted during the current tick (cleared each step).
     pub sounds: Vec<SoundEvent>,
     pub next_projectile_id: u32,
@@ -190,7 +180,6 @@ impl WorldState {
                 hp: p.main_hp,
                 energy: p.energy_max,
                 fire_cd: 0.into(),
-                sonar_cd: 0.into(),
                 dashing: 0,
                 shielding: 0,
                 dash_dir: Vec2::default(),
@@ -215,7 +204,6 @@ impl WorldState {
                 hp: p.comp_hp,
                 energy: p.comp_energy_max,
                 fire_cd: 0.into(),
-                sonar_cd: 0.into(),
                 dashing: 0,
                 shielding: 0,
                 dash_dir: Vec2::default(),
@@ -243,7 +231,6 @@ impl WorldState {
             pickups,
             zone_phases,
             kill_feed: Vec::new(),
-            sonars: Vec::new(),
             sounds: Vec::new(),
             next_projectile_id: 1,
             finished: false,
@@ -353,7 +340,6 @@ impl WorldState {
             put_i64(&mut h, u.hp);
             put_i64(&mut h, u.energy);
             put_i64(&mut h, u.fire_cd);
-            put_i64(&mut h, u.sonar_cd);
             put_u64(&mut h, u.dashing);
             put_u64(&mut h, u.shielding);
             put_vec2(&mut h, u.dash_dir);
@@ -396,11 +382,6 @@ impl WorldState {
             put_u64(&mut h, k.tick);
             put_u64(&mut h, k.killer.map(|b| b as u64 + 1).unwrap_or(0));
             put_u64(&mut h, k.victim as u64);
-        }
-        put_u64(&mut h, self.sonars.len() as u64);
-        for s in &self.sonars {
-            put_vec2(&mut h, s.pos);
-            put_u64(&mut h, s.until_tick);
         }
         put_u64(&mut h, self.rng.s);
         for d in &self.damage_dealt {

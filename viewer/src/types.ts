@@ -72,7 +72,7 @@ export interface ReplayData {
 /** Player-cam data: what one bot actually saw, per tick (strict fog). */
 export interface CamFrame {
   me: { main: { pos: [number, number]; alive: boolean }; comp: { pos: [number, number] | null; alive: boolean } };
-  seenPlayers: { id: number; pos: [number, number]; detail: string; hp?: number; weapon?: string; viaSonar?: boolean }[];
+  seenPlayers: { id: number; pos: [number, number]; detail: string; hp?: number; weapon?: string }[];
   seenCompanions: { id: number; owner: number; pos: [number, number]; detail: string }[];
   seenProjectiles: { id: number; pos: [number, number]; vel: [number, number]; owner: number; weapon?: string }[];
   seenPickups: { id: number; pos: [number, number]; kind: string }[];

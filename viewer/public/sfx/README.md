@@ -2,7 +2,7 @@
 
 Drop mp3 files here, named exactly:
 
-    shot.mp3    hit.mp3    hurt.mp3   dash.mp3   sonar.mp3  pickup.mp3
+    shot.mp3    hit.mp3    hurt.mp3   dash.mp3   pickup.mp3
     kill.mp3    boom.mp3   zone.mp3   victory.mp3 defeat.mp3 click.mp3
 
 Each file replaces the built-in synthesized sound of the same name; any
@@ -22,7 +22,6 @@ Suggested mapping for the battle-royale feel:
 | hit.mp3     | "small hit in a game"         | projectile impact             |
 | hurt.mp3    | "player losing or failing"    | you take damage               |
 | dash.mp3    | "fast whoosh transition"      | SPACE dash                    |
-| sonar.mp3   | "sonar ping" / "sci-fi beep"  | E sonar (played by the pet)   |
 | pickup.mp3  | "bonus earned in video game"  | pickup grab                   |
 | kill.mp3    | "casino bling achievement"    | you eliminate someone         |
 | boom.mp3    | "explosion"                   | big kill / zone blast         |
@@ -53,10 +52,7 @@ required):
 | defeat.mp3  | Player losing or failing           | 2073 |
 | click.mp3   | Video game retro click             | 266  |
 | dash.mp3    | Fast whoosh transition             | 1490 |
-| sonar.mp3   | Water sci fi bleep                 | 902  |
 | boom.mp3    | Arcade game explosion              | 1699 |
 
 The last three were trimmed to role length like the rest (the engine caps
 each sound via `MAX_DUR` in `viewer/src/audio.ts` and fades the tail).
-`sonar` uses the sci-fi bleep suggested in the mapping above for the pet
-ping — swap in a true sonar ping if you find one you like better.

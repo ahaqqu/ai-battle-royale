@@ -252,7 +252,7 @@
     <span class="sec-kana">あそぶ</span>
     <h2>Playground — the whole feel in one arena</h2>
     <p class="sec-sub">Move with <b>WASD / arrows</b>, aim with the mouse, <b>click / hold</b> to fire,
-      <b>SPACE</b> to dash, <b>E</b> for sonar. Pop the candy sardines — three hits each, then the big
+      <b>SPACE</b> to dash. Pop the candy sardines — three hits each, then the big
       GUNBATTE blast. Click the arena once to take control; <b>ESC</b> releases it.</p>
 
     <div id="pgWrap">
@@ -295,7 +295,6 @@
         <span class="keys-pair"><kbd class="keys-wide">SPACE</kbd><span class="keys-label">dash</span></span>
         <span class="keys-pair"><kbd class="keys-wide">SHIFT</kbd><span class="keys-label">shield</span></span>
         <span class="keys-pair"><kbd>Q</kbd><span class="keys-label">sprint</span></span>
-        <span class="keys-pair"><kbd>E</kbd><span class="keys-label">sonar</span></span>
         <span class="keys-pair"><kbd>F</kbd><span class="keys-label">recall jalak</span></span>
       </div>
       <p class="keys-tip">🖱️ aim &amp; fire with the mouse · your jalak follows your cursor — recall it before it pecks something dangerous</p>
@@ -346,7 +345,7 @@
       <div class="note-card"><div class="dot" style="background:var(--melon);">1</div>
         <p><b>Same event wiring.</b> Each effect above fires from the same sim event the game uses:
         <code>shot</code> → muzzle flash, <code>hit</code> → candy burst + shake, <code>death</code> → the big
-        blast, <code>dash</code> → exhaust cone, <code>sonar</code> → double ring, <code>pickup</code>,
+        blast, <code>dash</code> → exhaust cone, <code>pickup</code>,
         <code>explosion</code>, <code>bounce</code>, <code>shield</code>, <code>zone_shrink_started</code>,
         <code>match_ended</code>. <small>This page re-implements the render, not new rules.</small></p></div>
       <div class="note-card"><div class="dot" style="background:var(--ear-cyan);">2</div>
@@ -433,7 +432,7 @@ class Sfx {
   play(name, pan = 0, vol = 1) {
     if (this.muted || !this.ctx || !this.master || !this.noise) return;
     const now = this.ctx.currentTime;
-    const THROTTLE = { shot: 0.045, hit: 0.08, boom: 0.1, sonar: 0.2, dash: 0.12, zone: 0.8, bounce: 0.06, shield: 0.15, w_pea: 0.04, w_sprinkler: 0.12, w_scatter: 0.1, w_lance: 0.1, w_bouncer: 0.05, w_skewer: 0.05, w_popper: 0.1, w_boss: 0.1 };
+    const THROTTLE = { shot: 0.045, hit: 0.08, boom: 0.1, dash: 0.12, zone: 0.8, bounce: 0.06, shield: 0.15, w_pea: 0.04, w_sprinkler: 0.12, w_scatter: 0.1, w_lance: 0.1, w_bouncer: 0.05, w_skewer: 0.05, w_popper: 0.1, w_boss: 0.1 };
     const min = THROTTLE[name];
     if (min !== undefined) {
       if ((this.last[name] ?? -1e9) + min > now) return;
@@ -451,7 +450,6 @@ class Sfx {
       case "hit": this.tone(g, now, "triangle", 720, 480, vol * 0.5, 0.09); this.burst(g, now, vol * 0.3, 2600, 0.05, 2); break;
       case "hurt": this.tone(g, now, "sine", 140, 66, vol * 0.85, 0.28); this.burst(g, now, vol * 0.5, 420, 0.16, 1); break;
       case "dash": this.sweep(g, now, vol * 0.4, 500, 2400, 0.22); break;
-      case "sonar": this.tone(g, now, "sine", 1150, 1150, vol * 0.4, 0.3); this.tone(g, now + 0.18, "sine", 1150, 1150, vol * 0.15, 0.25); break;
       case "pickup": this.tone(g, now, "triangle", 660, 660, vol * 0.35, 0.1); this.tone(g, now + 0.09, "triangle", 990, 990, vol * 0.35, 0.14); break;
       case "kill": [523, 659, 784].forEach((f, i) => this.tone(g, now + i * 0.085, "square", f, f, vol * 0.3, 0.1)); break;
       case "boom": this.tone(g, now, "sine", 180, 46, vol * 0.9, 0.42); this.burst(g, now, vol * 0.7, 260, 0.4, 1); break;
@@ -644,11 +642,6 @@ class Fx {
     this.spawn(x, y, "#9fe0ff", { count: 6, speed: 160, maxLife: 0.2, size0: 8, size1: 2 });
     this.ring(x, y, "#35d6b5", 3, 30, 0.22, 2.5);
   }
-  sonar(x, y) {
-    this.ring(x, y, "#35c1f0", 8, 620, 0.95, 5);
-    this.ring(x, y, "#9fe0ff", 4, 330, 0.6, 2.5);
-    this.spawn(x, y, "#35c1f0", { count: 14, speed: 340, maxLife: 0.5, size0: 10, size1: 2 });
-  }
   pickup(x, y) {
     this.spawn(x, y, "#ffc93c", { count: 14, shape: "confetti", colors: true, speed: 210, maxLife: 0.7, size0: 10, size1: 4, grav: 200, drag: 1.8 });
     this.spawn(x, y, "#ffffff", { count: 4, speed: 80, maxLife: 0.16, size0: 18, size1: 4 });
@@ -750,7 +743,6 @@ const SOUNDS = [
   ["hit", "🎯 your shot lands", "hit confirm on any unit", "triangle 720→480Hz + noise 2.6kHz"],
   ["hurt", "💔 YOU take damage", "local player hurt", "sine 140→66Hz + low noise"],
   ["dash", "💨 dash away", "SPACE dash", "noise sweep 500→2400Hz"],
-  ["sonar", "📡 sonar ping", "E key — reveals nearby units", "sine 1150Hz + echo at +0.18s"],
   ["pickup", "⭐ gun grabbed", "walking over a weapon crate", "triangle 660Hz → 990Hz"],
   ["kill", "🏆 elimination", "you eliminate a unit", "square arpeggio C5–E5–G5"],
   ["boom", "💥 Pop Rock goes off", "explosive weapon impact", "sine 180→46Hz + big noise"],
@@ -788,8 +780,6 @@ const vfxDefs = [
     fire: (fx, w, h) => { fx.hit(w * 0.5, h * 0.5, botColor(2)); fx.hitmark(w * 0.5, h * 0.5); } },
   { id: "dash", tag: "dash", tagCls: "cyan", title: "Dash streak", note: "Exhaust cone blown backward, white pop, snap ring. Reads the direction of the dash at a glance.", snd: "dash",
     fire: (fx, w, h) => fx.dashStreak(w * 0.42, h * 0.55, -20, botColor(4)) },
-  { id: "sonar", tag: "sonar", tagCls: "cyan", title: "Sonar ping", note: "Twin expanding rings (far + near) plus a spray of cyan pips — E reveals who's hiding in the fog.", snd: "sonar",
-    fire: (fx, w, h) => fx.sonar(w * 0.5, h * 0.5) },
   { id: "pickup", tag: "pickup", tagCls: "banana", title: "Gun pickup", note: "A little candy fountain + gold ring. Grabbing a weapon should feel like a gift, not a chore.", snd: "pickup",
     fire: (fx, w, h) => fx.pickup(w * 0.5, h * 0.55) },
   { id: "shield", tag: "shield", tagCls: "cyan", title: "Shield pop", note: "Glass-pop double ring + pale sparkles matching the bubble. Comes with a PROPOSED glassy chime.", snd: "shield",
@@ -1299,7 +1289,7 @@ const pg = {
   engaged: false,
   keys: new Set(),
   mouse: { x: 700, y: 300 },
-  player: { x: 300, y: 300, vx: 0, vy: 0, speed: 240, facing: 0, dashT: 0, dashCd: 0, sonarCd: 0, dustT: 0, recoil: 0 },
+  player: { x: 300, y: 300, vx: 0, vy: 0, speed: 240, facing: 0, dashT: 0, dashCd: 0, dustT: 0, recoil: 0 },
   weapon: 0,
   lastShot: 0,
   bullets: [],
@@ -1425,7 +1415,6 @@ function updatePlayground(dt, now) {
   p.facing = Math.atan2(pg.mouse.y - p.y, pg.mouse.x - p.x);
   p.dashT = Math.max(0, p.dashT - dt);
   p.dashCd = Math.max(0, p.dashCd - dt);
-  p.sonarCd = Math.max(0, p.sonarCd - dt);
   p.recoil = Math.max(0, p.recoil - dt * 5);
   if ((mx || my) && p.dashT <= 0) {
     p.dustT -= dt;
@@ -1436,11 +1425,6 @@ function updatePlayground(dt, now) {
     const deg = (Math.atan2(my, mx) * 180) / Math.PI;
     pg.fx.dashStreak(p.x, p.y + 8, deg, C.melon);
     sfx.play("dash", panVol(p.x, p.y).pan, 1);
-  }
-  if (pg.engaged && k.has("e") && p.sonarCd <= 0) {
-    p.sonarCd = 1.2;
-    pg.fx.sonar(p.x, p.y);
-    sfx.play("sonar", panVol(p.x, p.y).pan, 1);
   }
   if (pg.engaged && firing) shoot(now);
 
@@ -1567,7 +1551,6 @@ function drawPlayground(ctx) {
     }
     drawDummy(ctx, d);
   }
-  // sonar highlight on dummies when recently pinged
   // live bullets with their per-weapon projectile look
   for (const b of pg.bullets) {
     const ang = Math.atan2(b.vy, b.vx);

@@ -219,7 +219,7 @@ function measureSpots(): void {
   add("#play-name", "poke", "type your battle name!! be a Sardine!!");
   add(".play-join h3", "boop", "humans welcome!! same queue as the bots!!");
   add("#browse-replays-btn", "press", "old battles sleep here!! watch the highlights!!");
-  add(".home-keys", "boop", "WASD move!! SPACE dash!! E sonar!!");
+  add(".home-keys", "boop", "WASD move!! SPACE dash!!");
   add(".home-tip", "boop", "grab guns!! GUNBATTE!!!");
   features = next;
 
