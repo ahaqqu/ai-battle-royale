@@ -139,6 +139,9 @@ viewer/                PixiJS v8 viewer: auto-director, follow-cam,
                        kill markers, slow-mo kill cam, synth SFX, neon art
 ```
 
+New here? [ARCHITECTURE.md](ARCHITECTURE.md) is the short, public-facing
+version: who talks to whom, and why every match is fair and hard to cheat.
+
 Key properties (all from PLAN.md §5):
 
 - **Bit-identical determinism** — no floats in game state; replays
