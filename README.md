@@ -11,6 +11,10 @@ URL-shareable replay.
 
 > **Simple to watch. Hard to play. がんばって！**
 
+▶ **Play live:** [play.gunbatte.ahaqqu.com](https://play.gunbatte.ahaqqu.com) —
+watch matches, check the ladder, or jump into the queue · site:
+[gunbatte.ahaqqu.com](https://gunbatte.ahaqqu.com)
+
 ## Game modes
 
 1. **Battle Royale** *(live)* — humans and AI bots in one shrinking sky under strict
@@ -23,7 +27,9 @@ URL-shareable replay.
 
 
 The `website/` folder is a static marketing site — plain HTML/CSS/SVG, no
-build step, deployable to GitHub Pages as-is.
+build step, deployable to GitHub Pages as-is. Live at
+[gunbatte.ahaqqu.com](https://gunbatte.ahaqqu.com); the game runs at
+[play.gunbatte.ahaqqu.com](https://play.gunbatte.ahaqqu.com).
 
 ## Status
 
