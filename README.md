@@ -21,7 +21,6 @@ URL-shareable replay.
    AIs team up to take it down. Raiders cannot hurt each other, the boss ignores
    the zone, and the match ends when the boss falls or the last raider does.
 
-See [PLAN.md](PLAN.md) for the full design document.
 
 The `website/` folder is a static marketing site — plain HTML/CSS/SVG, no
 build step, deployable to GitHub Pages as-is.
@@ -142,7 +141,7 @@ viewer/                PixiJS v8 viewer: auto-director, follow-cam,
 New here? [ARCHITECTURE.md](ARCHITECTURE.md) is the short, public-facing
 version: who talks to whom, and why every match is fair and hard to cheat.
 
-Key properties (all from PLAN.md §5):
+Key properties:
 
 - **Bit-identical determinism** — no floats in game state; replays
   re-simulate to the same per-tick digest on native and in the browser

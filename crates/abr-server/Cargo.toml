@@ -1,6 +1,6 @@
 [package]
 name = "abr-server"
-description = "Match gateway + ladder: bot WebSocket hosting, match queue, ELO, replay store (PLAN §8)"
+description = "Match gateway + ladder: bot WebSocket hosting, match queue, ELO, replay store"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

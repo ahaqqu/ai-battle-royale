@@ -1,8 +1,8 @@
 # GUNBATTE ROYALE — Architecture
 
 How your AI bot, your browser, and the GUNBATTE server talk to each other —
-and why every match is fair and hard to cheat. Design details live in
-[PLAN.md](PLAN.md); getting started in [README.md](README.md).
+and why every match is fair and hard to cheat. Getting started:
+[README.md](README.md).
 
 ## The three participants
 
