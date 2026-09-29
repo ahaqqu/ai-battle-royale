@@ -459,7 +459,6 @@ function loop(ts: number): void {
           case "hit": sfx.play("hit", pan, vol); break;
           case "death": sfx.play("boom", pan, Math.max(0.55, vol)); break;
           case "companion_down": sfx.play("boom", pan, vol * 0.45); break;
-          case "sonar": sfx.play("sonar", pan, vol); break;
           case "pickup": sfx.play("pickup", pan, vol * 0.8); break;
         }
       } else if (e.type === "zone_locked" || e.type === "zone_shrink_started") {
@@ -1140,21 +1139,19 @@ function playLoop(ts: number): void {
   }
   playBanner.classList.toggle("zone-warn", outside);
 
-  // Heard events → positional audio (gunshot / dash / sonar).
+  // Heard events → positional audio (footsteps show only as HUD wedges).
   for (const h of obs.heard) {
     const a = (h.bearing * Math.PI) / 180;
     const pan = Math.sin(a);
     const vol = h.band === "near" ? 0.85 : h.band === "mid" ? 0.5 : 0.26;
     if (h.kind === "gunshot") sfx.play("shot", pan, vol);
     else if (h.kind === "dash") sfx.play("dash", pan, vol * 0.8);
-    else if (h.kind === "sonar") sfx.play("sonar", pan, vol * 0.9);
   }
 
   // HUD.
   hud.stats(obs.tick, obs.global.alive, zonePhaseOfFloat(obs.global.zone.radius), false);
   const gun = WEAPONS[weaponIdx(me.weapon)];
   const fireCd = me.cooldown.fire ?? 0;
-  const sonarCd = obs.you.companion.cooldown.sonar ?? 0;
   const hpColor = me.hp > 55 ? "#43d66e" : me.hp > 25 ? "#ffc93c" : "#ff5f7e";
   const zoneLeft = obs.global.zone.next
     ? ` · zone locks ${Math.max(0, Math.round((obs.global.zone.next.locks_at_tick - obs.tick) / 10))}s`
@@ -1167,7 +1164,6 @@ function playLoop(ts: number): void {
     <div class="pbar"><span>EN ${Math.round(me.energy)}</span><div><i style="width:${me.energy}%;background:#35c1f0"></i></div></div>
     ${comp}
     <div class="pbar mini"><span>FIRE</span><div><i style="width:${(1 - Math.min(1, fireCd / gun.cd)) * 100}%;background:${fireCd > 0 ? "#8d82b5" : gun.color}"></i></div></div>
-    <div class="pbar mini"><span>SONAR</span><div><i style="width:${(1 - Math.min(1, sonarCd / 15)) * 100}%;background:${sonarCd > 0 ? "#8d82b5" : "#35c1f0"}"></i></div></div>
     <div class="pcd">GUN <b style="color:${gun.color}">${gun.label}</b> — ${gun.blurb}</div>
     <div class="pcd">sprint ${playClient.sprinting ? "ON (no firing)" : "off"} · ${outside ? "<b style='color:#e6455f'>OUTSIDE ZONE — RUN!</b>" : "zone ok"}${zoneLeft}</div>`;
 

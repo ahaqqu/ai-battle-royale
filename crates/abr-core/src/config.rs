@@ -191,7 +191,6 @@ pub struct CompanionConfig {
     pub leash: f64,
     pub energy_max: f64,
     pub respawn_s: f64,
-    pub sonar: SonarConfig,
 }
 
 impl Default for CompanionConfig {
@@ -204,29 +203,6 @@ impl Default for CompanionConfig {
             leash: 350.0,
             energy_max: 50.0,
             respawn_s: 20.0,
-            sonar: SonarConfig::default(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-#[serde(default)]
-pub struct SonarConfig {
-    pub cost: f64,
-    pub cooldown_s: f64,
-    pub reveal_radius: f64,
-    pub duration_s: f64,
-    pub audio_radius: f64,
-}
-
-impl Default for SonarConfig {
-    fn default() -> Self {
-        SonarConfig {
-            cost: 25.0,
-            cooldown_s: 15.0,
-            reveal_radius: 600.0,
-            duration_s: 3.0,
-            audio_radius: 900.0,
         }
     }
 }
@@ -237,7 +213,6 @@ pub struct AudioConfig {
     pub gunshot: f64,
     pub dash: f64,
     pub footstep: f64,
-    pub sonar: f64,
     /// Bearing quantization in degrees (PLAN §3.2).
     pub bearing_quantization: u32,
 }
@@ -248,7 +223,6 @@ impl Default for AudioConfig {
             gunshot: 900.0,
             dash: 500.0,
             footstep: 200.0,
-            sonar: 900.0,
             bearing_quantization: 15,
         }
     }

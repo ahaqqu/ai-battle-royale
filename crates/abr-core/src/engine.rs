@@ -187,15 +187,9 @@ impl MatchEngine {
             if !comp.alive {
                 continue;
             }
-            let sonar_ready = comp.sonar_cd <= 0 && comp.energy >= self.params.sonar_cost;
-            let action = if sonar_ready {
-                Some(UnitAction::Sonar)
-            } else {
-                Some(UnitAction::Heel)
-            };
             per_unit[b * 2 + 1] = Some(UnitInput {
                 r#move: Default::default(),
-                action,
+                action: Some(UnitAction::Heel),
             });
         }
 

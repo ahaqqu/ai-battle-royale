@@ -12,7 +12,7 @@ export interface PlayYouUnit {
   facing: number;
   hp: number;
   energy: number;
-  cooldown: { fire?: number; sonar?: number };
+  cooldown: { fire?: number };
   status: string[];
   respawn_in_s?: number;
   /** Mains only: the gun currently equipped ("pea", "scatter", …). */
@@ -23,7 +23,7 @@ export interface PlayObs {
   tick: number;
   you: { main: PlayYouUnit; companion: PlayYouUnit };
   seen: {
-    players: { id: number; pos: [number, number]; vel?: [number, number]; facing?: number; detail: string; hp?: number; weapon?: string; viaSonar?: boolean }[];
+    players: { id: number; pos: [number, number]; vel?: [number, number]; facing?: number; detail: string; hp?: number; weapon?: string }[];
     companions: { id: number; owner: number; pos: [number, number]; detail: string }[];
     projectiles: { id: number; pos: [number, number]; vel: [number, number]; owner: number; weapon?: string }[];
     pickups: { id: number; pos: [number, number]; kind: string }[];
@@ -78,7 +78,6 @@ interface InputState {
    * level-sampled mouseDown — latch it so a tap still fires one shot. */
   fireQueued: boolean;
   dashQueued: boolean;
-  sonarQueued: boolean;
   sprintToggled: boolean;
 }
 
@@ -95,7 +94,6 @@ export class PlayClient {
     mouseDown: false,
     fireQueued: false,
     dashQueued: false,
-    sonarQueued: false,
     sprintToggled: false,
   };
 
@@ -212,7 +210,6 @@ export class PlayClient {
       const k = e.key.toLowerCase();
       if (k === " ") e.preventDefault();
       if (k === " " && !this.state.keys.has(" ")) this.state.dashQueued = true;
-      if (k === "e" && !this.state.keys.has("e")) this.state.sonarQueued = true;
       if (k === "q" && !this.state.keys.has("q")) this.state.sprintToggled = true;
       this.state.keys.add(k);
     });
@@ -256,7 +253,7 @@ export class PlayClient {
   }
 
   /** Companion input: the jalak trails the reticle (scout where you aim),
-   * E pings sonar, F recalls it to your side (PLAN §2.3 leash clamps). */
+   * F recalls it to your side (PLAN §2.3 leash clamps). */
   private companionInput(obs: PlayObs): { mv: { dir: number; throttle: number }; action?: Record<string, unknown> } {
     const comp = obs.you.companion;
     if (this.state.keys.has("f")) {
@@ -294,12 +291,7 @@ export class PlayClient {
     this.state.dashQueued = false;
 
     const compIn = this.companionInput(obs);
-    let compAction = compIn.action;
-    if (this.state.sonarQueued) {
-      // Ignored by the sim while on cooldown, so firing blind is free.
-      compAction = { type: "sonar" };
-      this.state.sonarQueued = false;
-    }
+    const compAction = compIn.action;
 
     const msg = {
       tick: obs.tick,

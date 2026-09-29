@@ -60,8 +60,6 @@ pub struct Mods {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct OwnCooldown {
     pub fire: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sonar: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -92,8 +90,6 @@ pub struct SeenPlayer {
     pub weapon: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub via_sonar: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -103,8 +99,6 @@ pub struct SeenCompanion {
     pub pos: [f64; 2],
     pub range: f64,
     pub detail: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub via_sonar: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -228,25 +222,10 @@ pub fn observe(
                 best = Some((d, s.idx));
             }
         }
-        // Sonar reveal: silhouettes through walls, within reveal radius of
-        // one of MY active sonar pings (PLAN §2.3).
-        let mut sonar_range: Option<Fix> = None;
-        for son in &state.sonars {
-            if son.bot == viewer {
-                let d = u.pos.dist(son.pos);
-                if d <= p.sonar_reveal {
-                    sonar_range = Some(sonar_range.map_or(d, |prev: Fix| prev.min(d)));
-                }
-            }
-        }
-
         let detail_full = best.is_some_and(|(d, _)| d <= p.full_detail_range);
-        if best.is_none() && sonar_range.is_none() {
-            continue;
-        }
-        let range = match best {
-            Some((d, _)) => d,
-            None => sonar_range.expect("visible by sonar"),
+        let (range, _) = match best {
+            Some(x) => x,
+            None => continue,
         };
         if is_main || is_boss {
             seen.players.push(SeenPlayer {
@@ -271,7 +250,6 @@ pub fn observe(
                 hp: detail_full.then(|| f(u.hp)),
                 weapon: detail_full.then(|| weapon_str(u.weapon).to_string()),
                 status: detail_full.then(|| unit_status(u)),
-                via_sonar: (best.is_none()).then_some(true),
             });
         } else {
             seen.companions.push(SeenCompanion {
@@ -284,7 +262,6 @@ pub fn observe(
                 } else {
                     "silhouette".to_string()
                 },
-                via_sonar: (best.is_none()).then_some(true),
             });
         }
         let _ = ui;
@@ -355,7 +332,6 @@ pub fn observe(
             SoundKind::Gunshot => p.audio_gunshot,
             SoundKind::Dash => p.audio_dash,
             SoundKind::Footstep => p.audio_footstep,
-            SoundKind::Sonar => p.sonar_audio,
         };
         let d = snd.pos.dist(listener);
         if d > audible {
@@ -447,15 +423,9 @@ fn own_unit(u: &crate::state::Unit, p: &SimParams, companion: bool, tick: u64) -
             None
         },
         cooldown: if companion {
-            OwnCooldown {
-                fire: 0.0,
-                sonar: Some(f(u.sonar_cd)),
-            }
+            OwnCooldown { fire: 0.0 }
         } else {
-            OwnCooldown {
-                fire: f(u.fire_cd),
-                sonar: None,
-            }
+            OwnCooldown { fire: f(u.fire_cd) }
         },
         status,
         respawn_in_s: if companion && !u.alive {
@@ -486,7 +456,6 @@ fn sound_kind_str(k: SoundKind) -> &'static str {
         SoundKind::Gunshot => "gunshot",
         SoundKind::Dash => "dash",
         SoundKind::Footstep => "footstep",
-        SoundKind::Sonar => "sonar",
     }
 }
 

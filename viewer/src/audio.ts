@@ -7,20 +7,20 @@
  * events are quiet and off-center events sit on their side of the screen. */
 
 type SndName =
-  | "shot" | "hit" | "hurt" | "dash" | "sonar" | "pickup" | "kill"
+  | "shot" | "hit" | "hurt" | "dash" | "pickup" | "kill"
   | "boom" | "zone" | "victory" | "defeat" | "click";
 
 const MASTER = 0.5;
 /** Min seconds between two plays of the same sound (anti-spam at 10Hz). */
 const THROTTLE: Partial<Record<SndName, number>> = {
-  shot: 0.045, hit: 0.08, boom: 0.1, sonar: 0.2, dash: 0.12, zone: 0.8,
+  shot: 0.045, hit: 0.08, boom: 0.1, dash: 0.12, zone: 0.8,
 };
 
 /** Playback cap per sound (seconds). Dropped samples can be long — an 8s
  * "hit" would stack into mud at a 10Hz tick — so each role caps its length
  * and the tail fades out over ≤60ms (masked by the sample's own decay). */
 const MAX_DUR: Partial<Record<SndName, number>> = {
-  shot: 0.35, hit: 0.25, hurt: 0.4, dash: 0.3, sonar: 0.5, pickup: 0.4,
+  shot: 0.35, hit: 0.25, hurt: 0.4, dash: 0.3, pickup: 0.4,
   kill: 1.2, boom: 0.6, zone: 0.8, victory: 1.7, defeat: 0.6, click: 0.12,
 };
 
@@ -29,7 +29,7 @@ const MAX_DUR: Partial<Record<SndName, number>> = {
  * that sound. Missing files fall back to the synthesized version. */
 const SAMPLE_URL: Record<SndName, string> = {
   shot: "/sfx/shot.mp3", hit: "/sfx/hit.mp3", hurt: "/sfx/hurt.mp3",
-  dash: "/sfx/dash.mp3", sonar: "/sfx/sonar.mp3", pickup: "/sfx/pickup.mp3",
+  dash: "/sfx/dash.mp3", pickup: "/sfx/pickup.mp3",
   kill: "/sfx/kill.mp3", boom: "/sfx/boom.mp3", zone: "/sfx/zone.mp3",
   victory: "/sfx/victory.mp3", defeat: "/sfx/defeat.mp3", click: "/sfx/click.mp3",
 };
@@ -181,7 +181,6 @@ export class Sfx {
       case "hit": this.tone(g, now, "triangle", 720, 480, vol * 0.5, 0.09); this.burst(g, now, vol * 0.3, 2600, 0.05, 2); break;
       case "hurt": this.tone(g, now, "sine", 140, 66, vol * 0.85, 0.28); this.burst(g, now, vol * 0.5, 420, 0.16, 1); break;
       case "dash": this.sweep(g, now, vol * 0.4, 500, 2400, 0.22); break;
-      case "sonar": this.tone(g, now, "sine", 1150, 1150, vol * 0.4, 0.3); this.tone(g, now + 0.18, "sine", 1150, 1150, vol * 0.15, 0.25); break;
       case "pickup": this.tone(g, now, "triangle", 660, 660, vol * 0.35, 0.1); this.tone(g, now + 0.09, "triangle", 990, 990, vol * 0.35, 0.14); break;
       case "kill": [523, 659, 784].forEach((f, i) => this.tone(g, now + i * 0.085, "square", f, f, vol * 0.3, 0.1)); break;
       case "boom": this.tone(g, now, "sine", 180, 46, vol * 0.9, 0.42); this.burst(g, now, vol * 0.7, 260, 0.4, 1); break;

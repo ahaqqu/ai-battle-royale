@@ -190,14 +190,15 @@ impl RefBot for Camper {
         }
 
         let mut inp = base_input(m, action);
-        inp.companion.action = Some(UnitAction::Sonar);
+        inp.companion.action = Some(UnitAction::Heel);
         inp.intent = Some("holding position".into());
         inp
     }
 }
 
 // ---------------------------------------------------------------------------
-// Hunter — rotates with the zone, engages anything it sees, scouts with sonar.
+// Hunter — rotates with the zone, engages anything it sees, scouts with its
+// companion.
 // ---------------------------------------------------------------------------
 
 pub struct Hunter;
@@ -244,16 +245,13 @@ impl RefBot for Hunter {
         let (cx, cy) = (obs.you.companion.pos[0], obs.you.companion.pos[1]);
         let mut inp = base_input(m, action);
         inp.companion.r#move = move_to(cx, cy, zx, zy, 1.0);
-        if obs.you.companion.cooldown.sonar.unwrap_or(99.0) <= 0.0 {
-            inp.companion.action = Some(UnitAction::Sonar);
-        }
         inp.intent = Some("rotating, hunting".into());
         inp
     }
 }
 
 // ---------------------------------------------------------------------------
-// Looter — grabs pickups, avoids fights, sonars ahead.
+// Looter — grabs pickups, avoids fights, sends its companion ahead.
 // ---------------------------------------------------------------------------
 
 pub struct Looter;
@@ -294,11 +292,7 @@ impl RefBot for Looter {
         let action = lead_target(obs, (mx, my)).map(|(tx, ty)| fire_at(tx, ty));
         let (cx, cy) = (obs.you.companion.pos[0], obs.you.companion.pos[1]);
         let mut inp = base_input(m, action);
-        if obs.you.companion.cooldown.sonar.unwrap_or(99.0) <= 0.0 {
-            inp.companion.action = Some(UnitAction::Sonar);
-        } else {
-            inp.companion.r#move = move_to(cx, cy, goal.0, goal.1, 1.0);
-        }
+        inp.companion.r#move = move_to(cx, cy, goal.0, goal.1, 1.0);
         inp.intent = Some("looting".into());
         inp
     }
@@ -361,11 +355,7 @@ impl RefBot for Survivor {
 
         let (cx, cy) = (obs.you.companion.pos[0], obs.you.companion.pos[1]);
         let mut inp = base_input(m, action);
-        if obs.you.companion.cooldown.sonar.unwrap_or(99.0) <= 0.0 {
-            inp.companion.action = Some(UnitAction::Sonar);
-        } else {
-            inp.companion.r#move = move_to(cx, cy, zx, zy, 1.0);
-        }
+        inp.companion.r#move = move_to(cx, cy, zx, zy, 1.0);
         inp.intent = Some(
             if outside {
                 "sprinting to zone!"
@@ -432,7 +422,7 @@ impl RefBot for Berserker {
 // ---------------------------------------------------------------------------
 // BossBrain — the Slain-the-Boss raid boss. Slow but huge: holds the arena,
 // shells the nearest raider it can see, charges anything that hugs it, and
-// shields up when a volley lands. Sends its minion to sonar ahead.
+// shields up when a volley lands. Keeps its minion at heel.
 // ---------------------------------------------------------------------------
 
 pub struct BossBrain {
@@ -524,13 +514,9 @@ impl RefBot for BossBrain {
             action = Some(UnitAction::Dash);
         }
 
-        // Minion: sonar ahead, otherwise heel back to the boss.
+        // Minion: heel back to the boss.
         let mut inp = base_input(m, action);
-        if obs.you.companion.cooldown.sonar.unwrap_or(99.0) <= 0.0 {
-            inp.companion.action = Some(UnitAction::Sonar);
-        } else {
-            inp.companion.action = Some(UnitAction::Heel);
-        }
+        inp.companion.action = Some(UnitAction::Heel);
         inp.intent = Some(if enraged { "THE BOSS IS FURIOUS" } else { "crush them" }.into());
         inp
     }

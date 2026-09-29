@@ -194,13 +194,6 @@ export class Fx {
           });
           break;
         }
-        case "sonar": {
-          if (!at) break;
-          this.ring(at[0], at[1], 0x35c1f0, 8, 620, 0.95, 5);
-          this.ring(at[0], at[1], 0x9fe0ff, 4, 330, 0.6, 2.5);
-          this.spawn(at[0], at[1], 0x35c1f0, { count: 14, speed: 340, maxLife: 0.5, size0: 10, size1: 2 });
-          break;
-        }
         case "pickup": {
           if (!at) break;
           this.spawn(at[0], at[1], 0xffc93c, { count: 14, shape: "confetti", colors: true, speed: 210, maxLife: 0.7, size0: 10, size1: 4, grav: 200, drag: 1.8 });

@@ -12,7 +12,7 @@ use crate::loot::PickupKind;
 use crate::map::GameMap;
 use crate::params::{lerp_point, SimParams};
 use crate::state::{
-    apply_damage, KillEntry, Projectile, SonarActive, SoundEvent, SoundKind, Unit, WorldState,
+    apply_damage, KillEntry, Projectile, SoundEvent, SoundKind, Unit, WorldState,
 };
 use crate::types::{MoveInput, UnitAction, UnitInput, Vec2};
 use crate::zone;
@@ -412,27 +412,6 @@ pub fn step(
             Some(UnitAction::Sprint { on }) if unit.is_main() => {
                 unit.sprint = on;
             }
-            Some(UnitAction::Sonar)
-                if !unit.is_main() && unit.sonar_cd <= 0 && unit.energy >= p.sonar_cost =>
-            {
-                unit.energy -= p.sonar_cost;
-                unit.sonar_cd = p.sonar_cooldown;
-                state.sonars.push(SonarActive {
-                    bot: unit.bot,
-                    pos: unit.pos,
-                    until_tick: tick + p.sonar_ticks,
-                });
-                state.sounds.push(SoundEvent {
-                    kind: SoundKind::Sonar,
-                    pos: unit.pos,
-                    bot: unit.bot,
-                });
-                events.push(Event::Sonar {
-                    bot: unit.bot,
-                    unit_id: unit.id,
-                    at: pa(unit.pos),
-                });
-            }
             _ => {}
         }
     }
@@ -500,7 +479,6 @@ pub fn step(
             unit.energy = (unit.energy + fixed::mul(p.energy_regen, dt)).min(unit.max_energy(p));
         }
         unit.fire_cd = (unit.fire_cd - dt).max(0.into());
-        unit.sonar_cd = (unit.sonar_cd - dt).max(0.into());
         unit.dashing = unit.dashing.saturating_sub(1);
         unit.shielding = unit.shielding.saturating_sub(1);
     }
@@ -589,9 +567,6 @@ pub fn step(
             at: pa(cpos),
         });
     }
-
-    // Expire sonars.
-    state.sonars.retain(|s| s.until_tick > tick);
 
     // ------------------------------------------------- 12. zone phase events
     if cur_zone.phase != prev_zone.phase

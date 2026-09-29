@@ -79,7 +79,7 @@ own strict-fog observation on equal terms with the bots. House bots fight for
 real but stay off the ladder.
 
 - **WASD / arrows** — move · **mouse** — aim · **click** — fire
-- **SPACE** — dash · **SHIFT** — shield · **Q** — sprint toggle · **E** — sonar
+- **SPACE** — dash · **SHIFT** — shield · **Q** — sprint toggle
 - **F** — recall your companion · otherwise it scouts toward your cursor
 - sound is synthesized client-side (🔊 in the top bar); replays get the same
   distance-attenuated gunshot/kill/zone audio
@@ -119,7 +119,7 @@ raid boss (the built-in brain, or the member you name). Members get
 - 10 ticks/s · 50ms reply deadline · miss a deadline and your last action
   repeats (momentum) — a slow bot loses visibly instead of being ejected
 - fog of war is strict: you get your units' vision (silhouettes beyond
-  300u), coarse audio (gunshot/dash/footstep/sonar bearings), zone geometry,
+  300u), coarse audio (gunshot/dash/footstep bearings), zone geometry,
   alive count, kill feed — and nothing else
 - optional mind-cam: send a 64×64 `belief` heat map + 64-char `intent` with
   your actions and spectators can watch *what your bot thinks*

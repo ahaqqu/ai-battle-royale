@@ -132,7 +132,6 @@ pub enum UnitAction {
     Dash,
     Shield,
     Sprint { on: bool },
-    Sonar,
     Heel,
 }
 
