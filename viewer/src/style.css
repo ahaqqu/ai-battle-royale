@@ -240,8 +240,14 @@ canvas { display: block; }
   background: radial-gradient(circle at 32% 28%, #ff6d86, var(--danger));
   border: 2.5px solid #fff;
   box-shadow: 0 3px 0 rgba(58, 44, 105, 0.28), inset 0 0 0 2px rgba(255, 255, 255, 0.4);
-  transform: rotate(9deg);
+  transform: rotate(18deg);
+  animation: hanko-spin 14s linear infinite;
   pointer-events: none;
+}
+/* The stamp slowly spins in place, one full revolution per loop. */
+@keyframes hanko-spin {
+  from { transform: rotate(18deg); }
+  to { transform: rotate(378deg); }
 }
 /* Mascot layer: covers the card exactly, ignores pointer events so every
    click reaches the real menu underneath. Sized to the card by hero.ts. */
@@ -249,7 +255,7 @@ canvas { display: block; }
 .picker-card {
   position: relative; z-index: 1;
   background: var(--panel); border: 3px solid var(--panel-border); border-radius: 26px;
-  padding: 30px 36px; width: 470px; max-height: 76vh; overflow: auto;
+  padding: 24px 36px 26px; width: 470px; max-height: 88vh; overflow: auto;
   box-shadow: 0 8px 0 rgba(58, 44, 105, 0.2);
 }
 .picker-row {
@@ -292,7 +298,7 @@ canvas { display: block; }
 .mascot-boop { animation: mascot-boop 0.6s ease-out; }
 
 /* ---------- home actions + replay library page ---------- */
-.home-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+.home-actions { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
 .home-actions .upload { margin-top: 0; }
 #browse-replays-btn {
   padding: 12px 16px; height: 46px; box-sizing: border-box;
@@ -354,7 +360,7 @@ body.ambient #picker, body.ambient #replays-page {
 }
 
 /* ---------- play mode ---------- */
-.play-join { margin-top: 22px; border-top: 2px dashed var(--panel-border); padding-top: 18px; }
+.play-join { margin-top: 16px; border-top: 2px dashed var(--panel-border); padding-top: 14px; }
 .play-join h3 { color: var(--pink); font-size: 14px; letter-spacing: .1em; font-weight: 800; }
 .play-join p { color: var(--ink-dim); font-size: 12px; font-weight: 600; margin: 6px 0 10px; }
 .play-join input {
@@ -504,7 +510,7 @@ body.playing #bottombar { display: none; }
 }
 .home-keys {
   display: flex; justify-content: center; align-items: center; gap: 5px;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 .home-keys kbd {
   font-family: inherit; font-size: 10.5px; font-weight: 800; color: var(--ink);
@@ -531,17 +537,22 @@ body.playing #bottombar { display: none; }
   color: var(--ink-dim);
 }
 
-/* ---------- play: two entry paths (quick match / private lobby) ---------- */
+/* ---------- play: pick a mode and you're in the queue ---------- */
 .play-modes {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px;
-  text-align: left;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;
 }
-.play-mode-col { display: flex; flex-direction: column; gap: 2px; }
-.play-mode-tag {
-  font-size: 9.5px; font-weight: 800; letter-spacing: .06em; color: var(--ink-dim);
-  text-transform: uppercase; margin-bottom: 6px; line-height: 1.3; min-height: 26px;
+.picker-card .play-modes button { margin-top: 0; }
+/* Quiet text link, not a sixth button: opt out of the .play-join button look. */
+.play-join button.lobby-link {
+  display: block; width: 100%; margin: 10px 0 0; padding: 0;
+  height: auto; box-sizing: content-box;
+  background: none; border: none; box-shadow: none;
+  cursor: pointer; transform: none;
+  font-family: inherit; font-weight: 700; font-size: 11px; letter-spacing: .04em;
+  color: var(--ink-dim);
 }
-.picker-card .play-mode-col button { margin-top: 6px; }
+.play-join button.lobby-link:hover { transform: none; color: var(--orange); }
+.play-join button.lobby-link:active { transform: none; box-shadow: none; }
 .play-join button.danger {
   background: linear-gradient(180deg, #e6455f, #cc3049);
   box-shadow: 0 4px 0 #b32a41;
@@ -549,6 +560,15 @@ body.playing #bottombar { display: none; }
 .play-join button.danger:active { box-shadow: 0 2px 0 #b32a41; }
 
 /* ---------- private lobby room ---------- */
+/* A modal over whatever is behind it (the ambient match on the home screen,
+   the live arena in play mode): dim + blur, card dead center. */
+#lobby-page {
+  position: fixed; inset: 0; z-index: 16;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(58, 44, 105, 0.32);
+  backdrop-filter: blur(3px);
+  overflow: hidden;
+}
 .lobby-card { max-width: 420px; }
 .lobby-card .logo.small { animation: logo-bob 2.6s ease-in-out infinite; }
 /* The room title is one line: "PRIVATE" + pink "LOBBY" must not wrap/overlap. */

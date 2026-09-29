@@ -189,13 +189,14 @@ async function showPicker(): Promise<void> {
   document.getElementById("boss-btn")?.addEventListener("click", () => {
     location.href = "?play=1&mode=boss&name=" + encodeURIComponent(playerName());
   });
-  // Private room: the room's code and mode ride in the URL, so a share link is
-  // just this page plus `?join=CODE`.
-  document.getElementById("lobby-royale-btn")!.addEventListener("click", () => {
-    void openLobby({ mode: "royale", create: true, name: playerName() });
-  });
-  document.getElementById("lobby-boss-btn")!.addEventListener("click", () => {
-    void openLobby({ mode: "boss", create: true, name: playerName() });
+  // Private rooms keep living behind one quiet link: the popup centers over
+  // the menu, and its create/join buttons navigate to self-contained URLs.
+  document.getElementById("lobby-open")?.addEventListener("click", () => {
+    lobbyPage.classList.remove("hidden");
+    document.getElementById("lobby-setup")!.classList.remove("hidden");
+    document.getElementById("lobby-room")!.classList.add("hidden");
+    setLobbyNotice("", false);
+    wireLobbySetup(playerName(), "royale");
   });
 
   document.getElementById("browse-replays-btn")!.addEventListener("click", () => {
@@ -801,6 +802,12 @@ function wireLobbySetup(name: string, mode: "royale" | "boss"): void {
   document.getElementById("lobby-create-boss")!.onclick = () => goHost("boss");
   document.getElementById("lobby-join")!.onclick = goJoin;
   codeEl.onkeydown = (e) => { if (e.key === "Enter") goJoin(); };
+  // From the home screen the popup just closes; from a ?host=1 load, back
+  // means a fresh home (the form has no other exit there).
+  document.getElementById("lobby-back")!.onclick = () => {
+    if (!picker.classList.contains("hidden")) lobbyPage.classList.add("hidden");
+    else location.href = location.pathname;
+  };
 }
 
 function hideLobbyRoom(): void {
@@ -899,16 +906,6 @@ function renderLobby(info: LobbyInfo | null, you: string): void {
   document.getElementById("lobby-host-controls")!.classList.toggle("hidden", !isHost);
   document.getElementById("lobby-wait")!.classList.toggle("hidden", isHost);
   if (isHost) setLobbyNotice("", false);
-}
-
-/** Home-screen entry: navigate to a URL that carries the room intent, so a
- * reload and every shared link is self-contained. */
-function openLobby(opts: { mode: "royale" | "boss"; create?: boolean; join?: string; name?: string }): void {
-  const name = (opts.name ?? nameFromUrl()).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 16) || "human";
-  const q = new URLSearchParams({ mode: opts.mode, name });
-  if (opts.create) q.set("host", "1");
-  else q.set("join", (opts.join ?? "").toUpperCase());
-  location.href = `${location.pathname}?${q.toString()}`;
 }
 
 /** The name a share link asked for. */
