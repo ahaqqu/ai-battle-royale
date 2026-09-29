@@ -3,69 +3,6 @@
 version = 4
 
 [[package]]
-name = "abr-bot-client"
-version = "0.1.0"
-dependencies = [
- "abr-core",
- "clap",
- "futures-util",
- "serde_json",
- "tokio",
- "tokio-tungstenite 0.24.0",
-]
-
-[[package]]
-name = "abr-core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "abr-runner"
-version = "0.1.0"
-dependencies = [
- "abr-core",
- "axum",
- "clap",
- "serde_json",
- "tokio",
- "tower-http",
-]
-
-[[package]]
-name = "abr-server"
-version = "0.1.0"
-dependencies = [
- "abr-core",
- "anyhow",
- "axum",
- "clap",
- "futures-util",
- "getrandom 0.2.17",
- "rusqlite",
- "serde",
- "serde_json",
- "socket2",
- "tempfile",
- "tokio",
- "tokio-tungstenite 0.24.0",
- "tower-http",
-]
-
-[[package]]
-name = "abr-wasm"
-version = "0.1.0"
-dependencies = [
- "abr-core",
- "serde",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -479,6 +416,105 @@ dependencies = [
  "cfg-if",
  "libc",
  "r-efi 6.0.0",
+]
+
+[[package]]
+name = "gunbatte-bot-client"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "futures-util",
+ "gunbatte-core",
+ "serde_json",
+ "tokio",
+ "tokio-tungstenite 0.24.0",
+]
+
+[[package]]
+name = "gunbatte-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "gunbatte-gameserver"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.2.17",
+ "gunbatte-core",
+ "gunbatte-node",
+ "serde_json",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "gunbatte-lobby"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "futures-util",
+ "gunbatte-core",
+ "gunbatte-node",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tower-http",
+]
+
+[[package]]
+name = "gunbatte-node"
+version = "0.1.0"
+dependencies = [
+ "gunbatte-core",
+ "rusqlite",
+ "serde",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "gunbatte-runner"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "clap",
+ "gunbatte-core",
+ "serde_json",
+ "tokio",
+ "tower-http",
+]
+
+[[package]]
+name = "gunbatte-server"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "futures-util",
+ "gunbatte-core",
+ "gunbatte-gameserver",
+ "gunbatte-lobby",
+ "gunbatte-node",
+ "serde_json",
+ "socket2",
+ "tempfile",
+ "tokio",
+ "tokio-tungstenite 0.24.0",
+]
+
+[[package]]
+name = "gunbatte-wasm"
+version = "0.1.0"
+dependencies = [
+ "gunbatte-core",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -922,16 +958,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
-name = "signal-hook-registry"
-version = "1.4.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
-dependencies = [
- "errno",
- "libc",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1050,7 +1076,6 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
- "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys",

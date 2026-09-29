@@ -1,0 +1,19 @@
+[package]
+name = "gunbatte-bot-client"
+description = "Reference WebSocket bot client: connects a reference brain to the ladder gateway"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "gunbatte-bot-client"
+path = "src/main.rs"
+
+[dependencies]
+gunbatte-core = { path = "../gunbatte-core" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync"] }
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }

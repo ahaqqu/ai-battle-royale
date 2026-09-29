@@ -1,0 +1,21 @@
+[package]
+name = "gunbatte-lobby"
+description = "Matchmaker role: bot WebSocket gateway, match queue, private lobbies, house-fill assembly, ladder page"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gunbatte-core = { path = "../gunbatte-core" }
+gunbatte-node = { path = "../gunbatte-node" }
+axum = { version = "0.8", features = ["ws", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "sync", "time"] }
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+tower-http = { version = "0.6", features = ["fs"] }
+
+[dev-dependencies]
+tempfile = "3"

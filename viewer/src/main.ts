@@ -241,7 +241,7 @@ async function openReplays(): Promise<void> {
     return;
   }
   if (items.length === 0) {
-    list.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:12px 0">No replays found on the server.<br>Generate one: <code>abr-runner run --preset default16 --seed 42 --out replays/match.json</code></div>`;
+    list.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:12px 0">No replays found on the server.<br>Generate one: <code>gunbatte-runner run --preset default16 --seed 42 --out replays/match.json</code></div>`;
     indicator.textContent = "—";
     return;
   }

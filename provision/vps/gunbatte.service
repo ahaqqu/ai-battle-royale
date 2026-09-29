@@ -17,7 +17,7 @@ Type=simple
 User=__GUNBATTE_USER__
 Group=__GUNBATTE_USER__
 WorkingDirectory=__GUNBATTE_DIR__
-ExecStart=__GUNBATTE_DIR__/abr-server serve --port __GUNBATTE_PORT__ --bind 127.0.0.1
+ExecStart=__GUNBATTE_DIR__/gunbatte-server serve --port __GUNBATTE_PORT__ --bind 127.0.0.1
 Restart=always
 RestartSec=3
 

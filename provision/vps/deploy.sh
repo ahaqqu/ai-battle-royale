@@ -63,14 +63,14 @@ trap 'rm -rf "$stage"' EXIT
 echo "▶ building viewer (wasm-pack + vite)…"
 ( cd "$repo" && make viewer )
 
-echo "▶ building abr-server (release)…"
-( cd "$repo" && cargo build --release -p abr-server )
+echo "▶ building gunbatte-server (release)…"
+( cd "$repo" && cargo build --release -p gunbatte-server )
 
 # Stage the upload. The website copy gets its CTAs pointed at the real game
 # host; the repo copy keeps the localhost default for local dev. The whole
 # website/ tree ships — staging only index.html silently dropped every other
 # page (that is how /characters and /gameplay ended up 404 on the live site).
-cp "$repo/target/release/abr-server" "$stage/"
+cp "$repo/target/release/gunbatte-server" "$stage/"
 cp -r "$repo/viewer/dist" "$stage/viewer-dist"
 mkdir -p "$stage/website"
 cp -r "$repo/website/." "$stage/website/"
@@ -110,7 +110,7 @@ if [ "$BOOTSTRAP" = 1 ]; then
     rsync -a --delete "$stage/viewer-dist/" "$GUNBATTE_ADMIN_SSH:$staging/viewer/dist/"
     rsync -a --delete "$stage/website/"     "$GUNBATTE_ADMIN_SSH:$staging/website/"
     rsync -a --delete "$stage/provision/"   "$GUNBATTE_ADMIN_SSH:$staging/provision/"
-    rsync -a "$stage/abr-server"            "$GUNBATTE_ADMIN_SSH:$staging/abr-server"
+    rsync -a "$stage/gunbatte-server"            "$GUNBATTE_ADMIN_SSH:$staging/gunbatte-server"
 
     # 2. one interactive sudo session: move everything into place, then run
     #    apply.sh AS ROOT — the app dir belongs to the deploy identity (0700
@@ -126,7 +126,7 @@ else
     rsync -a --delete "$stage/viewer-dist/" "$GUNBATTE_SSH:$GUNBATTE_DIR/viewer/dist/"
     rsync -a --delete "$stage/website/"     "$GUNBATTE_SSH:$GUNBATTE_DIR/website/"
     rsync -a --delete "$stage/provision/"   "$GUNBATTE_SSH:$GUNBATTE_DIR/provision/"
-    rsync -a "$stage/abr-server"            "$GUNBATTE_SSH:$GUNBATTE_DIR/abr-server"
+    rsync -a "$stage/gunbatte-server"            "$GUNBATTE_SSH:$GUNBATTE_DIR/gunbatte-server"
     # ladder.db and replays/ live in GUNBATTE_DIR too and are deliberately NOT
     # synced — they are the server's state.
     # Publish the website to the world-readable web root nginx serves. The

@@ -1,5 +1,14 @@
 [workspace]
-members = ["crates/abr-core", "crates/abr-runner", "crates/abr-wasm", "crates/abr-server", "crates/abr-bot-client"]
+members = [
+    "crates/gunbatte-core",
+    "crates/gunbatte-node",
+    "crates/gunbatte-lobby",
+    "crates/gunbatte-gameserver",
+    "crates/gunbatte-server",
+    "crates/gunbatte-runner",
+    "crates/gunbatte-wasm",
+    "crates/gunbatte-bot-client",
+]
 resolver = "2"
 
 [workspace.package]

@@ -4,7 +4,7 @@
 # Usage:
 #   ./start-server.sh                    # start on port 8321
 #   PORT=9000 ./start-server.sh          # custom port
-#   ./start-server.sh --house-bots 0     # extra args go to `abr-server serve`
+#   ./start-server.sh --house-bots 0     # extra args go to `gunbatte-server serve`
 #
 # Re-running restarts: the build runs first (a failed build leaves the old
 # server up), then any previous instance listening on the port is stopped
@@ -21,7 +21,7 @@ set -eu
 cd "$(dirname "$0")"
 
 PORT="${PORT:-8321}"
-# An explicit --port in "$@" wins over $PORT: abr-server reads the flag, not the
+# An explicit --port in "$@" wins over $PORT: gunbatte-server reads the flag, not the
 # environment, and the stop step has to target the socket we actually bind.
 port_in_args=""
 prev=""
@@ -61,7 +61,7 @@ stop_port() {
     for pid in $pids; do
         cmd="$(ps -o args= -p "$pid" 2>/dev/null || true)"
         case "$cmd" in
-            *abr-server*) ;;
+            *gunbatte-server*) ;;
             *)
                 echo "!! port $port is held by something else (pid $pid: $cmd)" >&2
                 echo "   refusing to kill it; free the port or pick another one" >&2
@@ -88,8 +88,8 @@ stop_port() {
 }
 
 # The server binary: cargo is a no-op when sources are unchanged.
-echo "==> cargo build --release -p abr-server"
-cargo build --release -p abr-server
+echo "==> cargo build --release -p gunbatte-server"
+cargo build --release -p gunbatte-server
 
 # viewer/dist is a gitignored build artifact (wasm-pack + vite); the server
 # runs fine without it, but the web viewer needs it. Rebuild by hand with
@@ -103,7 +103,7 @@ stop_port "$PORT"
 
 echo "==> starting server on http://127.0.0.1:${PORT}/"
 if [ -n "$port_in_args" ]; then
-    exec ./target/release/abr-server serve "$@"
+    exec ./target/release/gunbatte-server serve "$@"
 else
-    exec ./target/release/abr-server serve --port "$PORT" "$@"
+    exec ./target/release/gunbatte-server serve --port "$PORT" "$@"
 fi

@@ -1,0 +1,17 @@
+[package]
+name = "gunbatte-wasm"
+description = "WASM bindings for the gunbatte-core sim: powers the in-browser replay viewer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+gunbatte-core = { path = "../gunbatte-core" }
+wasm-bindgen = "0.2"
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+

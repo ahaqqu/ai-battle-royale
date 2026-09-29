@@ -1,0 +1,18 @@
+[package]
+name = "gunbatte-gameserver"
+description = "Game-server role: runs matches — tick loop, fog observations, reply deadlines, replay recording, results write-back"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gunbatte-core = { path = "../gunbatte-core" }
+gunbatte-node = { path = "../gunbatte-node" }
+tokio = { version = "1", features = ["rt-multi-thread", "time", "sync", "macros"] }
+serde_json = "1"
+# Match seeds: the one secret of a match must not be derivable from wall time.
+getrandom = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
