@@ -71,4 +71,4 @@ through it, is filtered by the game rules, and is recorded.
   into the match itself.
 - **Built in the open.** The engine, server, and viewer are MIT-licensed
   open source, and security findings are tracked and fixed in public
-  ([issue tracker](https://github.com/ahaqqu/ai-battle-royale/issues)).
+  ([issue tracker](https://github.com/ahaqqu/gunbatte/issues)).
