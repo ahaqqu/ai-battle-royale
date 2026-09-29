@@ -51,24 +51,33 @@ b { font-weight: 800; }
 .nav {
   position: sticky; top: 0; z-index: 50;
   display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  flex-wrap: wrap; row-gap: 6px;
   padding: 12px 26px;
   background: rgba(255, 253, 245, 0.85);
   backdrop-filter: blur(8px);
   border-bottom: 3px solid var(--panel-border);
 }
-.nav-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
-.nav-word { font-size: 19px; font-weight: 800; letter-spacing: 0.1em; color: var(--ink); }
+/* the brand lockup must never be squeezed away by the links on narrow windows */
+.nav-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; flex-shrink: 0; }
+.nav-word { font-size: 19px; font-weight: 800; letter-spacing: 0.1em; color: var(--ink); white-space: nowrap; }
 .nav-word b { color: var(--orange-deep); }
 .nav-word i { color: var(--pink); font-style: normal; font-size: 0.75em; vertical-align: 0.12em; }
-.nav-links { display: flex; align-items: center; gap: 22px; }
-.nav-links a { text-decoration: none; color: var(--ink); font-weight: 800; font-size: 14px; letter-spacing: 0.04em; }
+.nav-links { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; justify-content: flex-end; }
+.nav-links a { text-decoration: none; color: var(--ink); font-weight: 800; }
+/* size only the plain links — the CTA keeps .btn's metrics so PLAY NOW and
+   PLAY LIVE get identical padding and height */
+.nav-links a:not(.btn) { font-size: 14px; letter-spacing: 0.04em; }
 .nav-links a:not(.btn):hover { color: var(--orange-deep); }
 
 /* ---------- buttons ---------- */
 .btn {
   display: inline-block; padding: 13px 30px; border-radius: 999px;
   font-family: inherit; font-weight: 800; font-size: 14.5px; letter-spacing: 0.1em;
-  text-decoration: none; cursor: pointer; border: none;
+  text-decoration: none; cursor: pointer;
+  /* every .btn carries the same 3px border (transparent on solid variants) so
+     primary and ghost pills are identical heights — the ghost's visible border
+     otherwise stretched flex-row siblings and left standalone CTAs shorter */
+  border: 3px solid transparent;
   transition: transform 0.09s;
 }
 .btn-primary {
@@ -154,11 +163,13 @@ b { font-weight: 800; }
   display: block; font-family: "Noto Sans JP", "Hiragino Maru Gothic ProN", sans-serif;
   font-size: 10.5px; letter-spacing: 0.2em; color: var(--ink-dim); margin-top: 2px;
 }
+/* hung above his head so the tail lands on his face — the old bottom-left spot
+   floated the bubble by his feet with the tail pointing into the ground */
 .bubble-tarsius {
-  bottom: 4%; left: 2%; color: var(--ink-dim);
+  top: -6px; left: 6%; color: var(--ink-dim);
   animation: bubble-pop 0.5s cubic-bezier(0.2, 1.8, 0.4, 1) 2.8s both, tarsius-sag 7s ease-in-out 7s infinite;
 }
-.bubble-tarsius::after { left: 26px; bottom: -9px; transform: rotate(-135deg); }
+.bubble-tarsius::after { right: 30px; bottom: -9px; transform: rotate(-135deg); }
 @keyframes bubble-pop { from { transform: scale(0.4); opacity: 0; } }
 @keyframes jalak-pop { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-7px) rotate(1.6deg); } }
 @keyframes tarsius-sag { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px) rotate(-1deg); } }
