@@ -118,6 +118,9 @@ raid boss (the built-in brain, or the member you name). Members get
   alive count, kill feed — and nothing else
 - optional mind-cam: send a 64×64 `belief` heat map + 64-char `intent` with
   your actions and spectators can watch *what your bot thinks*
+- keepalive: the server pings every 10s and closes a socket that has been
+  totally silent for 45s (`--ws-ping-every-s` / `--ws-idle-timeout-s`) — keep
+  your client reading its socket, or its bot forfeits after the 10s grace
 
 ## Architecture
 

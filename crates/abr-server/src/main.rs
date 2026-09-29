@@ -40,6 +40,12 @@ enum Cmd {
         /// Live spectate delay in seconds (anti-cheat; PLAN §6.2).
         #[arg(long, default_value_t = 0)]
         spectate_delay_s: u64,
+        /// Seconds between keepalive pings to bot sockets (0 disables).
+        #[arg(long, default_value_t = 10)]
+        ws_ping_every_s: u64,
+        /// Seconds of total silence before a bot socket is closed (0 disables).
+        #[arg(long, default_value_t = 45)]
+        ws_idle_timeout_s: u64,
     },
 }
 
@@ -57,6 +63,8 @@ async fn main() {
             min_bots,
             house_bots,
             spectate_delay_s,
+            ws_ping_every_s,
+            ws_idle_timeout_s,
         } => {
             let cfg = ServerConfig {
                 port,
@@ -68,6 +76,8 @@ async fn main() {
                 min_bots,
                 house_bots,
                 spectate_delay_s,
+                ws_ping_every_s,
+                ws_idle_timeout_s,
             };
             abr_server::Server::start(cfg, abr_core::config::MatchConfig::standard())
                 .await

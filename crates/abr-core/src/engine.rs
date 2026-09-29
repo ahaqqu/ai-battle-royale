@@ -84,7 +84,7 @@ impl MatchEngine {
         let mut input = input;
         input.main.r#move.throttle = input.main.r#move.throttle.clamp(0, crate::fixed::ONE);
         if let Some(i) = input.intent.as_mut() {
-            i.truncate(64);
+            truncate_shout(i);
         }
         self.pending[bot as usize] = Some(input);
         self.timeouts[bot as usize].record(Some(latency_ms));
@@ -239,11 +239,58 @@ impl MatchEngine {
                 return;
             }
         }
+        let intent = intent.map(|mut i| {
+            truncate_shout(&mut i);
+            i
+        });
         self.last_mind_tick[bot as usize] = self.state.tick;
         self.minds.insert(bot, (intent, belief));
     }
 
     pub fn deadline_ms(&self) -> u64 {
         self.config.deadline_ms
+    }
+}
+
+/// Spectator shouts cap at 64 chars, cut on a char boundary — `String::truncate`
+/// panics when the cut lands inside a multi-byte char, which made this line
+/// remotely triggerable from any bot's input message.
+fn truncate_shout(s: &mut String) {
+    if s.len() > 64 {
+        *s = s.chars().take(64).collect();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::MatchConfig;
+
+    #[test]
+    fn intent_truncates_on_char_boundary() {
+        let mut engine = MatchEngine::new(MatchConfig::standard(), 7, &["a".into(), "b".into()]);
+        // 63 ASCII bytes + one 4-byte emoji: byte 64 splits the char, which
+        // panicked `String::truncate(64)` before the guard.
+        let shout = format!("{}😀", "a".repeat(63));
+
+        let input = BotInput {
+            intent: Some(shout.clone()),
+            ..BotInput::default()
+        };
+        engine.submit(0, input, 0);
+        engine.step_tick(); // must not panic
+
+        // The mind channel receives the raw text too (drain_inputs feeds it
+        // the untruncated input); its rate limit needs 5 ticks between updates.
+        for _ in 0..6 {
+            engine.step_tick();
+        }
+        engine.submit_mind(0, Some(shout), None);
+        let stored = engine
+            .minds
+            .get(&0)
+            .and_then(|(intent, _)| intent.as_ref())
+            .expect("mind stored after rate window");
+        assert_eq!(stored.chars().count(), 64);
     }
 }

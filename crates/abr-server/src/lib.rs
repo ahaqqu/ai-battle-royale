@@ -110,6 +110,12 @@ pub struct ServerConfig {
     pub house_bots: usize,
     /// Spectate delay in seconds (anti-cheat, PLAN §6.2).
     pub spectate_delay_s: u64,
+    /// Seconds between server → bot keepalive pings (0 disables).
+    pub ws_ping_every_s: u64,
+    /// Seconds of total silence (no inputs, no pongs) before a bot socket is
+    /// closed, so a vanished peer's half-open connection cannot linger. Must
+    /// exceed the ping interval; 0 disables the idle check.
+    pub ws_idle_timeout_s: u64,
 }
 
 impl Default for ServerConfig {
@@ -124,6 +130,8 @@ impl Default for ServerConfig {
             min_bots: 2,
             house_bots: 8,
             spectate_delay_s: 30,
+            ws_ping_every_s: 10,
+            ws_idle_timeout_s: 45,
         }
     }
 }
@@ -191,6 +199,42 @@ fn default_rate() -> u64 {
 
 /// House-fill ceiling for a royale lobby (same 8 as the public queue).
 const HOUSE_MATCH_MAX: usize = 8;
+
+/// Consecutive dropped observations before a non-reading bot is moved onto
+/// the disconnect path (a healthy socket drains its channel continuously).
+const STALL_LIMIT: u32 = 10;
+
+/// "Disabled" for the keepalive timers: one year out — never fires in
+/// practice, still overflow-safe on the timer wheel (Duration::MAX is not).
+const KEEPALIVE_OFF: Duration = Duration::from_secs(365 * 24 * 3600);
+
+/// The match seed is the one secret of a match — it reproduces the zone
+/// schedule and every loot spawn (PLAN §5.1) — so it comes from the OS
+/// CSPRNG, not from wall-clock time, which every participant knows.
+fn random_seed() -> u64 {
+    let mut buf = [0u8; 8];
+    match getrandom::getrandom(&mut buf) {
+        Ok(()) => u64::from_le_bytes(buf) | 1,
+        Err(_) => {
+            // No OS RNG available: degrade to the old time-based seed.
+            let d = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default();
+            (d.subsec_nanos() as u64 ^ d.as_secs()) | 1
+        }
+    }
+}
+
+/// Bot names are operator-controlled wire data that render into the viewer
+/// HUD and the ladder page. Pin them to a markup-free charset so a crafted
+/// name can never carry HTML into a spectator's browser.
+fn valid_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 32
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ' '))
+}
 
 #[derive(Deserialize)]
 struct ClientAction {
@@ -588,14 +632,34 @@ impl Server {
 /// The 10Hz match loop (PLAN §4.2): obs at t=0, 50ms reply deadline, ~50ms
 /// resolution window, simultaneous resolution. `config` decides the mode —
 /// royale drafts pass the server default, raids pass a Boss-mode clone.
+/// Push this tick's observations. Never awaits a bot's channel: a bot that
+/// stopped reading would otherwise stall the whole lane once its bounded
+/// channel fills, so a full slot drops the frame instead, and consecutive
+/// drops move the bot onto the disconnect path (grace, then forfeit).
+fn push_observations(engine: &mut MatchEngine, handles: &[Arc<BotHandle>], stalls: &mut [u32]) {
+    for (b, h) in handles.iter().enumerate() {
+        let obs = engine.observe(b as u32);
+        let json = serde_json::to_string(&obs).unwrap_or_default();
+        match h.out_tx.try_send(json) {
+            Ok(()) => stalls[b] = 0,
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                stalls[b] += 1;
+                if stalls[b] == STALL_LIMIT {
+                    println!("⏸ {} stopped reading observations — disconnect grace", h.name);
+                    engine.disconnect(b as u32, engine.state.tick);
+                }
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                engine.disconnect(b as u32, engine.state.tick);
+            }
+        }
+    }
+}
+
 async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>, config: MatchConfig) {
     let n = handles.len();
     let names: Vec<String> = handles.iter().map(|h| h.name.clone()).collect();
-    let seed = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.subsec_nanos() as u64 ^ d.as_secs())
-        .unwrap_or(42)
-        | 1;
+    let seed = random_seed();
     let mut engine = MatchEngine::new(config.clone(), seed, &names);
     for (b, h) in handles.iter().enumerate() {
         engine.configure_bot(b as u32, h.decision_rate, h.auto_heel);
@@ -607,11 +671,12 @@ async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>, config: Ma
         None
     };
 
-    // Tell the bots what they're in for.
+    // Tell the bots what they're in for. Best effort: a stalled socket must
+    // not wedge the match before it begins.
     for (b, h) in handles.iter().enumerate() {
         let _ = h
             .out_tx
-            .send(
+            .try_send(
                 json!({
                     "type": "match_start",
                     "bot": h.name,
@@ -624,8 +689,7 @@ async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>, config: Ma
                     "role": if Some(b) == boss_bot { "boss" } else { "raider" },
                 })
                 .to_string(),
-            )
-            .await;
+            );
     }
     println!(
         "▶ match started: {} entrants: {}{}",
@@ -643,19 +707,14 @@ async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>, config: Ma
     let mut interval = tokio::time::interval(Duration::from_millis(tick_ms));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut disconnected = vec![false; n];
+    let mut send_stalls = vec![0u32; n];
 
     while !engine.state.finished {
         interval.tick().await;
         let tick_start = Instant::now();
 
         // Push this tick's observation to every bot simultaneously.
-        for (b, h) in handles.iter().enumerate() {
-            let obs = engine.observe(b as u32);
-            let _ = h
-                .out_tx
-                .send(serde_json::to_string(&obs).unwrap_or_default())
-                .await;
-        }
+        push_observations(&mut engine, &handles, &mut send_stalls);
 
         // Reply deadline window (PLAN §4.2): anything arriving within the
         // deadline is on time; the tail of the window catches stragglers,
@@ -735,7 +794,8 @@ async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>, config: Ma
         summary.ticks, summary.winner, replay_url
     );
 
-    // Notify the bots and requeue them.
+    // Notify the bots and requeue them. Best effort: the lane must free up
+    // even if a bot stopped reading.
     for (b, h) in handles.iter().enumerate() {
         let place = summary
             .placements
@@ -745,7 +805,7 @@ async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>, config: Ma
             .unwrap_or(0);
         let _ = h
             .out_tx
-            .send(
+            .try_send(
                 json!({
                     "type": "match_over",
                     "place": place,
@@ -753,8 +813,7 @@ async fn run_match(server: Arc<Server>, handles: Vec<Arc<BotHandle>>, config: Ma
                     "new_elo": elos.iter().find(|(nm, _, _)| nm == &h.name).map(|(_, _, e)| *e),
                 })
                 .to_string(),
-            )
-            .await;
+            );
         if h.connected.load(Ordering::Relaxed) && !h.house {
             // The room is consumed by its match: members go back to the
             // public queue (a fresh lobby is a fresh code).
@@ -773,20 +832,13 @@ async fn drain_inputs(
 ) {
     for (b, h) in handles.iter().enumerate() {
         let mut rx = h.in_rx.lock().await;
+        // Coalesce: each submit overwrites the bot's pending slot, so only
+        // the newest message in the window can matter — a flooding bot costs
+        // one parse, not a burst.
+        let mut newest: Option<BotMsg> = None;
         loop {
             match rx.try_recv() {
-                Ok(msg) => {
-                    let latency = msg.arrived.duration_since(tick_start).as_millis() as u64;
-                    engine.submit(b as u32, msg.input.clone(), latency);
-                    if msg.input.intent.is_some() || msg.input.belief.is_some() {
-                        engine.submit_mind(
-                            b as u32,
-                            msg.input.intent.clone(),
-                            msg.input.belief.clone(),
-                        );
-                    }
-                    recorder.record_submit(b as u32, msg.input);
-                }
+                Ok(msg) => newest = Some(msg),
                 Err(mpsc::error::TryRecvError::Empty) => break,
                 Err(mpsc::error::TryRecvError::Disconnected) => {
                     // Socket died: 10s of momentum, then forfeit (PLAN §4.3.4).
@@ -797,6 +849,18 @@ async fn drain_inputs(
                     break;
                 }
             }
+        }
+        if let Some(msg) = newest {
+            let latency = msg.arrived.duration_since(tick_start).as_millis() as u64;
+            engine.submit(b as u32, msg.input.clone(), latency);
+            if msg.input.intent.is_some() || msg.input.belief.is_some() {
+                engine.submit_mind(
+                    b as u32,
+                    msg.input.intent.clone(),
+                    msg.input.belief.clone(),
+                );
+            }
+            recorder.record_submit(b as u32, msg.input);
         }
     }
 }
@@ -920,7 +984,7 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
         lobby_action: String::new(),
         lobby: String::new(),
     });
-    if reg.name.is_empty() || reg.name.len() > 32 {
+    if !valid_name(&reg.name) {
         let _ = ws_tx
             .send(tmsg(
                 json!({"type":"error","error":"invalid name"}).to_string(),
@@ -993,9 +1057,27 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
     // The host's lobby commands arrive on the same socket as its inputs.
     let (lobby_tx, mut lobby_rx) = mpsc::channel::<LobbyCmd>(8);
 
+    // Keepalive: the writer pings on an interval and the reader closes the
+    // socket after `ws_idle_timeout_s` of total silence, so a half-open TCP
+    // connection (peer vanished without FIN) cannot linger forever. Any
+    // traffic — inputs or pongs — resets the clock.
+    let (closed_tx, mut closed_rx) = tokio::sync::watch::channel(false);
+    let idle_window = if server.cfg.ws_idle_timeout_s == 0 {
+        KEEPALIVE_OFF
+    } else {
+        Duration::from_secs(server.cfg.ws_idle_timeout_s)
+    };
+
     // Reader: bot → server inputs (+ lobby_* control messages).
+    let closed_reader = closed_tx.clone();
     let reader = tokio::spawn(async move {
-        while let Some(Ok(msg)) = ws_rx.next().await {
+        loop {
+            let next = tokio::time::timeout(idle_window, ws_rx.next()).await;
+            let msg = match next {
+                Ok(Some(Ok(m))) => m,
+                // Idle past the keepalive window, transport error, or EOF.
+                _ => break,
+            };
             match msg {
                 Message::Text(t) => {
                     // Control messages are identified by their `type`.
@@ -1025,9 +1107,10 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
                     }
                 }
                 Message::Close(_) => break,
-                _ => {}
+                _ => {} // Ping/Pong/Binary — pongs prove liveness
             }
         }
+        let _ = closed_reader.send(true);
         connected2.store(false, Ordering::Relaxed);
     });
 
@@ -1050,10 +1133,29 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
         }
     });
 
-    // Writer: server → bot (observations + lifecycle events).
-    while let Some(text) = out_rx.recv().await {
-        if ws_tx.send(tmsg(text)).await.is_err() {
-            break;
+    // Writer: server → bot (observations + lifecycle events) + keepalive
+    // pings. Exits as soon as the reader side dies, so the socket is fully
+    // released and the post-loop cleanup (queue/lobby leave) runs.
+    let mut ping = tokio::time::interval(if server.cfg.ws_ping_every_s == 0 {
+        KEEPALIVE_OFF
+    } else {
+        Duration::from_secs(server.cfg.ws_ping_every_s)
+    });
+    ping.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        tokio::select! {
+            text = out_rx.recv() => {
+                let Some(text) = text else { break };
+                if ws_tx.send(tmsg(text)).await.is_err() {
+                    break;
+                }
+            }
+            _ = ping.tick() => {
+                if ws_tx.send(Message::Ping(vec![].into())).await.is_err() {
+                    break;
+                }
+            }
+            _ = closed_rx.changed() => break,
         }
     }
     connected.store(false, Ordering::Relaxed);
@@ -1126,4 +1228,86 @@ async fn on_spectate_socket(server: Arc<Server>, ws: WebSocket) {
         }
     }
     sender.abort();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn names_reject_markup_and_junk() {
+        assert!(valid_name("hunter-1"));
+        assert!(valid_name("Sleepy Tarsius"));
+        assert!(valid_name("my.bot"));
+        assert!(valid_name(&"x".repeat(32)));
+        assert!(!valid_name(""));
+        assert!(!valid_name("<img src=x onerror=alert(1)>"));
+        assert!(!valid_name("a<b"));
+        assert!(!valid_name("a&b"));
+        assert!(!valid_name("\u{1f600}")); // emoji — multi-byte
+        assert!(!valid_name(&"x".repeat(33)));
+    }
+
+    #[test]
+    fn seeds_come_from_os_entropy() {
+        let a = random_seed();
+        let b = random_seed();
+        assert_ne!(a, b, "two OS-random u64s colliding is ~2^-64");
+        assert_eq!(a & 1, 1, "seed stays odd (match-start invariant)");
+        assert_eq!(b & 1, 1);
+    }
+
+    #[test]
+    fn stalled_reader_is_disconnected_without_blocking_the_lane() {
+        let mk = |name: &str, out_tx: mpsc::Sender<String>, in_rx: mpsc::Receiver<BotMsg>| {
+            Arc::new(BotHandle {
+                name: name.into(),
+                db_id: 0,
+                decision_rate: 1,
+                auto_heel: false,
+                human: false,
+                house: false,
+                mode: GameMode::Royale,
+                wants_boss: false,
+                lobby: std::sync::Mutex::new(None),
+                connected: Arc::new(AtomicBool::new(true)),
+                out_tx,
+                in_rx: Arc::new(Mutex::new(in_rx)),
+            })
+        };
+
+        let (tx_ok, mut rx_ok) = mpsc::channel::<String>(64);
+        let (tx_stall, _rx_stall) = mpsc::channel::<String>(64); // never drained
+        let (_in_tx_a, in_rx_a) = mpsc::channel::<BotMsg>(8);
+        let (_in_tx_b, in_rx_b) = mpsc::channel::<BotMsg>(8);
+        let handles = vec![mk("ok", tx_ok, in_rx_a), mk("stalled", tx_stall, in_rx_b)];
+
+        let mut engine =
+            MatchEngine::new(MatchConfig::standard(), 1, &["ok".into(), "stalled".into()]);
+        let mut stalls = vec![0u32; 2];
+
+        // Fill the stalled bot's 64-slot channel, then keep pushing: the
+        // STALL_LIMIT-th consecutive drop must move it onto the disconnect
+        // path while the healthy bot keeps receiving every observation.
+        for _ in 0..(64 + STALL_LIMIT) {
+            while rx_ok.try_recv().is_ok() {}
+            push_observations(&mut engine, &handles, &mut stalls);
+        }
+        assert!(
+            engine.timeouts[1].stats.disconnected_since_tick.is_some(),
+            "stalled reader must enter the disconnect path"
+        );
+        assert!(
+            engine.timeouts[0].stats.disconnected_since_tick.is_none(),
+            "healthy bot must be untouched"
+        );
+
+        // And the healthy channel still works afterwards.
+        while rx_ok.try_recv().is_ok() {}
+        push_observations(&mut engine, &handles, &mut stalls);
+        assert!(
+            rx_ok.try_recv().is_ok(),
+            "healthy bot still receives observations"
+        );
+    }
 }
