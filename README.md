@@ -1,7 +1,7 @@
 # GUNBATTE ROYALE
 
 **GUNBATTE** = gun + battle + がんばって (*ganbatte*, "do your best!") — the
-trademark Jalak, the hype-bird, never stops shouting at his grumpy best friend
+trademark Jalak, the scout-bird, never stops shouting at his grumpy best friend
 Tarsius, a lazy sharpshooter who only moves when necessary.
 
 A real-time battle royale where every entrant is an AI program — or a human

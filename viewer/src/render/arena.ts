@@ -1,4 +1,4 @@
-/** Static arena art, Fall Guys style: bright sky with soft clouds, a floating
+/** Static arena art, candy-arcade style: bright sky with soft clouds, a floating
  * pastel island floor with polka dots + sprinkles, and chunky rounded candy
  * walls with thick outlines. Drawn once per load. */
 

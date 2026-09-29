@@ -1,4 +1,4 @@
-/** Projectiles + pickups + zone rings, redrawn per frame. Fall Guys styling:
+/** Projectiles + pickups + zone rings, redrawn per frame. Candy-arcade styling:
  * candy-pellet projectiles, candy-box pickups, bubblegum slime zone. */
 
 import { Container, Graphics, Sprite, Text } from "pixi.js";

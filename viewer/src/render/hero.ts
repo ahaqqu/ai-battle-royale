@@ -1,7 +1,7 @@
 /** Home-screen mascots: Tarsius, the arena's laziest sharpshooter, lives on
  * the menu card — he flops down for a nap and only shuffles to a new spot when
  * even that gets stale, grumbling the whole way — and Jalak, his tireless
- * hype-bird, who zips around the menu introducing every feature (the queue
+ * scout-bird, who zips around the menu introducing every feature (the queue
  * buttons, the name field, the replay library) with a shouted GUNBATTE! When
  * the nagging gets loud enough, the tarsius sits up, grumbles back, and lies
  * down again.

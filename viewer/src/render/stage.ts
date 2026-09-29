@@ -108,7 +108,7 @@ export class Stage {
     const mark = (m: string) => { try { status?.(m); } catch { /* noop */ } };
     mark('creating renderer…');
     this.app = new Application();
-    // Bright Fall-Guys sky instead of deep space.
+    // Bright candy-arcade sky instead of deep space.
     await this.app.init({ resizeTo: window, background: 0x7ec9f5, antialias: true });
     mark('renderer ready');
     host.appendChild(this.app.canvas);

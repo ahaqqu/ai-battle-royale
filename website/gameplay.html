@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GUNBATTE ROYALE — Gameplay FX & Sound (proposal)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #3a2c5a;
+    --ink-soft: rgba(58, 44, 90, 0.55);
+    --melon: #ff5f7e;
+    --cream: #fffdf5;
+    --face-cream: #f5e7c8;
+    --sky: #35c1f0;
+    --ear-cyan: #1fb2e8;
+    --grape: #8b3fd9;
+    --gold: #f7d308;
+    --banana: #ffd93b;
+    --pinkpop: #ff5fd0;
+    --tang: #ff9d3b;
+    --leaf: #43d66e;
+    --panel: rgba(255, 255, 255, 0.94);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Baloo 2", "Trebuchet MS", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 12% 18%, rgba(255,255,255,0.55) 0 3px, transparent 4px),
+      radial-gradient(circle at 78% 34%, rgba(255,255,255,0.4) 0 2.5px, transparent 3.5px),
+      radial-gradient(ellipse at 30% 0%, #a8dcff 0%, #7ec9f5 55%, #5db2ea 100%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+    padding-bottom: 90px;
+  }
+  b { font-weight: 800; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px; background: rgba(58,44,90,0.08);
+    padding: 1px 6px; border-radius: 6px;
+  }
+  .banner {
+    background: repeating-linear-gradient(-45deg, var(--banana) 0 18px, #ffe27a 18px 36px);
+    border-bottom: 3px solid var(--ink);
+    text-align: center; font-weight: 800; font-size: 13.5px;
+    letter-spacing: 0.06em; padding: 7px 12px;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 22px;
+    background: rgba(255, 253, 245, 0.92);
+    backdrop-filter: blur(6px);
+    border-bottom: 3px solid var(--ink);
+  }
+  .topbar .brand { font-weight: 800; font-size: 17px; letter-spacing: 0.04em; }
+  .topbar .brand i { color: var(--melon); font-style: normal; }
+  .topbar nav { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; align-items: center; }
+  .chip {
+    text-decoration: none; color: var(--ink);
+    font-weight: 800; font-size: 12px; letter-spacing: 0.05em;
+    padding: 5px 12px; border-radius: 999px;
+    background: var(--cream); border: 2.5px solid var(--ink);
+    box-shadow: 0 2.5px 0 var(--ink);
+    transition: transform 0.12s, box-shadow 0.12s;
+    cursor: pointer;
+  }
+  .chip:hover { transform: translateY(-2px); box-shadow: 0 4.5px 0 var(--ink); }
+  #audioPill {
+    border-color: var(--grape); color: var(--grape);
+    background: #f6edff; cursor: default; user-select: none;
+  }
+  #audioPill.on { border-color: var(--leaf); color: #1d7a3c; background: #e9fbef; }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 22px; }
+  section { margin-top: 46px; }
+  .sec-kana {
+    display: inline-block; color: var(--pinkpop); font-weight: 800;
+    font-size: 13px; letter-spacing: 0.4em; margin-bottom: 4px;
+  }
+  h2 { font-size: 34px; font-weight: 800; line-height: 1.1; }
+  .sec-sub { margin-top: 6px; font-size: 15.5px; font-weight: 600; color: var(--ink-soft); max-width: 76ch; line-height: 1.5; }
+  .cards { display: grid; gap: 20px; margin-top: 22px; }
+  .cols-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .cols-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .cols-4 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .card {
+    background: var(--panel);
+    border: 3px solid var(--ink);
+    border-radius: 22px;
+    box-shadow: 0 6px 0 rgba(58, 44, 90, 0.22);
+    padding: 20px 20px 16px;
+    position: relative;
+  }
+  .card h3 { font-size: 19px; font-weight: 800; }
+  .card p.note { font-size: 13.5px; font-weight: 600; color: var(--ink-soft); margin-top: 8px; line-height: 1.5; }
+  .stage {
+    background: radial-gradient(circle at 35% 28%, #ffffff 0%, #f2f6ff 70%, #e8eeff 100%);
+    border: 2.5px solid rgba(58, 44, 90, 0.18);
+    border-radius: 16px; overflow: hidden;
+  }
+  .stage canvas { display: block; width: 100%; height: auto; cursor: pointer; }
+  .tag {
+    position: absolute; top: -12px; left: 16px; z-index: 2;
+    background: var(--melon); color: #fff;
+    border: 2.5px solid var(--ink); border-radius: 999px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+    padding: 3px 12px; box-shadow: 0 2.5px 0 var(--ink);
+  }
+  .tag.cyan { background: var(--ear-cyan); }
+  .tag.banana { background: var(--banana); color: var(--ink); }
+  .tag.grape { background: var(--grape); }
+  .tag.leaf { background: var(--leaf); }
+  .tag.tang { background: var(--tang); }
+  .hint {
+    margin-top: 8px; font-size: 12px; font-weight: 800;
+    letter-spacing: 0.06em; color: var(--ink-soft); text-align: center;
+  }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .stat {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.03em;
+    background: rgba(58, 44, 90, 0.07);
+    border: 2px solid rgba(58, 44, 90, 0.15);
+    border-radius: 999px; padding: 2.5px 10px;
+  }
+  .stat b { color: var(--melon); }
+  .voice { font-size: 12px; font-weight: 700; color: var(--grape); background: rgba(139, 63, 217, 0.07); border-radius: 10px; padding: 6px 10px; margin-top: 8px; line-height: 1.4; }
+
+  /* how to play */
+  .keys-card {
+    margin-top: 26px; background: var(--panel); border: 3px solid var(--ink);
+    border-radius: 22px; padding: 22px; box-shadow: 0 6px 0 rgba(58, 44, 90, 0.22);
+    text-align: center;
+  }
+  .keys-grid { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 26px; }
+  .keys-pair { display: inline-flex; align-items: center; gap: 8px; }
+  .keys-grid kbd {
+    font-family: inherit; font-size: 13px; font-weight: 800; color: var(--ink);
+    background: #fff; border: 2px solid rgba(58, 44, 90, 0.45); border-radius: 9px;
+    padding: 6px 11px; box-shadow: 0 3px 0 rgba(58, 44, 90, 0.45);
+  }
+  .keys-label { font-size: 11px; font-weight: 800; color: var(--ink-soft); letter-spacing: 0.08em; text-transform: uppercase; margin-right: 16px; }
+  .keys-tip { margin-top: 14px; font-weight: 700; color: var(--ink-soft); font-size: 13px; }
+
+  /* sound board */
+  .snd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; margin-top: 22px; }
+  .snd-card {
+    background: var(--panel); border: 3px solid var(--ink); border-radius: 18px;
+    box-shadow: 0 5px 0 rgba(58,44,90,0.22);
+    padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .snd-card .nm { font-weight: 800; font-size: 15.5px; display: flex; align-items: center; gap: 8px; }
+  .snd-card .nm .k {
+    width: 34px; height: 34px; border-radius: 12px; flex: 0 0 auto;
+    border: 2.5px solid var(--ink); display: flex; align-items: center; justify-content: center;
+    font-size: 15px; background: var(--cream); box-shadow: 0 2.5px 0 var(--ink);
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .snd-card.playing .nm .k { transform: translateY(2px) scale(1.08); box-shadow: 0 0.5px 0 var(--ink); background: var(--banana); }
+  .snd-card .when { font-size: 12px; font-weight: 600; color: var(--ink-soft); line-height: 1.4; }
+  .snd-card .recipe { font-size: 10.5px; color: var(--ink-soft); opacity: 0.85; }
+  .playbtn {
+    margin-top: 6px; align-self: flex-start;
+    font-family: inherit; font-weight: 800; font-size: 12px; letter-spacing: 0.08em;
+    color: #fff; background: linear-gradient(180deg, #7ce4ff, var(--ear-cyan));
+    border: 2.5px solid var(--ink); border-radius: 999px;
+    padding: 5px 16px; cursor: pointer; box-shadow: 0 3px 0 var(--ink);
+    text-shadow: 0 1px 0 rgba(58,44,90,0.4);
+  }
+  .playbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .vol-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+  .vol-row label { font-weight: 800; font-size: 13px; letter-spacing: 0.05em; }
+  input[type="range"] { accent-color: var(--melon); width: 200px; }
+
+  /* playground */
+  #pgWrap { position: relative; margin-top: 22px; }
+  #pgCanvas {
+    display: block; width: 100%; height: auto;
+    border: 3px solid var(--ink); border-radius: 22px;
+    box-shadow: 0 8px 0 rgba(58,44,90,0.25);
+    background: #7ec9f5;
+    cursor: crosshair;
+    outline: none;
+  }
+  #pgCanvas.engaged { border-color: var(--melon); box-shadow: 0 8px 0 rgba(230,69,95,0.45); }
+  #pgHint {
+    position: absolute; left: 50%; top: 18px; transform: translateX(-50%);
+    background: rgba(255,253,245,0.95); border: 2.5px solid var(--ink);
+    border-radius: 999px; padding: 6px 18px;
+    font-size: 12.5px; font-weight: 800; letter-spacing: 0.04em;
+    box-shadow: 0 3px 0 rgba(58,44,90,0.3); pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  .wpn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .wpn {
+    display: flex; align-items: center; gap: 7px;
+    border: 2.5px solid var(--ink); border-radius: 999px;
+    background: var(--cream); padding: 5px 13px 5px 8px;
+    font-weight: 800; font-size: 12px; letter-spacing: 0.03em;
+    cursor: pointer; box-shadow: 0 2.5px 0 var(--ink);
+    transition: transform 0.1s;
+  }
+  .wpn:hover { transform: translateY(-2px); }
+  .wpn.sel { background: var(--ink); color: #fff; }
+  .wpn i { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--ink); display: inline-block; }
+  .wpn.sel i { border-color: rgba(255,255,255,0.8); }
+  .btn {
+    display: inline-block; font-family: inherit; cursor: pointer;
+    font-weight: 800; font-size: 13px; letter-spacing: 0.08em;
+    color: #fff; background: linear-gradient(180deg, #ff8ba5, var(--melon));
+    border: 2.5px solid var(--ink); border-radius: 999px;
+    padding: 7px 20px; box-shadow: 0 3.5px 0 var(--ink);
+    text-shadow: 0 1px 0 rgba(58,44,90,0.4);
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1.5px 0 var(--ink); }
+  .btn.alt { background: linear-gradient(180deg, #ffd76b, var(--tang)); }
+
+  .notes { margin-top: 18px; display: grid; gap: 12px; }
+  .note-card {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: var(--panel); border: 3px solid var(--ink); border-radius: 16px;
+    padding: 14px 16px; box-shadow: 0 4px 0 rgba(58,44,90,0.18);
+  }
+  .note-card .dot {
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+    border: 2.5px solid var(--ink); display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+  }
+  .note-card p { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.5; }
+  .note-card p small { color: var(--ink-soft); }
+  footer { margin-top: 60px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="banner">PROPOSAL SHEET — new standalone file (website/gameplay.html). No existing file has been modified. Click anywhere to unlock sound.</div>
+
+<header class="topbar">
+  <div class="brand"><i>GUN</i>BATTE★ROYALE — gameplay fx &amp; sound</div>
+  <nav>
+    <span class="chip" id="audioPill">🔇 click to enable sound</span>
+    <a class="chip" href="#playground">Playground</a>
+    <a class="chip" href="#howto">How to Play</a>
+    <a class="chip" href="#sound">Sound Board</a>
+    <a class="chip" href="#vfx">Effect Library</a>
+    <a class="chip" href="#arsenal">Arsenal</a>
+    <a class="chip" href="#notes">Notes</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+  <!-- ================= PLAYGROUND ================= -->
+  <section id="playground">
+    <span class="sec-kana">あそぶ</span>
+    <h2>Playground — the whole feel in one arena</h2>
+    <p class="sec-sub">Move with <b>WASD / arrows</b>, aim with the mouse, <b>click / hold</b> to fire,
+      <b>SPACE</b> to dash, <b>E</b> for sonar. Pop the candy sardines — three hits each, then the big
+      GUNBATTE blast. Click the arena once to take control; <b>ESC</b> releases it.</p>
+
+    <div id="pgWrap">
+      <canvas id="pgCanvas" width="1080" height="600" tabindex="0"></canvas>
+      <div id="pgHint">click the arena to take control</div>
+    </div>
+
+    <div class="wpn-row" id="wpnRow"></div>
+    <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn" id="zoneBtn" type="button">⚠ SIMULATE ZONE SHRINK</button>
+      <button class="btn alt" id="confettiBtn" type="button">🎉 VICTORY RAIN</button>
+    </div>
+  </section>
+
+  <!-- ================= HOW TO PLAY ================= -->
+  <section id="howto">
+    <span class="sec-kana">ルール</span>
+    <h2>How to play</h2>
+    <p class="sec-sub">Three steps and a handful of keys — everything else is aim and attitude.</p>
+    <div class="cards cols-3">
+      <div class="card">
+        <span class="tag">step 1</span>
+        <h3>Join the queue</h3>
+        <p class="note">Pick a name. You drop in as Tarsius, jalak included, against the current lobby.</p>
+      </div>
+      <div class="card">
+        <span class="tag cyan">step 2</span>
+        <h3>Grab a gun</h3>
+        <p class="note">Walk over a pickup. New gun, new bullets, new personality — the Arsenal below shows all eight.</p>
+      </div>
+      <div class="card">
+        <span class="tag banana">step 3</span>
+        <h3>Ganbatte</h3>
+        <p class="note">Dash, dodge, outlast. The zone does the herding; you do the surviving.</p>
+      </div>
+    </div>
+    <div class="keys-card">
+      <div class="keys-grid" aria-hidden="true">
+        <span class="keys-pair"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span class="keys-label">move</span></span>
+        <span class="keys-pair"><kbd class="keys-wide">SPACE</kbd><span class="keys-label">dash</span></span>
+        <span class="keys-pair"><kbd class="keys-wide">SHIFT</kbd><span class="keys-label">shield</span></span>
+        <span class="keys-pair"><kbd>Q</kbd><span class="keys-label">sprint</span></span>
+        <span class="keys-pair"><kbd>E</kbd><span class="keys-label">sonar</span></span>
+        <span class="keys-pair"><kbd>F</kbd><span class="keys-label">recall jalak</span></span>
+      </div>
+      <p class="keys-tip">🖱️ aim &amp; fire with the mouse · your jalak follows your cursor — recall it before it pecks something dangerous</p>
+    </div>
+  </section>
+
+  <!-- ================= SOUND BOARD ================= -->
+  <section id="sound">
+    <span class="sec-kana">おと</span>
+    <h2>Sound board — the twelve synth voices</h2>
+    <p class="sec-sub">Every sound in the game is <b>synthesized live with WebAudio</b> — zero asset files, zero
+      desync risk, all game feel living client-side. This board is a faithful port of the game's
+      <code>Sfx</code> engine: same oscillators, same envelopes, same throttling rules. Click a card to hear it.</p>
+    <div class="vol-row">
+      <label>🔊 master volume</label>
+      <input type="range" id="vol" min="0" max="100" value="50" />
+      <button class="btn alt" id="themeBtn" type="button">♪ PLAY MENU THEME</button>
+    </div>
+    <div class="snd-grid" id="sndGrid"></div>
+  </section>
+
+  <!-- ================= VFX LIBRARY ================= -->
+  <section id="vfx">
+    <span class="sec-kana">エフェクト</span>
+    <h2>Effect library — every sim event, visualized</h2>
+    <p class="sec-sub">A 2D-canvas port of the game's <code>Fx</code> engine: pooled glow puffs, spinning candy
+      confetti with gravity, expanding shockwave rings, and screen shake. The loops run <b>silent</b> so the page
+      stays calm — <b>click a card</b> to fire it with its sound, exactly like the game pairs them.</p>
+    <div class="cards cols-3" id="vfxGrid"></div>
+  </section>
+
+  <!-- ================= WEAPON ARSENAL ================= -->
+  <section id="arsenal">
+    <span class="sec-kana">ぶっき</span>
+    <h2>Arsenal — eight guns, eight silhouettes</h2>
+    <p class="sec-sub">Today the held weapon is invisible — every tarsius looks identical no matter what it
+      carries. Proposal: each gun is a distinct prop in his paws, readable at HUD scale. Every card shows the
+      real numbers from the sim (<code>weapons.rs</code>, 100 HP units), the fired effect, the projectile in
+      flight, and his recoil animation. Loops are silent — <b>click a card</b> to hear the gun's voice.</p>
+    <div class="cards cols-2" id="arsenalGrid"></div>
+  </section>
+
+  <!-- ================= NOTES ================= -->
+  <section id="notes">
+    <span class="sec-kana">めも</span>
+    <h2>How this maps to the game</h2>
+    <div class="notes">
+      <div class="note-card"><div class="dot" style="background:var(--melon);">1</div>
+        <p><b>Same event wiring.</b> Each effect above fires from the same sim event the game uses:
+        <code>shot</code> → muzzle flash, <code>hit</code> → candy burst + shake, <code>death</code> → the big
+        blast, <code>dash</code> → exhaust cone, <code>sonar</code> → double ring, <code>pickup</code>,
+        <code>explosion</code>, <code>bounce</code>, <code>shield</code>, <code>zone_shrink_started</code>,
+        <code>match_ended</code>. <small>This page re-implements the render, not new rules.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--ear-cyan);">2</div>
+        <p><b>Sounds are the game's synth, verbatim.</b> Oscillator types, pitch glides, noise-bandpass bursts,
+        master volume (0.5), per-sound throttling and stereo panning are ported from <code>viewer/src/audio.ts</code>.
+        <small>Like the game, real samples dropped in <code>/sfx/*.mp3</code> would replace any synth voice.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--gold);">3</div>
+        <p><b>Two proposed additions</b> (not in today's game, flagged here): a glassy <b>shield-up</b> chime and a
+        rubbery <b>ricochet ping</b>. Today those two events animate silently. <small>Everything else you hear
+        already exists in <code>audio.ts</code>.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--grape);">4</div>
+        <p><b>Spatial audio included.</b> Playground sounds are panned and attenuated by position — the same
+        <code>panVol</code> rule the replay viewer uses: horizontal offset sets pan, distance sets volume.
+        <small>Fire at the left sardine, hear it on the left.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--tang);">5</div>
+        <p><b>Weapons you can read.</b> Proposal: the held gun becomes a visible prop — eight distinct silhouettes
+        (pistol, drum SMG, twin-barrel shotgun, scoped rifle, gumball launcher, needle gun, soda-can launcher, boss
+        thumper) in the weapon's own color, with per-gun muzzle flash, projectile look, and recoil kick. Today
+        every unit renders bare-pawed. <small>Stats on the cards are the real sim numbers from
+        <code>weapons.rs</code> (100 HP units).</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--pinkpop);">6</div>
+        <p><b>Two sound proposals</b> in the arsenal: a <b>per-weapon voice</b> for each gun (today they all share
+        the one "shot" — hear the difference on each card), plus the shield-up chime and ricochet ping from the
+        effect library. <small>Synth recipes are on the cards; the game's sample-override
+        (<code>/sfx/*.mp3</code>) would slot in unchanged.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--leaf);">7</div>
+        <p><b>Nothing existing is touched.</b> Standalone file; the character art is reused from the approved-style
+        asset sheet approach (canvas painter, not the Pixi runtime). If approved, these demos describe wiring that
+        already exists — the sheet's job is to let you <i>tune</i> feel (sizes, counts, pitch) in one place before
+        it lands in <code>fx.ts</code>/<code>audio.ts</code>.</p></div>
+    </div>
+  </section>
+
+  <footer>GUNBATTE ROYALE — gameplay fx &amp; sound proposal · がんばって！</footer>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   Palette (mirrors the game's types.ts / style.css)
+   ============================================================ */
+const C = {
+  ink: "#3a2c5a", inkSoft: "rgba(58,44,90,0.55)", melon: "#ff5f7e", melonDeep: "#e6455f",
+  cream: "#fffdf5", face: "#f5e7c8", cyan: "#1fb2e8", blue: "#3a41d6", grape: "#8b3fd9",
+  gold: "#f7d308", banana: "#ffd93b", pinkpop: "#ff5fd0", tang: "#ff9d3b",
+  cloud: "#fbfdff", blaster: "#8a5cff", boss: "#c22a4a",
+};
+const BOT_COLORS = ["#ff5f7e", "#35c1f0", "#ffd93b", "#8a5cff", "#43d66e", "#ff9d3b", "#ff5fd0", "#f2f6ff"];
+const botColor = (i) => BOT_COLORS[((i % BOT_COLORS.length) + BOT_COLORS.length) % BOT_COLORS.length];
+
+/* ============================================================
+   SFX — faithful port of viewer/src/audio.ts (synth only)
+   ============================================================ */
+class Sfx {
+  constructor() {
+    this.ctx = null; this.master = null; this.noise = null;
+    this.last = {}; this.muted = false;
+    const unlock = () => {
+      if (!this.ctx) {
+        try {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+          this.master = this.ctx.createGain();
+          this.master.gain.value = this.muted ? 0 : 0.5;
+          this.master.connect(this.ctx.destination);
+          const buf = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
+          const d = buf.getChannelData(0);
+          for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+          this.noise = buf;
+        } catch { /* stay silent */ }
+      }
+      void this.ctx?.resume();
+      updateAudioPill();
+    };
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+  }
+  setVolume(v) { if (this.master && !this.muted) this.master.gain.value = v; }
+  toggleMute() {
+    this.muted = !this.muted;
+    if (this.master) this.master.gain.value = this.muted ? 0 : parseFloat(volEl.value) / 100;
+    updateAudioPill();
+    return this.muted;
+  }
+  play(name, pan = 0, vol = 1) {
+    if (this.muted || !this.ctx || !this.master || !this.noise) return;
+    const now = this.ctx.currentTime;
+    const THROTTLE = { shot: 0.045, hit: 0.08, boom: 0.1, sonar: 0.2, dash: 0.12, zone: 0.8, bounce: 0.06, shield: 0.15, w_pea: 0.04, w_sprinkler: 0.12, w_scatter: 0.1, w_lance: 0.1, w_bouncer: 0.05, w_skewer: 0.05, w_popper: 0.1, w_boss: 0.1 };
+    const min = THROTTLE[name];
+    if (min !== undefined) {
+      if ((this.last[name] ?? -1e9) + min > now) return;
+      this.last[name] = now;
+    }
+    vol = Math.max(0, Math.min(1, vol));
+    if (vol <= 0.001) return;
+    const out = this.ctx.createStereoPanner();
+    out.pan.value = Math.max(-1, Math.min(1, pan));
+    out.connect(this.master);
+    const g = this.ctx.createGain();
+    g.connect(out);
+    switch (name) {
+      case "shot": this.burst(g, now, vol * 0.5, 1900, 0.07, 3); this.tone(g, now, "square", 210, 90, vol * 0.22); break;
+      case "hit": this.tone(g, now, "triangle", 720, 480, vol * 0.5, 0.09); this.burst(g, now, vol * 0.3, 2600, 0.05, 2); break;
+      case "hurt": this.tone(g, now, "sine", 140, 66, vol * 0.85, 0.28); this.burst(g, now, vol * 0.5, 420, 0.16, 1); break;
+      case "dash": this.sweep(g, now, vol * 0.4, 500, 2400, 0.22); break;
+      case "sonar": this.tone(g, now, "sine", 1150, 1150, vol * 0.4, 0.3); this.tone(g, now + 0.18, "sine", 1150, 1150, vol * 0.15, 0.25); break;
+      case "pickup": this.tone(g, now, "triangle", 660, 660, vol * 0.35, 0.1); this.tone(g, now + 0.09, "triangle", 990, 990, vol * 0.35, 0.14); break;
+      case "kill": [523, 659, 784].forEach((f, i) => this.tone(g, now + i * 0.085, "square", f, f, vol * 0.3, 0.1)); break;
+      case "boom": this.tone(g, now, "sine", 180, 46, vol * 0.9, 0.42); this.burst(g, now, vol * 0.7, 260, 0.4, 1); break;
+      case "zone": this.tone(g, now, "square", 392, 392, vol * 0.3, 0.09); this.tone(g, now + 0.13, "square", 392, 392, vol * 0.3, 0.09); break;
+      case "victory": [523, 659, 784, 1046].forEach((f, i) => this.tone(g, now + i * 0.13, "square", f, f, vol * 0.32, 0.17)); break;
+      case "defeat": [392, 330, 262].forEach((f, i) => this.tone(g, now + i * 0.18, "triangle", f, f, vol * 0.4, 0.24)); break;
+      case "click": this.tone(g, now, "triangle", 880, 880, vol * 0.25, 0.05); break;
+      /* proposed additions (not in today's audio.ts) */
+      case "shield": this.tone(g, now, "sine", 950, 1420, vol * 0.3, 0.14); this.tone(g, now + 0.05, "sine", 1420, 1900, vol * 0.18, 0.16); break;
+      case "bounce": this.tone(g, now, "sine", 330, 190, vol * 0.35, 0.09); break;
+      /* proposed per-weapon voices — today every gun shares the one "shot" */
+      case "w_pea": this.burst(g, now, vol * 0.5, 1900, 0.07, 3); this.tone(g, now, "square", 210, 90, vol * 0.22); break;
+      case "w_sprinkler": this.burst(g, now, vol * 0.3, 3000, 0.04, 4); this.tone(g, now, "square", 340, 190, vol * 0.14, 0.045); break;
+      case "w_scatter": this.burst(g, now, vol * 0.65, 850, 0.14, 1.5); this.tone(g, now, "square", 150, 62, vol * 0.4, 0.16); break;
+      case "w_lance": this.sweep(g, now, vol * 0.3, 300, 1500, 0.16); this.tone(g, now, "sawtooth", 220, 70, vol * 0.32, 0.22); this.burst(g, now, vol * 0.3, 2400, 0.08, 3); break;
+      case "w_bouncer": this.tone(g, now, "sine", 260, 540, vol * 0.32, 0.1); this.burst(g, now, vol * 0.2, 1600, 0.05, 3); break;
+      case "w_skewer": this.burst(g, now, vol * 0.42, 3400, 0.06, 4); this.tone(g, now, "triangle", 940, 460, vol * 0.24, 0.09); break;
+      case "w_popper": this.burst(g, now, vol * 0.5, 700, 0.1, 1.6); this.tone(g, now, "sine", 240, 90, vol * 0.36, 0.13); break;
+      case "w_boss": this.tone(g, now, "sine", 130, 42, vol * 0.7, 0.34); this.burst(g, now, vol * 0.6, 320, 0.26, 1); break;
+    }
+  }
+  burst(g, t, vol, f, dur, q) {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource(); src.buffer = this.noise;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass";
+    bp.frequency.value = f; bp.Q.value = q;
+    src.connect(bp).connect(g);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  tone(g, t, type, f0, f1, vol, dur = 0.12) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
+    o.connect(g);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  sweep(g, t, vol, f0, f1, dur) {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource(); src.buffer = this.noise;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.6;
+    bp.frequency.setValueAtTime(f0, t);
+    bp.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    src.connect(bp).connect(g);
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + dur * 0.3);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  /* menu theme: I–vi–IV–V triangle pad, same voicing as audio.ts */
+  startTheme() {
+    if (!this.ctx || !this.master || this.themeTimer || this.muted) return;
+    const chords = [[261.6, 329.6, 392.0], [220.0, 261.6, 329.6], [174.6, 220.0, 261.6], [196.0, 246.9, 293.7]];
+    let bar = 0;
+    const playBar = () => {
+      if (!this.ctx || this.muted) return;
+      const t = this.ctx.currentTime + 0.05;
+      for (const f of chords[bar % chords.length]) {
+        const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+        o.type = "triangle"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.028, t + 0.5);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 2.1);
+        o.connect(g); g.connect(this.master);
+        o.start(t); o.stop(t + 2.2);
+      }
+      bar++;
+    };
+    playBar();
+    this.themeTimer = window.setInterval(playBar, 2000);
+  }
+  stopTheme() { if (this.themeTimer) { clearInterval(this.themeTimer); this.themeTimer = null; } }
+}
+const sfx = new Sfx();
+const volEl = document.getElementById("vol");
+volEl.addEventListener("input", () => sfx.setVolume(parseFloat(volEl.value) / 100));
+const pill = document.getElementById("audioPill");
+function updateAudioPill() {
+  if (sfx.ctx) { pill.classList.add("on"); pill.textContent = sfx.muted ? "🔇 sound muted" : "🔊 sound on"; }
+}
+pill.addEventListener("click", () => { if (sfx.ctx) sfx.toggleMute(); });
+const themeBtn = document.getElementById("themeBtn");
+themeBtn.addEventListener("click", () => {
+  if (sfx.themeTimer) { sfx.stopTheme(); themeBtn.textContent = "♪ PLAY MENU THEME"; }
+  else { sfx.startTheme(); themeBtn.textContent = "♪ STOP THEME"; }
+});
+
+/* ============================================================
+   FX — 2D-canvas port of viewer/src/render/fx.ts
+   glow puffs (additive) + candy confetti + smoke + rings + shake
+   ============================================================ */
+const glowCache = new Map();
+function glowSprite(color) {
+  let cv = glowCache.get(color);
+  if (cv) return cv;
+  cv = document.createElement("canvas"); cv.width = cv.height = 64;
+  const g = cv.getContext("2d");
+  const grd = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+  grd.addColorStop(0, color); grd.addColorStop(0.35, color + "cc"); grd.addColorStop(1, color + "00");
+  g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+  glowCache.set(color, cv);
+  return cv;
+}
+function candyColor(i) { return i % 3 === 0 ? "#ffffff" : BOT_COLORS[(i * 7 + 3) % BOT_COLORS.length]; }
+
+class Fx {
+  constructor() { this.particles = []; this.rings = []; this.shake = 0; this.confettiN = 0; }
+  spawn(x, y, tint, o = {}) {
+    const count = o.count ?? 8, speed = o.speed ?? 120;
+    for (let i = 0; i < count; i++) {
+      const dir = o.dirDeg !== undefined
+        ? ((o.dirDeg + (Math.random() - 0.5) * (o.spread ?? 360)) * Math.PI) / 180
+        : Math.random() * Math.PI * 2;
+      const v = speed * (0.4 + Math.random() * 0.8);
+      const shape = o.shape ?? "glow";
+      this.particles.push({
+        kind: shape, x, y,
+        vx: Math.cos(dir) * v, vy: Math.sin(dir) * v,
+        life: 0, maxLife: o.maxLife ?? 0.5,
+        size0: o.size0 ?? 10, size1: o.size1 ?? 0,
+        drag: o.drag ?? 2.5, grav: o.grav ?? 0,
+        rot: Math.random() * Math.PI,
+        spin: shape === "confetti" ? (Math.random() - 0.5) * 22 : 0,
+        alphaMax: o.alphaMax ?? 1,
+        color: shape === "confetti" && o.colors ? candyColor(this.confettiN++) : tint,
+      });
+    }
+  }
+  ring(x, y, color, r0, r1, life, width) { this.rings.push({ x, y, color, r0, r1, life, maxLife: life, width }); }
+  shakeBy(m) { this.shake = Math.min(16, this.shake + m); }
+
+  /* named effects — same tunings as fx.ts */
+  muzzleFlash(x, y, dirDeg, scale = 1, col = C.banana, spread = 26) {
+    this.spawn(x, y, col, { count: Math.round(6 * scale) + 2, speed: 330, dirDeg, spread, maxLife: 0.14, size0: 11 * scale + 4, size1: 2 });
+    this.spawn(x, y, "#ffffff", { count: 3, speed: 70, maxLife: 0.1, size0: 22 * scale + 6, size1: 6 });
+    this.ring(x, y, col, 4, 34 * scale + 10, 0.18, 2.5);
+  }
+  lanceStreak(x, y, dirDeg) {
+    this.spawn(x, y, "#ffffff", { count: 4, speed: 700, dirDeg, spread: 5, maxLife: 0.16, size0: 16, size1: 2 });
+  }
+  tracer(x, y, color, intense) {
+    this.particles.push({ kind: "glow", x, y, vx: 0, vy: 0, life: 0, maxLife: intense ? 0.3 : 0.18, size0: intense ? 15 : 9, size1: 0, drag: 0, grav: 0, rot: 0, spin: 0, alphaMax: 1, color });
+  }
+  hit(x, y, col) {
+    this.spawn(x, y, col, { count: 12, speed: 260, maxLife: 0.4, size0: 9, size1: 1 });
+    this.spawn(x, y, col, { count: 6, shape: "confetti", colors: true, speed: 220, maxLife: 0.55, size0: 10, size1: 5, grav: 180, drag: 1.6 });
+    this.spawn(x, y, "#ffffff", { count: 4, speed: 110, maxLife: 0.15, size0: 20, size1: 4 });
+    this.shakeBy(2.4);
+  }
+  hitmark(x, y) {
+    this.spawn(x, y, "#ffffff", { count: 10, speed: 240, maxLife: 0.24, size0: 10, size1: 1 });
+    this.ring(x, y, "#ffffff", 3, 40, 0.26, 3);
+    this.shakeBy(0.9);
+  }
+  deathBlast(x, y, col) {
+    this.spawn(x, y, "#ffffff", { count: 1, speed: 0, maxLife: 0.3, size0: 30, size1: 330, drag: 0 });
+    this.spawn(x, y, col, { count: 1, speed: 0, maxLife: 0.42, size0: 18, size1: 240, drag: 0 });
+    this.spawn(x, y, col, { count: 60, shape: "confetti", colors: true, speed: 460, maxLife: 1.35, size0: 15, size1: 7, grav: 360, drag: 1.4 });
+    this.spawn(x, y, col, { count: 12, speed: 280, maxLife: 0.55, size0: 16, size1: 2, grav: 340, drag: 1.8 });
+    this.spawn(x, y, "#6b6f87", { count: 7, shape: "smoke", speed: 34, maxLife: 0.9, size0: 14, size1: 30, drag: 1.2, grav: -46, alphaMax: 0.4 });
+    this.ring(x, y, "#ffffff", 10, 170, 0.42, 6.5);
+    this.ring(x, y, col, 14, 250, 0.6, 5);
+    this.ring(x, y, col, 30, 330, 0.85, 2.5);
+    this.shakeBy(13);
+  }
+  dashStreak(x, y, dirDeg, col) {
+    this.spawn(x, y, col, { count: 12, speed: 300, dirDeg: 90 - dirDeg + 180, spread: 42, maxLife: 0.3, size0: 13, size1: 3, drag: 3 });
+    this.spawn(x, y, "#ffffff", { count: 4, speed: 120, maxLife: 0.14, size0: 14, size1: 3 });
+    this.ring(x, y, col, 6, 64, 0.3, 3);
+  }
+  shieldPop(x, y) {
+    this.ring(x, y, "#9fe0ff", 6, 70, 0.35, 4);
+    this.ring(x, y, "#ffffff", 4, 44, 0.25, 2.5);
+    this.spawn(x, y, "#bfe9ff", { count: 10, speed: 190, maxLife: 0.35, size0: 9, size1: 2 });
+  }
+  explosion(x, y, radius = 90) {
+    this.spawn(x, y, "#ffffff", { count: 1, speed: 0, maxLife: 0.22, size0: 26, size1: 110, drag: 0 });
+    this.spawn(x, y, "#ff6a00", { count: 22, speed: 270, maxLife: 0.45, size0: 12, size1: 2 });
+    this.spawn(x, y, "#ffd93b", { count: 10, speed: 160, maxLife: 0.3, size0: 10, size1: 2 });
+    this.spawn(x, y, "#6b6f87", { count: 4, shape: "smoke", speed: 40, maxLife: 0.7, size0: 12, size1: 26, drag: 1.2, grav: -40, alphaMax: 0.4 });
+    this.ring(x, y, "#ff6a00", 8, radius, 0.4, 5);
+    this.ring(x, y, "#ffd93b", 4, radius * 0.6, 0.28, 3);
+    this.shakeBy(6);
+  }
+  bounce(x, y) {
+    this.spawn(x, y, "#9fe0ff", { count: 6, speed: 160, maxLife: 0.2, size0: 8, size1: 2 });
+    this.ring(x, y, "#35d6b5", 3, 30, 0.22, 2.5);
+  }
+  sonar(x, y) {
+    this.ring(x, y, "#35c1f0", 8, 620, 0.95, 5);
+    this.ring(x, y, "#9fe0ff", 4, 330, 0.6, 2.5);
+    this.spawn(x, y, "#35c1f0", { count: 14, speed: 340, maxLife: 0.5, size0: 10, size1: 2 });
+  }
+  pickup(x, y) {
+    this.spawn(x, y, "#ffc93c", { count: 14, shape: "confetti", colors: true, speed: 210, maxLife: 0.7, size0: 10, size1: 4, grav: 200, drag: 1.8 });
+    this.spawn(x, y, "#ffffff", { count: 4, speed: 80, maxLife: 0.16, size0: 18, size1: 4 });
+    this.ring(x, y, "#ffc93c", 4, 80, 0.45, 3.5);
+  }
+  sparkle(x, y) {
+    this.spawn(x, y, "#ffffff", { count: 14, shape: "confetti", colors: true, speed: 230, maxLife: 0.8, size0: 10, size1: 5, grav: 240, drag: 1.6 });
+    this.ring(x, y, "#ffc93c", 4, 70, 0.5, 3);
+    this.spawn(x, y, "#ffffff", { count: 4, speed: 70, maxLife: 0.2, size0: 16, size1: 4 });
+  }
+  zoneShrink(x, y, r) {
+    this.ring(x, y, "#ff5fae", r * 0.85, r * 1.06, 0.85, 6);
+    this.ring(x, y, "#ffffff", r * 0.6, r * 0.98, 0.6, 3);
+    this.shakeBy(3);
+  }
+  dust(x, y) {
+    this.spawn(x, y, "#ffffff", { count: 1, shape: "smoke", speed: 18, maxLife: 0.35, size0: 5, size1: 11, drag: 2, alphaMax: 0.35 });
+  }
+  confettiRain(w, h) {
+    for (let i = 0; i < 90; i++) {
+      const vy = 320 + Math.random() * 220;
+      this.particles.push({
+        kind: "confetti", x: Math.random() * w, y: -Math.random() * 300,
+        vx: (Math.random() - 0.5) * 70, vy,
+        life: 0, maxLife: (h + 420) / vy,
+        size0: 13, size1: 9, drag: 0.05, grav: 130,
+        rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 18,
+        alphaMax: 1, color: candyColor(this.confettiN++),
+      });
+    }
+  }
+  update(dt) {
+    this.shake = Math.max(0, this.shake - dt * 30);
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { this.particles.splice(i, 1); continue; }
+      const dragK = Math.exp(-p.drag * dt);
+      p.vx *= dragK; p.vy *= dragK; p.vy += p.grav * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.spin) p.rot += p.spin * dt;
+    }
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      const r = this.rings[i];
+      r.life += dt;
+      if (r.life >= r.maxLife) this.rings.splice(i, 1);
+    }
+  }
+  draw(ctx, w, h) {
+    ctx.save();
+    if (this.shake > 0) ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
+    /* normal pass: confetti + smoke */
+    for (const p of this.particles) {
+      if (p.kind === "glow") continue;
+      const t = p.life / p.maxLife;
+      ctx.globalAlpha = (1 - t) * p.alphaMax;
+      const s = p.size0 + (p.size1 - p.size0) * t;
+      if (p.kind === "confetti") {
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-s / 2, -s / 4, s, s / 2);
+        ctx.restore();
+      } else {
+        ctx.globalAlpha *= 0.5;
+        const g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, s);
+        g.addColorStop(0, p.color); g.addColorStop(1, "rgba(107,111,135,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, s, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    /* additive pass: glow */
+    ctx.globalCompositeOperation = "lighter";
+    for (const p of this.particles) {
+      if (p.kind !== "glow") continue;
+      const t = p.life / p.maxLife;
+      const s = p.size0 + (p.size1 - p.size0) * t;
+      ctx.globalAlpha = (1 - t) * p.alphaMax;
+      ctx.drawImage(glowSprite(p.color), p.x - s / 2, p.y - s / 2, s, s);
+    }
+    ctx.globalCompositeOperation = "source-over";
+    /* rings */
+    for (const r of this.rings) {
+      const t = r.life / r.maxLife;
+      const radius = r.r0 + (r.r1 - r.r0) * (1 - Math.pow(1 - t, 2));
+      ctx.globalAlpha = 0.9 * (1 - t);
+      ctx.strokeStyle = r.color; ctx.lineWidth = r.width * (1 - t) + 0.5;
+      ctx.beginPath(); ctx.arc(r.x, r.y, radius, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+
+/* ============================================================
+   SOUND BOARD UI
+   ============================================================ */
+const SOUNDS = [
+  ["shot", "🔫 A shot is fired", "every weapon report", "noise burst 1.9kHz + square 210→90Hz"],
+  ["hit", "🎯 your shot lands", "hit confirm on any unit", "triangle 720→480Hz + noise 2.6kHz"],
+  ["hurt", "💔 YOU take damage", "local player hurt", "sine 140→66Hz + low noise"],
+  ["dash", "💨 dash away", "SPACE dash", "noise sweep 500→2400Hz"],
+  ["sonar", "📡 sonar ping", "E key — reveals nearby units", "sine 1150Hz + echo at +0.18s"],
+  ["pickup", "⭐ gun grabbed", "walking over a weapon crate", "triangle 660Hz → 990Hz"],
+  ["kill", "🏆 elimination", "you eliminate a unit", "square arpeggio C5–E5–G5"],
+  ["boom", "💥 Pop Rock goes off", "explosive weapon impact", "sine 180→46Hz + big noise"],
+  ["zone", "⚠ sky is shrinking", "zone_shrink_started", "double square blip 392Hz"],
+  ["victory", "👑 you win", "match_ended (winner)", "square fanfare C–E–G–C6"],
+  ["defeat", "☠ you're out", "match_ended (eliminated)", "triangle fall G–E–C"],
+  ["click", "🖱️ UI press", "menu buttons", "triangle 880Hz blip"],
+];
+document.getElementById("sndGrid").innerHTML = SOUNDS.map(([id, sym, when, recipe]) => `
+  <div class="snd-card" data-snd="${id}">
+    <div class="nm"><span class="k">🔊</span>${sym}</div>
+    <div class="when">${when}</div>
+    <div class="recipe">${recipe}</div>
+    <button class="playbtn" type="button">PLAY</button>
+  </div>`).join("");
+document.querySelectorAll(".snd-card").forEach((card) => {
+  const fire = () => {
+    sfx.play(card.dataset.snd);
+    card.classList.add("playing");
+    setTimeout(() => card.classList.remove("playing"), 350);
+  };
+  card.querySelector(".playbtn").addEventListener("click", (e) => { e.stopPropagation(); fire(); });
+  card.addEventListener("click", fire);
+});
+
+/* ============================================================
+   VFX LIBRARY — auto-looping silent demos, click to fire+hear
+   ============================================================ */
+const vfxDefs = [
+  { id: "muzzle", tag: "shot", tagCls: "", title: "Muzzle flash", note: "Directional cone + white core + snap ring, scaled per gun. The shot reads as an event before the bullet even flies.", snd: "shot",
+    fire: (fx, w, h) => fx.muzzleFlash(w * 0.34, h * 0.52, -18, 1, botColor(0)) },
+  { id: "lance", tag: "shot · lance", tagCls: "cyan", title: "Sugar Lance streak", note: "Heavy weapons get a bigger flash plus a hot streak down the barrel — slow fire, huge presence.", snd: "shot",
+    fire: (fx, w, h) => { fx.muzzleFlash(w * 0.3, h * 0.52, -12, 1.6, "#7df0ff", 8); fx.lanceStreak(w * 0.3, h * 0.52, -12); } },
+  { id: "hit", tag: "hit", tagCls: "", title: "Hit burst + hitmark", note: "Candy burst in the victim's color, spinning confetti with gravity, white X-confirm ring — with a 2.4 shake.", snd: "hit",
+    fire: (fx, w, h) => { fx.hit(w * 0.5, h * 0.5, botColor(2)); fx.hitmark(w * 0.5, h * 0.5); } },
+  { id: "dash", tag: "dash", tagCls: "cyan", title: "Dash streak", note: "Exhaust cone blown backward, white pop, snap ring. Reads the direction of the dash at a glance.", snd: "dash",
+    fire: (fx, w, h) => fx.dashStreak(w * 0.42, h * 0.55, -20, botColor(4)) },
+  { id: "sonar", tag: "sonar", tagCls: "cyan", title: "Sonar ping", note: "Twin expanding rings (far + near) plus a spray of cyan pips — E reveals who's hiding in the fog.", snd: "sonar",
+    fire: (fx, w, h) => fx.sonar(w * 0.5, h * 0.5) },
+  { id: "pickup", tag: "pickup", tagCls: "banana", title: "Gun pickup", note: "A little candy fountain + gold ring. Grabbing a weapon should feel like a gift, not a chore.", snd: "pickup",
+    fire: (fx, w, h) => fx.pickup(w * 0.5, h * 0.55) },
+  { id: "shield", tag: "shield", tagCls: "cyan", title: "Shield pop", note: "Glass-pop double ring + pale sparkles matching the bubble. Comes with a PROPOSED glassy chime.", snd: "shield",
+    fire: (fx, w, h) => fx.shieldPop(w * 0.5, h * 0.5) },
+  { id: "boom", tag: "explosion", tagCls: "tang", title: "Pop Rock blast", note: "Orange core, twin rings, lazy smoke, 6-shake. The explosive weapon's whole personality.", snd: "boom",
+    fire: (fx, w, h) => fx.explosion(w * 0.5, h * 0.5, 90) },
+  { id: "death", tag: "death", tagCls: "", title: "Death blast", note: "The set piece: white-hot core, color shockwave, 60-piece confetti cannon, embers, smoke, triple ring, 13-shake.", snd: "kill",
+    fire: (fx, w, h) => fx.deathBlast(w * 0.5, h * 0.5, botColor(0)) },
+  { id: "bounce", tag: "bounce", tagCls: "banana", title: "Gum Bouncer ricochet", note: "Rubbery teal ping where the gum hits the wall. Comes with a PROPOSED boing-ish ping sound.", snd: "bounce",
+    fire: (fx, w, h) => fx.bounce(w * 0.78, h * 0.4) },
+  { id: "zone", tag: "zone_shrink_started", tagCls: "grape", title: "Zone shrink", note: "Pink warning ring swelling past the old circle + white inner ring + 3-shake. The sky is closing!", snd: "zone",
+    fire: (fx, w, h) => fx.zoneShrink(w * 0.5, h * 0.52, 70) },
+  { id: "victory", tag: "match_ended", tagCls: "leaf", title: "Victory rain", note: "90 pieces of candy rain the whole viewport when a match ends. Shake 4. GUNBATTE!", snd: "victory",
+    fire: (fx, w, h) => fx.confettiRain(w, h) },
+];
+document.getElementById("vfxGrid").innerHTML = vfxDefs.map((d) => `
+  <div class="card">
+    <span class="tag ${d.tagCls}">${d.tag}</span>
+    <div class="stage"><canvas data-vfx="${d.id}" width="340" height="215"></canvas></div>
+    <h3 style="margin-top:12px;">${d.title}</h3>
+    <p class="note">${d.note}</p>
+    <div class="hint">click to fire with sound · auto-loops silently</div>
+  </div>`).join("");
+
+const vfxCanvases = vfxDefs.map((d, i) => {
+  const cv = document.querySelector(`canvas[data-vfx="${d.id}"]`);
+  const ctx = cv.getContext("2d");
+  const fx = new Fx();
+  let since = i * 0.4;
+  const cardEl = cv.closest(".card");
+  const trigger = (withSound) => { d.fire(fx, cv.width, cv.height); if (withSound) sfx.play(d.snd); };
+  cardEl.addEventListener("click", () => trigger(true));
+  return { d, cv, ctx, fx, since, trigger, period: 2.2 + (i % 3) * 0.5 };
+});
+
+/* ============================================================
+   ARSENAL — per-weapon demo: the gun prop in his paws, the fired
+   effect, the projectile in flight, his recoil. Real sim numbers.
+   ============================================================ */
+const MUZZLE = [[82, 29], [92, 25], [104, 25], [124, 27], [88, 28], [124, 27], [90, 27], [112, 28]];
+const ARSENAL = [
+  { i: 0, name: "PEA POPPER", tag: "starter", tagCls: "", hp: 4, behavior: "direct",
+    stats: [["DMG", "12"], ["SPEED", "420"], ["RANGE", "1000"], ["CADENCE", "0.5s"], ["vs 100 HP", "9 hits"]],
+    note: "The starter bubblegun: a stub lavender pistol with one round barrel and a banana sight bead. Polite flash, polite pop — a modest glow dot for a bullet and a nudge of recoil. Every match starts here.",
+    voice: "the game's stock 'shot' — noise burst 1.9 kHz + square 210→90 Hz" },
+  { i: 1, name: "SPRINKLER", tag: "SMG", tagCls: "banana", hp: 5, behavior: "direct",
+    stats: [["DMG", "5"], ["SPEED", "470"], ["RANGE", "620"], ["CADENCE", "0.16s"], ["JITTER", "±10°"], ["vs 100 HP", "20 hits"]],
+    note: "A hyper SMG with a perforated sprinkler head and a drum mag. Tiny flash, tick-tick-tick voice, and a wobbly ±10° spray — the bullets are banana spitballs and the gun vibrates in his paws. Whiffs at range, shreds up close.",
+    voice: "proposed — tiny 3 kHz tick + square 340→190 Hz, half the old punch" },
+  { i: 2, name: "SCATTERSHOT", tag: "shotgun", tagCls: "", hp: 6, behavior: "fan",
+    stats: [["DMG", "7 ×6"], ["SPEED", "390"], ["RANGE", "430"], ["CADENCE", "0.95s"], ["FAN", "30°"], ["vs 100 HP", "1 full fan"]],
+    note: "Twin-barrel candy shotgun with a pump underline. The loudest muzzle in the pool — a 1.6× flash in a 46° cone — and six pellets fanning out. Brutal up close, useless far (shortest barrel-to-range ratio). His whole body kicks back.",
+    voice: "proposed — fat 850 Hz blast + square 150→62 Hz, twice the old punch" },
+  { i: 3, name: "SUGAR LANCE", tag: "sniper", tagCls: "cyan", hp: 1, behavior: "direct",
+    stats: [["DMG", "42"], ["SPEED", "950"], ["RANGE", "1700"], ["CADENCE", "1.7s"], ["vs 100 HP", "3 shots"]],
+    note: "A scoped needle rifle — the longest prop in the game. Fires a 42-damage cyan bolt at 950 px/s with a hot streak down the barrel. He braces for the heaviest recoil, then a long 1.7-second breath before the next one. Aim it like it matters.",
+    voice: "proposed — charge sweep 300→1500 Hz + sawtooth 220→70 Hz zap" },
+  { i: 4, name: "GUM BOUNCER", tag: "ricochet", tagCls: "cyan", hp: 3, behavior: "bounce",
+    stats: [["DMG", "13"], ["SPEED", "430"], ["RANGE", "1100"], ["CADENCE", "0.55s"], ["BOUNCE", "×3"], ["vs 100 HP", "8 hits"]],
+    note: "A chunky launcher with a live gumball sitting in the muzzle ring. Fires a solid rubbery ball — watch this demo: it sails over the dummy, ricochets off the wall and comes back into its back. Cornering people out of cover is the whole job.",
+    voice: "proposed — boing: sine 260→540 Hz with a soft 1.6 kHz tap" },
+  { i: 5, name: "LIQUORICE SKEWER", tag: "pierce", tagCls: "grape", hp: 3, behavior: "pierce",
+    stats: [["DMG", "11"], ["SPEED", "640"], ["RANGE", "1100"], ["CADENCE", "0.6s"], ["PIERCE", "×3"], ["vs 100 HP", "10 hits"]],
+    note: "A twisted liquorice needle gun. The bolt is a long purple needle that punches through up to three units and keeps flying — in this demo it spears the dummy and carries on to the wall. Lines of sardines are a feature, not luck.",
+    voice: "proposed — sharp 3.4 kHz snap + triangle 940→460 Hz" },
+  { i: 6, name: "POP ROCK", tag: "explosive", tagCls: "tang", hp: 1, behavior: "boom", boomR: 60,
+    stats: [["DMG", "16 +10 splash"], ["SPEED", "330"], ["RANGE", "850"], ["CADENCE", "0.95s"], ["SPLASH", "r 90"], ["vs 100 HP", "6 hits + splash"]],
+    note: "A soda-can grenade launcher with a banana warning stripe. Lobs an orange can that detonates on impact — direct 16 plus 10 splash to everyone near the blast. The slowest bullet in the pool, so lead your target.",
+    voice: "proposed — pop: 700 Hz fizzle burst + sine 240→90 Hz thunk" },
+  { i: 7, name: "BOSS CANNON", tag: "boss only", tagCls: "grape", hp: 1, behavior: "boom", boomR: 74,
+    stats: [["DMG", "35 +22 splash"], ["SPEED", "380"], ["RANGE", "900"], ["CADENCE", "1.1s"], ["SPLASH", "r 110"], ["vs 100 HP", "3 shots"]],
+    note: "Never in the loot pool — this is the Slain-the-Boss raid's own gun. A huge red thumper with heat fins and a dark bore: 35 direct plus 22 splash across a 110-radius blast. He braces hard and the whole arena shakes.",
+    voice: "proposed — heavy thoomp: sine 130→42 Hz + wide 320 Hz blast" },
+];
+let arsenalSims = [];
+function initArsenal() {
+  document.getElementById("arsenalGrid").innerHTML = ARSENAL.map((a) => {
+    const w = WEAPON_ART[a.i];
+    return `
+  <div class="card">
+    <span class="tag ${a.tagCls}">№ ${a.i} · ${a.tag}</span>
+    <div class="stage"><canvas data-arsenal="${a.i}" width="420" height="245"></canvas></div>
+    <h3 style="margin-top:12px;"><span style="color:${w.color};">▮</span> ${a.name}</h3>
+    <div class="stats">${a.stats.map(([k, v]) => `<span class="stat">${k} <b>${v}</b></span>`).join("")}</div>
+    <p class="note">${a.note}</p>
+    <div class="voice">🔊 ${a.voice}</div>
+    <div class="hint">click to fire with sound · fires on its real cadence, silently</div>
+  </div>`;
+  }).join("");
+  arsenalSims = ARSENAL.map((a, i) => {
+    const cv = document.querySelector(`canvas[data-arsenal="${a.i}"]`);
+    const art = WEAPON_ART[a.i];
+    return {
+      a, art, cv, ctx: cv.getContext("2d"),
+      fx: new Fx(),
+      bullets: [], popups: [],
+      cdT: i * 0.35, recoil: 0, soundT: 0,
+      dummy: { x: 322, y: 126, r: 21, hp: a.hp, t: Math.random() * 6, respawn: 0 },
+    };
+  });
+  document.querySelectorAll("canvas[data-arsenal]").forEach((cv) => {
+    const sim = arsenalSims.find((s) => s.cv === cv);
+    cv.addEventListener("click", () => arsenalFire(sim, true));
+  });
+}
+
+function arsenalFire(s, withSound) {
+  const art = s.art, a = s.a;
+  s.recoil = 1;
+  s.soundT = withSound ? 1.8 : 0;
+  const mz = MUZZLE[a.i];
+  const mx = 78 + mz[0] * 1.55, my = 152 + mz[1] * 1.55;
+  s.fx.muzzleFlash(mx, my, 0, art.flashScale, a.i === 7 ? "#ff2e4d" : art.color, art.flashSpread);
+  if (a.i === 3) s.fx.lanceStreak(mx, my, 0);
+  if (a.i === 7) s.fx.spawn(mx, my, "#6b6f87", { count: 3, shape: "smoke", speed: 40, maxLife: 0.5, size0: 10, size1: 20, drag: 1.5, grav: -40, alphaMax: 0.4 });
+  const w = WPN[Math.min(a.i, WPN.length - 1)];
+  const pellets = a.i === 2 ? 6 : 1;
+  for (let p = 0; p < pellets; p++) {
+    let ang = 0;
+    if (a.behavior === "bounce") ang = -0.16;                       // sails over, wall, back
+    else if (a.behavior === "fan") ang = (-0.26 + (0.52 * p) / (pellets - 1)); // 30° fan
+    else ang = (Math.random() - 0.5) * 0.05;
+    s.bullets.push({ x: mx, y: my, vx: Math.cos(ang) * w.speed, vy: Math.sin(ang) * w.speed, bounced: false, life: 2.2 });
+  }
+  if (withSound) sfx.play(art.sound, -0.2, 1);
+}
+
+function arsenalImpact(s, b, dummy) {
+  const a = s.a;
+  const pan = -0.1;
+  if (a.behavior === "boom") {
+    s.fx.explosion(b.x, b.y, a.boomR);
+    if (s.soundT > 0) sfx.play("boom", pan, 0.9);
+  } else {
+    s.fx.hit(dummy.x, dummy.y, dummy.col ?? "#35c1f0");
+    if (s.soundT > 0) sfx.play("hit", pan, 0.9);
+  }
+  dummy.hp--;
+  if (dummy.hp <= 0) {
+    // the little kill set piece
+    const col = botColor(2);
+    s.fx.spawn(dummy.x, dummy.y, "#ffffff", { count: 1, speed: 0, maxLife: 0.26, size0: 16, size1: 170, drag: 0 });
+    s.fx.spawn(dummy.x, dummy.y, col, { count: 26, shape: "confetti", colors: true, speed: 330, maxLife: 1.1, size0: 12, size1: 6, grav: 300, drag: 1.5 });
+    s.fx.ring(dummy.x, dummy.y, "#ffffff", 8, 90, 0.4, 5);
+    s.fx.ring(dummy.x, dummy.y, col, 14, 140, 0.6, 3.5);
+    s.fx.shakeBy(7);
+    s.popups.push({ x: dummy.x, y: dummy.y - 34, text: "GUNBATTE!!", life: 1, max: 1 });
+    if (s.soundT > 0) sfx.play("kill", pan, 0.85);
+    dummy.respawn = 1.15;
+  }
+}
+
+function updateArsenal(s, dt) {
+  const a = s.a, art = s.art, dummy = s.dummy;
+  s.cdT -= dt;
+  s.recoil = Math.max(0, s.recoil - dt * 4.5);
+  s.soundT = Math.max(0, s.soundT - dt);
+  if (s.cdT <= 0 && dummy.respawn <= 0) {
+    s.cdT = Math.max(0.16, WPN[Math.min(a.i, WPN.length - 1)].cd);
+    arsenalFire(s, false);
+  }
+  dummy.t += dt;
+  if (dummy.respawn > 0) {
+    dummy.respawn -= dt;
+    if (dummy.respawn <= 0) { dummy.hp = a.hp; s.fx.sparkle(dummy.x, dummy.y); }
+  }
+  for (let i = s.bullets.length - 1; i >= 0; i--) {
+    const b = s.bullets[i];
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    s.fx.tracer(b.x, b.y, art.color, a.i === 3 || a.i === 5);
+    let dead = b.life <= 0;
+    // wall: bouncer ricochets back into the target, others fizzle
+    if (!dead && b.x > 406) {
+      if (a.behavior === "bounce" && !b.bounced) {
+        b.bounced = true;
+        const ang = Math.atan2(dummy.y - b.y, dummy.x - b.x);
+        const sp = Math.hypot(b.vx, b.vy);
+        b.vx = Math.cos(ang) * sp; b.vy = Math.sin(ang) * sp;
+        b.x = 404;
+        s.fx.bounce(410, b.y);
+        if (s.soundT > 0) sfx.play("bounce", 0.4, 0.8);
+      } else dead = true;
+    }
+    if (!dead && dummy.respawn <= 0 && Math.hypot(dummy.x - b.x, dummy.y - b.y) < dummy.r + 5) {
+      const pierce = a.behavior === "pierce";
+      arsenalImpact(s, b, dummy);
+      if (!pierce) dead = true;
+    }
+    if (dead) s.bullets.splice(i, 1);
+  }
+  for (let i = s.popups.length - 1; i >= 0; i--) {
+    const u = s.popups[i];
+    u.life -= dt; u.y -= 30 * dt;
+    if (u.life <= 0) s.popups.splice(i, 1);
+  }
+  s.fx.update(dt);
+}
+
+function drawArsenal(s) {
+  const ctx = s.ctx, w = s.cv.width, h = s.cv.height;
+  ctx.clearRect(0, 0, w, h);
+  // ground line
+  ctx.fillStyle = "rgba(255,255,255,0.3)";
+  ctx.fillRect(0, 206, w, h - 206);
+  const dummy = s.dummy;
+  if (dummy.respawn > 0) {
+    ctx.globalAlpha = 0.3;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.arc(dummy.x, dummy.y, dummy.r, 0, Math.PI * 2);
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+  } else {
+    ctx.beginPath(); ctx.ellipse(dummy.x, dummy.y + dummy.r + 8, dummy.r * 0.9, 6, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(58,44,90,0.15)"; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(dummy.x, dummy.y, dummy.r, dummy.r * 0.92, 0, 0, Math.PI * 2);
+    ctx.fillStyle = botColor(1); ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = C.ink; ctx.stroke();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(dummy.x - 6, dummy.y - 4, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(dummy.x + 6, dummy.y - 4, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C.ink;
+    ctx.beginPath(); ctx.arc(dummy.x - 5.5, dummy.y - 3.5, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(dummy.x + 6.5, dummy.y - 3.5, 1.8, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < s.a.hp; i++) {
+      ctx.beginPath();
+      ctx.arc(dummy.x - 12 + i * 12, dummy.y - dummy.r - 13, 3.6, 0, Math.PI * 2);
+      ctx.fillStyle = i < dummy.hp ? C.leaf : "rgba(58,44,90,0.25)";
+      ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = C.ink; ctx.stroke();
+    }
+  }
+  // bullets behind the shooter
+  for (const b of s.bullets) s.art.bullet.draw(ctx, b.x, b.y, Math.atan2(b.vy, b.vx));
+  // the shooter holding THIS gun — prop + recoil visible
+  ctx.beginPath(); ctx.ellipse(78, 152 + 38, 44, 8, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(58,44,90,0.16)"; ctx.fill();
+  drawTarsius(ctx, { x: 78, y: 152, scale: 1.55, rot: 0, t: performance.now() / 1000, moving: false, weapon: s.a.i, recoil: s.recoil });
+  s.fx.draw(ctx, w, h);
+  for (const u of s.popups) {
+    const t = u.life / u.max;
+    ctx.globalAlpha = Math.min(1, t * 2);
+    ctx.font = "800 20px 'Baloo 2','Trebuchet MS',sans-serif";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 5; ctx.strokeStyle = "#ffffff";
+    ctx.strokeText(u.text, u.x, u.y);
+    ctx.fillStyle = C.pinkpop;
+    ctx.fillText(u.text, u.x, u.y);
+    ctx.globalAlpha = 1;
+  }
+}
+document.querySelectorAll("canvas[data-arsenal]").forEach((cv) => {
+  const sim = arsenalSims.find((s) => s.cv === cv);
+  cv.addEventListener("click", () => arsenalFire(sim, true));
+});
+
+/* ============================================================
+   WEAPON ART — one distinct prop per gun so the held weapon is
+   readable at a glance. Coords are painter-local (grip ≈ 44,33,
+   muzzle → +X). Flash scale/spread mirror fx.ts's per-weapon table.
+   ============================================================ */
+function gRR(ctx, x, y, w, h, r, fill) {
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.lineWidth = 4; ctx.strokeStyle = C.ink; ctx.stroke();
+}
+const WEAPON_ART = [
+  { // 0 PEA POPPER — compact bubble pistol
+    color: "#8d82b5", fingers: 0, flashScale: 1, flashSpread: 26, kick: 3,
+    sound: "w_pea", dmg: "12", cadence: "0.5s",
+    draw(ctx) {
+      gRR(ctx, 42, 21, 30, 16, 6, "#8d82b5");
+      ctx.beginPath(); ctx.arc(76, 29, 6.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#a99ed0"; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = C.ink; ctx.stroke();
+      ctx.beginPath(); ctx.arc(76, 29, 2.6, 0, Math.PI * 2); ctx.fillStyle = C.ink; ctx.fill();
+      ctx.beginPath(); ctx.arc(52, 21, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = C.banana; ctx.fill(); ctx.lineWidth = 3.2; ctx.stroke();
+    },
+    bullet: { draw(ctx, x, y, ang) {
+      ctx.drawImage(glowSprite("#8d82b5"), x - 7, y - 7, 14, 14);
+    } },
+  },
+  { // 1 SPRINKLER — hyper SMG with a perforated sprinkler head
+    color: "#ffd93b", fingers: 4, flashScale: 0.55, flashSpread: 16, kick: 1.5,
+    sound: "w_sprinkler", dmg: "5", cadence: "0.16s",
+    draw(ctx) {
+      gRR(ctx, 42, 19, 40, 13, 6, "#ffd93b");
+      gRR(ctx, 52, 12, 18, 7, 3, "#ffd93b");
+      ctx.beginPath(); ctx.arc(60, 40, 8, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffefad"; ctx.fill(); ctx.lineWidth = 3.6; ctx.strokeStyle = C.ink; ctx.stroke();
+      ctx.beginPath(); ctx.arc(86, 25.5, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffefad"; ctx.fill(); ctx.lineWidth = 4; ctx.stroke();
+      ctx.fillStyle = C.ink;
+      for (const [hx, hy] of [[84, 23.5], [88, 25.5], [84, 27.5]]) {
+        ctx.beginPath(); ctx.arc(hx, hy, 1.3, 0, Math.PI * 2); ctx.fill();
+      }
+    },
+    bullet: { draw(ctx, x, y, ang) {
+      ctx.drawImage(glowSprite("#ffd93b"), x - 5, y - 5, 10, 10);
+    } },
+  },
+  { // 2 SCATTERSHOT — twin-barrel candy shotgun
+    color: "#ff5f7e", fingers: 2, flashScale: 1.6, flashSpread: 46, kick: 7,
+    sound: "w_scatter", dmg: "7 ×6", cadence: "0.95s",
+    draw(ctx) {
+      gRR(ctx, 42, 21, 46, 13, 5, "#ff5f7e");
+      gRR(ctx, 88, 18.5, 14, 7, 3, "#ff8ba5");
+      gRR(ctx, 88, 28.5, 14, 7, 3, "#ff8ba5");
+      gRR(ctx, 56, 34, 18, 7, 3, C.melonDeep);
+      ctx.beginPath(); ctx.arc(48, 21, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff"; ctx.fill(); ctx.lineWidth = 3.2; ctx.strokeStyle = C.ink; ctx.stroke();
+    },
+    bullet: { draw(ctx, x, y, ang) {
+      ctx.drawImage(glowSprite("#ff5f7e"), x - 6, y - 6, 12, 12);
+    } },
+  },
+  { // 3 SUGAR LANCE — scoped needle rifle
+    color: "#7df0ff", fingers: 5, flashScale: 1.3, flashSpread: 8, kick: 9,
+    sound: "w_lance", dmg: "42", cadence: "1.7s",
+    draw(ctx) {
+      gRR(ctx, 42, 22, 58, 10, 4, "#7df0ff");
+      ctx.beginPath(); ctx.moveTo(100, 24.5); ctx.lineTo(122, 27); ctx.lineTo(100, 29.5);
+      ctx.closePath(); ctx.fillStyle = "#cffaff"; ctx.fill(); ctx.lineWidth = 3.2; ctx.strokeStyle = C.ink; ctx.stroke();
+      gRR(ctx, 56, 12, 16, 8, 3, "#cffaff");
+      ctx.beginPath(); ctx.arc(60, 16, 2.4, 0, Math.PI * 2); ctx.fillStyle = C.ink; ctx.fill();
+    },
+    bullet: { draw(ctx, x, y, ang) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+      ctx.strokeStyle = "rgba(125,240,255,0.95)"; ctx.lineWidth = 5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(10, 0); ctx.stroke();
+      ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(8, 0); ctx.stroke();
+      ctx.restore();
+    } },
+  },
+  { // 4 GUM BOUNCER — chunky gumball launcher
+    color: "#35d6b5", fingers: 3, flashScale: 1, flashSpread: 26, kick: 4,
+    sound: "w_bouncer", dmg: "13", cadence: "0.55s",
+    draw(ctx) {
+      gRR(ctx, 42, 19, 30, 18, 8, "#35d6b5");
+      ctx.beginPath(); ctx.arc(78, 28, 9.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#8fe8d4"; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = C.ink; ctx.stroke();
+      ctx.beginPath(); ctx.arc(78, 28, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "#35d6b5"; ctx.fill(); ctx.lineWidth = 2.6; ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(76, 26, 1.6, 0, Math.PI * 2); ctx.fill();
+    },
+    bullet: { draw(ctx, x, y, ang) {
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "#35d6b5"; ctx.fill(); ctx.lineWidth = 2.6; ctx.strokeStyle = C.ink; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x - 2, y - 2, 1.7, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+    } },
+  },
+  { // 5 LIQUORICE SKEWER — twisted needle gun
+    color: "#c06bff", fingers: 4, flashScale: 1, flashSpread: 20, kick: 4,
+    sound: "w_skewer", dmg: "11", cadence: "0.6s",
+    draw(ctx) {
+      gRR(ctx, 42, 23, 40, 9, 4, "#c06bff");
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 2;
+      for (const sx of [52, 60, 68]) {
+        ctx.beginPath(); ctx.moveTo(sx, 23.5); ctx.lineTo(sx + 4, 31.5); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.roundRect(82, 24.5, 30, 5, 2.5);
+      ctx.fillStyle = "#e3c7ff"; ctx.fill(); ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(112, 25); ctx.lineTo(122, 27); ctx.lineTo(112, 29);
+      ctx.closePath(); ctx.fillStyle = C.ink; ctx.fill();
+    },
+    bullet: { draw(ctx, x, y, ang) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+      ctx.strokeStyle = "#c06bff"; ctx.lineWidth = 3.4; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(12, 0); ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(10, 0); ctx.stroke();
+      ctx.restore();
+    } },
+  },
+  { // 6 POP ROCK — soda-can grenade launcher
+    color: "#ff6a00", fingers: 3, flashScale: 1.15, flashSpread: 26, kick: 6,
+    sound: "w_popper", dmg: "16 +10", cadence: "0.95s",
+    draw(ctx) {
+      gRR(ctx, 44, 16, 26, 24, 9, "#ff6a00");
+      gRR(ctx, 48, 22, 18, 5, 2.5, C.banana);
+      gRR(ctx, 70, 21, 16, 13, 5, "#ff9a4d");
+      ctx.beginPath(); ctx.arc(88, 27.5, 5, 0, Math.PI * 2);
+      ctx.fillStyle = C.ink; ctx.fill();
+    },
+    bullet: { draw(ctx, x, y, ang) {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+      ctx.beginPath(); ctx.roundRect(-8, -5.5, 16, 11, 5);
+      ctx.fillStyle = "#ff6a00"; ctx.fill(); ctx.lineWidth = 2.6; ctx.strokeStyle = C.ink; ctx.stroke();
+      ctx.fillStyle = C.banana; ctx.fillRect(-4, -1.4, 8, 2.8);
+      ctx.restore();
+      ctx.drawImage(glowSprite("#ff6a00"), x - 9, y - 9, 18, 18);
+    } },
+  },
+  { // 7 BOSS CANNON — the boss's heavy splash shell
+    color: "#ff2e4d", fingers: 6, flashScale: 1.25, flashSpread: 26, kick: 11,
+    sound: "w_boss", dmg: "35 +22", cadence: "1.1s",
+    draw(ctx) {
+      gRR(ctx, 42, 17, 52, 22, 10, "#ff2e4d");
+      gRR(ctx, 94, 19, 18, 18, 5, "#c22a4a");
+      ctx.beginPath(); ctx.arc(108, 28, 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = C.ink; ctx.fill();
+      gRR(ctx, 58, 11, 12, 6, 3, "#ff8ba5");
+      gRR(ctx, 76, 11, 12, 6, 3, "#ff8ba5");
+    },
+    bullet: { draw(ctx, x, y, ang) {
+      ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2);
+      ctx.fillStyle = "#ff2e4d"; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x - 2.5, y - 2.5, 2.4, 0, Math.PI * 2); ctx.fillStyle = "#ffb3c0"; ctx.fill();
+    } },
+  },
+];
+
+function drawWeaponProp(ctx, i) { WEAPON_ART[i]?.draw(ctx); }
+
+/* ============================================================
+   CHARACTER PAINTER (tarsius, body-relative, from the asset sheet)
+   ============================================================ */
+function drawTarsius(ctx, o) {
+  const { x, y, scale = 1, flip = 1, rot = 0, t = 0, moving = false, fur = C.melon, weapon = 0, recoil = 0 } = o;
+  const ph = t * 9;
+  const bob = moving ? Math.abs(Math.cos(ph)) * 2.4 : Math.sin(t * 2) * 0.8;
+  const step = moving ? Math.sin(ph) : 0;
+  ctx.save();
+  ctx.translate(x, y - bob * scale);
+  if (rot) ctx.rotate(rot);
+  ctx.scale(flip * scale, scale);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+
+  // tail
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(-42, 14);
+  ctx.quadraticCurveTo(-72, 22, -64, -18);
+  ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(-64, -20, 6.5, 7, 0, 0, Math.PI * 2);
+  ctx.fillStyle = C.face; ctx.fill(); ctx.lineWidth = 3.2; ctx.stroke();
+  // far ear
+  ctx.save(); ctx.translate(-11, -44); ctx.rotate(-0.5 + step * 0.03);
+  ctx.beginPath(); ctx.ellipse(0, 0, 8, 13, 0, 0, Math.PI * 2);
+  ctx.fillStyle = C.blue; ctx.fill(); ctx.lineWidth = 3.6; ctx.strokeStyle = C.ink; ctx.stroke();
+  ctx.restore();
+  // far foot
+  ctx.beginPath(); ctx.ellipse(-4 + step * -8, 46 - Math.max(0, -step) * 5, 13, 9, 0, 0, Math.PI * 2);
+  ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4.2; ctx.stroke();
+  // body
+  ctx.beginPath(); ctx.ellipse(0, 0, 50, 45, 0, 0, Math.PI * 2);
+  ctx.fillStyle = fur; ctx.fill(); ctx.lineWidth = 6.5; ctx.stroke();
+  // near foot
+  ctx.beginPath(); ctx.ellipse(28 + step * 9, 48 - Math.max(0, step) * 5, 14, 10, 0, 0, Math.PI * 2);
+  ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
+  ctx.fillStyle = C.grape;
+  for (const [tx, ty] of [[22, 52], [28, 54], [34, 52]]) {
+    ctx.beginPath(); ctx.arc(tx + step * 9, ty - Math.max(0, step) * 5, 2, 0, Math.PI * 2); ctx.fill();
+  }
+  // face mask (union outline)
+  const MASK = [[27, 2, 24, 21.5], [23.5, -18, 19, 18]];
+  ctx.lineWidth = 5.8; ctx.strokeStyle = C.ink;
+  for (const [mx, my, rx, ry] of MASK) { ctx.beginPath(); ctx.ellipse(mx, my, rx, ry, 0, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.fillStyle = C.face;
+  for (const [mx, my, rx, ry] of MASK) { ctx.beginPath(); ctx.ellipse(mx, my, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); }
+  // wedge
+  ctx.beginPath(); ctx.moveTo(3, -30); ctx.lineTo(13.5, -32); ctx.lineTo(6.5, -17);
+  ctx.closePath(); ctx.fillStyle = fur; ctx.fill();
+  // eye
+  ctx.beginPath(); ctx.arc(21.5, -13.5, 11.7, 0, Math.PI * 2);
+  ctx.fillStyle = C.gold; ctx.fill(); ctx.lineWidth = 4; ctx.stroke();
+  ctx.beginPath(); ctx.arc(17, -18.5, 4, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+  ctx.beginPath(); ctx.arc(26.5, -8.5, 1.8, 0, Math.PI * 2); ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
+  // nose + smile
+  ctx.beginPath(); ctx.ellipse(52, -3.5, 4.5, 3.6, 0, 0, Math.PI * 2);
+  ctx.fillStyle = C.grape; ctx.fill(); ctx.lineWidth = 2.2; ctx.stroke();
+  ctx.lineWidth = 2.7;
+  ctx.beginPath(); ctx.moveTo(41.5, 11.5); ctx.quadraticCurveTo(48.5, 15.5, 56, 9); ctx.stroke();
+  // arm gripping the current weapon — the kick slides gun + paw back
+  const kick = recoil * 9;
+  ctx.save();
+  ctx.translate(-kick, 0);
+  ctx.beginPath(); ctx.ellipse(16 + kick * 0.6, 28, 11, 7, 0, 0, Math.PI * 2);
+  ctx.fillStyle = fur; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = C.ink; ctx.stroke();
+  drawWeaponProp(ctx, weapon);
+  ctx.beginPath(); ctx.ellipse(43, 33, 9.5, 8, 0, 0, Math.PI * 2);
+  ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4; ctx.stroke();
+  ctx.fillStyle = C.cyan; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.7;
+  const gripX = 51 + (WEAPON_ART[weapon]?.fingers ?? 10);
+  [[gripX, 24, -0.21], [gripX + 6, 26.5, -0.04], [gripX + 11, 30.5, 0.17]].forEach(([fx2, fy2, r]) => {
+    ctx.save(); ctx.translate(fx2, fy2); ctx.rotate(r);
+    ctx.beginPath(); ctx.ellipse(0, 0, 3.8, 5.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  });
+  ctx.restore();
+  // recoil nudges the whole body back a hair
+  ctx.translate(-recoil * 2.5, 0);
+  // near ear
+  ctx.save(); ctx.translate(-18, -41); ctx.rotate(step * 0.05);
+  ctx.beginPath(); ctx.ellipse(0, 0, 14.5, 22.5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(-1, 0, 8.5, 14, 0, 0, Math.PI * 2); ctx.fillStyle = C.blue; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-2, 1, 5, 8, 0, 0, Math.PI * 2); ctx.fillStyle = C.grape; ctx.fill();
+  ctx.restore();
+  ctx.restore();
+}
+
+/* ============================================================
+   PLAYGROUND — mini arena
+   ============================================================ */
+const pg = {
+  cv: document.getElementById("pgCanvas"),
+  engaged: false,
+  keys: new Set(),
+  mouse: { x: 700, y: 300 },
+  player: { x: 300, y: 300, vx: 0, vy: 0, speed: 240, facing: 0, dashT: 0, dashCd: 0, sonarCd: 0, dustT: 0, recoil: 0 },
+  weapon: 0,
+  lastShot: 0,
+  bullets: [],
+  dummies: [],
+  popups: [],
+  fx: new Fx(),
+  kills: 0,
+  zoneR: 480,
+  t: 0,
+};
+const WPN = [
+  { name: "pea", label: "PEA POPPER", color: "#8d82b5", cd: 0.5, spread: 0, pellets: 1, speed: 420, intense: false, dmg: 12, sound: "w_pea" },
+  { name: "sprinkler", label: "SPRINKLER", color: "#ffd93b", cd: 0.16, spread: 10, pellets: 1, speed: 470, intense: false, dmg: 5, sound: "w_sprinkler" },
+  { name: "scatter", label: "SCATTERSHOT", color: "#ff5f7e", cd: 0.95, spread: 15, pellets: 6, speed: 390, intense: false, dmg: 7, sound: "w_scatter" },
+  { name: "lance", label: "SUGAR LANCE", color: "#7df0ff", cd: 1.7, spread: 0, pellets: 1, speed: 950, intense: true, dmg: 42, sound: "w_lance" },
+  { name: "bouncer", label: "GUM BOUNCER", color: "#35d6b5", cd: 0.55, spread: 2, pellets: 1, speed: 430, intense: false, dmg: 13, bounces: 3, sound: "w_bouncer" },
+  { name: "skewer", label: "LIQUORICE SKEWER", color: "#c06bff", cd: 0.6, spread: 0, pellets: 1, speed: 640, intense: true, dmg: 11, pierce: 3, sound: "w_skewer" },
+  { name: "popper", label: "POP ROCK", color: "#ff6a00", cd: 0.95, spread: 3, pellets: 1, speed: 330, intense: false, dmg: 16, boom: 110, splash: 10, sound: "w_popper" },
+];
+const wpnRow = document.getElementById("wpnRow");
+wpnRow.innerHTML = WPN.map((w, i) =>
+  `<button class="wpn${i === 0 ? " sel" : ""}" type="button" data-i="${i}" title="${w.dmg} dmg · ${w.speed} px/s"><i style="background:${w.color}"></i>${w.label}&nbsp;<b style="opacity:.65;">${w.dmg}</b></button>`).join("");
+wpnRow.addEventListener("click", (e) => {
+  const b = e.target.closest(".wpn");
+  if (!b) return;
+  pg.weapon = parseInt(b.dataset.i);
+  document.querySelectorAll(".wpn").forEach((x) => x.classList.remove("sel"));
+  b.classList.add("sel");
+  sfx.play("click");
+});
+
+function spawnDummies() {
+  pg.dummies = [
+    { x: 760, y: 170, r: 26, hp: 3, col: botColor(1), t: Math.random() * 6, respawn: 0 },
+    { x: 860, y: 420, r: 26, hp: 3, col: botColor(3), t: Math.random() * 6, respawn: 0 },
+    { x: 620, y: 300, r: 26, hp: 3, col: botColor(6), t: Math.random() * 6, respawn: 0 },
+  ];
+}
+spawnDummies();
+
+const hint = document.getElementById("pgHint");
+pg.cv.addEventListener("click", () => {
+  pg.cv.classList.add("engaged");
+  pg.engaged = true;
+  pg.cv.focus();
+  hint.style.opacity = "0";
+});
+pg.cv.addEventListener("blur", () => {
+  pg.engaged = false;
+  pg.cv.classList.remove("engaged");
+  hint.style.opacity = "1";
+});
+pg.cv.addEventListener("mousemove", (e) => {
+  const r = pg.cv.getBoundingClientRect();
+  pg.mouse.x = (e.clientX - r.left) * (pg.cv.width / r.width);
+  pg.mouse.y = (e.clientY - r.top) * (pg.cv.height / r.height);
+});
+let firing = false;
+pg.cv.addEventListener("mousedown", () => { firing = true; });
+window.addEventListener("mouseup", () => { firing = false; });
+window.addEventListener("keydown", (e) => {
+  if (!pg.engaged) return;
+  const k = e.key.toLowerCase();
+  if ([" ", "w", "a", "s", "d", "e", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault();
+  if (k === "escape") { pg.cv.blur(); return; }
+  pg.keys.add(k);
+});
+window.addEventListener("keyup", (e) => pg.keys.delete(e.key.toLowerCase()));
+
+function panVol(x, y) {
+  const dx = x - pg.cv.width / 2;
+  return { pan: Math.max(-1, Math.min(1, (dx / (pg.cv.width / 2)) * 0.85)), vol: 1 };
+}
+
+function shoot(now) {
+  const w = WPN[pg.weapon];
+  if (now - pg.lastShot < w.cd) return;
+  pg.lastShot = now;
+  const p = pg.player;
+  p.recoil = 1;
+  const aim = Math.atan2(pg.mouse.y - p.y, pg.mouse.x - p.x);
+  const aimDeg = (aim * 180) / Math.PI;
+  for (let i = 0; i < w.pellets; i++) {
+    const spr = ((Math.random() - 0.5) * 2 * w.spread * Math.PI) / 180;
+    const a = aim + spr;
+    pg.bullets.push({
+      x: p.x + Math.cos(aim) * 34, y: p.y + Math.sin(aim) * 34,
+      vx: Math.cos(a) * w.speed, vy: Math.sin(a) * w.speed,
+      color: w.color, intense: w.intense, bounces: w.bounces ?? 0, boom: w.boom ?? 0,
+      pierce: w.pierce ?? 0, hitIds: new Set(), wi: pg.weapon,
+      life: 1.6,
+    });
+  }
+  const art = WEAPON_ART[pg.weapon];
+  pg.fx.muzzleFlash(p.x + Math.cos(aim) * 30, p.y + Math.sin(aim) * 30, aimDeg, art.flashScale, w.color, art.flashSpread);
+  if (w.intense) pg.fx.lanceStreak(p.x + Math.cos(aim) * 26, p.y + Math.sin(aim) * 26, aimDeg);
+  const pv = panVol(p.x, p.y);
+  sfx.play(w.sound, pv.pan, pv.vol);
+}
+
+function killDummy(d) {
+  pg.fx.deathBlast(d.x, d.y, d.col);
+  sfx.play("kill", panVol(d.x, d.y).pan, 0.9);
+  pg.popups.push({ x: d.x, y: d.y - 40, text: "GUNBATTE!!", life: 1.1, max: 1.1, size: 30, color: C.pinkpop });
+  pg.kills++;
+  d.respawn = 1.4;
+}
+
+function updatePlayground(dt, now) {
+  const p = pg.player;
+  const k = pg.keys;
+  let mx = 0, my = 0;
+  if (k.has("a") || k.has("arrowleft")) mx -= 1;
+  if (k.has("d") || k.has("arrowright")) mx += 1;
+  if (k.has("w") || k.has("arrowup")) my -= 1;
+  if (k.has("s") || k.has("arrowdown")) my += 1;
+  const mag = Math.hypot(mx, my) || 1;
+  const dashBoost = p.dashT > 0 ? 2.6 : 1;
+  p.x += (mx / mag) * p.speed * dashBoost * dt;
+  p.y += (my / mag) * p.speed * dashBoost * dt;
+  p.x = Math.max(50, Math.min(pg.cv.width - 50, p.x));
+  p.y = Math.max(46, Math.min(pg.cv.height - 40, p.y));
+  p.facing = Math.atan2(pg.mouse.y - p.y, pg.mouse.x - p.x);
+  p.dashT = Math.max(0, p.dashT - dt);
+  p.dashCd = Math.max(0, p.dashCd - dt);
+  p.sonarCd = Math.max(0, p.sonarCd - dt);
+  p.recoil = Math.max(0, p.recoil - dt * 5);
+  if ((mx || my) && p.dashT <= 0) {
+    p.dustT -= dt;
+    if (p.dustT <= 0) { pg.fx.dust(p.x - Math.cos(p.facing) * 20, p.y + 22); p.dustT = 0.14; }
+  }
+  if (pg.engaged && (k.has(" ") || k.has("shift")) && p.dashCd <= 0 && (mx || my)) {
+    p.dashT = 0.22; p.dashCd = 0.9;
+    const deg = (Math.atan2(my, mx) * 180) / Math.PI;
+    pg.fx.dashStreak(p.x, p.y + 8, deg, C.melon);
+    sfx.play("dash", panVol(p.x, p.y).pan, 1);
+  }
+  if (pg.engaged && k.has("e") && p.sonarCd <= 0) {
+    p.sonarCd = 1.2;
+    pg.fx.sonar(p.x, p.y);
+    sfx.play("sonar", panVol(p.x, p.y).pan, 1);
+  }
+  if (pg.engaged && firing) shoot(now);
+
+  // bullets
+  for (let i = pg.bullets.length - 1; i >= 0; i--) {
+    const b = pg.bullets[i];
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    pg.fx.tracer(b.x, b.y, b.color, b.intense);
+    let dead = b.life <= 0;
+    if (b.x < 10 || b.x > pg.cv.width - 10) {
+      if (b.bounces > 0) { b.bounces--; b.vx *= -1; b.x = Math.max(10, Math.min(pg.cv.width - 10, b.x)); pg.fx.bounce(b.x, b.y); sfx.play("bounce", panVol(b.x, b.y).pan, 0.7); }
+      else dead = true;
+    }
+    if (!dead && (b.y < 10 || b.y > pg.cv.height - 10)) {
+      if (b.bounces > 0) { b.bounces--; b.vy *= -1; b.y = Math.max(10, Math.min(pg.cv.height - 10, b.y)); pg.fx.bounce(b.x, b.y); sfx.play("bounce", panVol(b.x, b.y).pan, 0.7); }
+      else dead = true;
+    }
+    if (!dead) for (let di = 0; di < pg.dummies.length; di++) {
+      const d = pg.dummies[di];
+      if (d.respawn > 0 || b.hitIds.has(di)) continue;
+      if (Math.hypot(d.x - b.x, d.y - b.y) < d.r + 4) {
+        b.hitIds.add(di);
+        if (b.boom) {
+          pg.fx.explosion(b.x, b.y, b.boom);
+          sfx.play("boom", panVol(b.x, b.y).pan, 0.9);
+          for (let dj = 0; dj < pg.dummies.length; dj++) {
+            const o = pg.dummies[dj];
+            if (o.respawn > 0 || dj === di) continue;
+            if (Math.hypot(o.x - b.x, o.y - b.y) < b.boom) { o.hp--; pg.fx.hit(o.x, o.y, o.col); }
+          }
+        }
+        pg.fx.hit(d.x, d.y, d.col);
+        sfx.play("hit", panVol(d.x, d.y).pan, 0.9);
+        d.hp--;
+        if (d.hp <= 0) killDummy(d);
+        if (b.pierce > 0) { b.pierce--; } else { dead = true; }
+        break;
+      }
+    }
+    if (dead) pg.bullets.splice(i, 1);
+  }
+
+  // dummies
+  for (const d of pg.dummies) {
+    if (d.respawn > 0) {
+      d.respawn -= dt;
+      if (d.respawn <= 0) { d.hp = 3; pg.fx.sparkle(d.x, d.y); sfx.play("pickup", panVol(d.x, d.y).pan, 0.5); }
+      continue;
+    }
+    d.t += dt;
+    d.x += Math.sin(d.t * 0.7) * 14 * dt;
+    d.y += Math.cos(d.t * 0.53) * 12 * dt;
+  }
+
+  // popups
+  for (let i = pg.popups.length - 1; i >= 0; i--) {
+    const u = pg.popups[i];
+    u.life -= dt; u.y -= 34 * dt;
+    if (u.life <= 0) pg.popups.splice(i, 1);
+  }
+
+  pg.fx.update(dt);
+}
+
+function drawArenaBase(ctx) {
+  const w = pg.cv.width, h = pg.cv.height;
+  ctx.fillStyle = "#7ec9f5";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
+  for (let gx = 30; gx < w; gx += 60) for (let gy = 30; gy < h; gy += 60) {
+    ctx.beginPath(); ctx.arc(gx, gy, 2.2, 0, Math.PI * 2); ctx.fill();
+  }
+  // zone circle
+  ctx.strokeStyle = "rgba(255,95,174,0.65)";
+  ctx.lineWidth = 5;
+  ctx.setLineDash([16, 12]);
+  ctx.beginPath(); ctx.arc(w / 2, h / 2, pg.zoneR, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  // arena border
+  ctx.strokeStyle = "rgba(58,44,90,0.5)"; ctx.lineWidth = 4;
+  ctx.strokeRect(6, 6, w - 12, h - 12);
+}
+
+function drawDummy(ctx, d) {
+  const wob = Math.sin(d.t * 3) * 0.06;
+  ctx.save();
+  ctx.translate(d.x, d.y);
+  ctx.rotate(wob);
+  // shadow
+  ctx.beginPath(); ctx.ellipse(0, d.r + 10, d.r * 0.9, 7, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(58,44,90,0.15)"; ctx.fill();
+  // body
+  ctx.beginPath(); ctx.ellipse(0, 0, d.r, d.r * 0.92, 0, 0, Math.PI * 2);
+  ctx.fillStyle = d.col; ctx.fill();
+  ctx.lineWidth = 5; ctx.strokeStyle = C.ink; ctx.stroke();
+  // face
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath(); ctx.arc(-d.r * 0.32, -d.r * 0.18, 5.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(d.r * 0.32, -d.r * 0.18, 5.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.ink;
+  ctx.beginPath(); ctx.arc(-d.r * 0.3, -d.r * 0.16, 2.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(d.r * 0.34, -d.r * 0.16, 2.4, 0, Math.PI * 2); ctx.fill();
+  // hp pips
+  ctx.restore();
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(d.x - 14 + i * 14, d.y - d.r - 16, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = i < d.hp ? C.leaf : "rgba(58,44,90,0.25)";
+    ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = C.ink; ctx.stroke();
+  }
+}
+
+function drawPlayground(ctx) {
+  const w = pg.cv.width, h = pg.cv.height;
+  drawArenaBase(ctx);
+  for (const d of pg.dummies) {
+    if (d.respawn > 0) {
+      ctx.globalAlpha = 0.25;
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.setLineDash([6, 6]); ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      continue;
+    }
+    drawDummy(ctx, d);
+  }
+  // sonar highlight on dummies when recently pinged
+  // live bullets with their per-weapon projectile look
+  for (const b of pg.bullets) {
+    const ang = Math.atan2(b.vy, b.vx);
+    WEAPON_ART[b.wi].bullet.draw(ctx, b.x, b.y, ang);
+  }
+  // player tarsius
+  const p = pg.player;
+  ctx.beginPath(); ctx.ellipse(p.x, p.y + 40, 40, 9, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(58,44,90,0.18)"; ctx.fill();
+  const moving = pg.keys.has("w") || pg.keys.has("a") || pg.keys.has("s") || pg.keys.has("d")
+    || pg.keys.has("arrowup") || pg.keys.has("arrowdown") || pg.keys.has("arrowleft") || pg.keys.has("arrowright");
+  drawTarsius(ctx, {
+    x: p.x, y: p.y + 16, scale: 1.25, rot: p.facing, t: pg.t, moving,
+    weapon: pg.weapon, recoil: p.recoil,
+  });
+  // aim crosshair
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(pg.mouse.x, pg.mouse.y, 12, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(pg.mouse.x - 18, pg.mouse.y); ctx.lineTo(pg.mouse.x - 6, pg.mouse.y);
+  ctx.moveTo(pg.mouse.x + 6, pg.mouse.y); ctx.lineTo(pg.mouse.x + 18, pg.mouse.y);
+  ctx.moveTo(pg.mouse.x, pg.mouse.y - 18); ctx.lineTo(pg.mouse.x, pg.mouse.y - 6);
+  ctx.moveTo(pg.mouse.x, pg.mouse.y + 6); ctx.lineTo(pg.mouse.x, pg.mouse.y + 18);
+  ctx.stroke();
+  // fx on top
+  pg.fx.draw(ctx, w, h);
+  // popups
+  for (const u of pg.popups) {
+    const t = u.life / u.max;
+    ctx.globalAlpha = Math.min(1, t * 2);
+    ctx.font = `800 ${u.size}px 'Baloo 2','Trebuchet MS',sans-serif`;
+    ctx.textAlign = "center";
+    ctx.lineWidth = 6; ctx.strokeStyle = "#ffffff";
+    ctx.strokeText(u.text, u.x, u.y);
+    ctx.fillStyle = u.color;
+    ctx.fillText(u.text, u.x, u.y);
+    ctx.globalAlpha = 1;
+  }
+  // HUD
+  ctx.textAlign = "left";
+  ctx.font = "800 20px 'Baloo 2','Trebuchet MS',sans-serif";
+  const wl = WPN[pg.weapon];
+  ctx.fillStyle = "rgba(255,253,245,0.92)";
+  ctx.fillRect(16, 16, 300, 38);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2.5;
+  ctx.strokeRect(16, 16, 300, 38);
+  ctx.fillStyle = wl.color;
+  ctx.beginPath(); ctx.arc(36, 35, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.stroke();
+  ctx.fillStyle = C.ink;
+  ctx.font = "800 14px 'Baloo 2','Trebuchet MS',sans-serif";
+  ctx.fillText(`${wl.label} · ${wl.dmg} DMG`, 52, 40);
+  ctx.textAlign = "right";
+  ctx.font = "800 18px 'Baloo 2','Trebuchet MS',sans-serif";
+  ctx.fillStyle = C.ink;
+  ctx.fillText(`KILLS ${pg.kills}`, w - 20, 40);
+}
+
+/* ============================================================
+   MASTER LOOP
+   ============================================================ */
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  pg.t += dt;
+  // vfx cards: silent auto-loop
+  for (const v of vfxCanvases) {
+    v.since += dt;
+    if (v.since >= v.period) {
+      v.since = 0;
+      if (!document.hidden) v.trigger(false);
+    }
+    const ctx = v.ctx;
+    ctx.clearRect(0, 0, v.cv.width, v.cv.height);
+    v.fx.update(dt);
+    v.fx.draw(ctx, v.cv.width, v.cv.height);
+  }
+  // arsenal cards: live fire on real cadence, silent until clicked
+  for (const s of arsenalSims) {
+    updateArsenal(s, dt);
+    drawArsenal(s);
+  }
+  updatePlayground(dt, now / 1000);
+  const pctx = pg.cv.getContext("2d");
+  pctx.clearRect(0, 0, pg.cv.width, pg.cv.height);
+  drawPlayground(pctx);
+  requestAnimationFrame(frame);
+}
+initArsenal();
+requestAnimationFrame(frame);
+
+document.getElementById("zoneBtn").addEventListener("click", () => {
+  pg.fx.zoneShrink(pg.cv.width / 2, pg.cv.height / 2, pg.zoneR);
+  pg.zoneR = Math.max(180, pg.zoneR * 0.88);
+  sfx.play("zone", 0, 1);
+});
+document.getElementById("confettiBtn").addEventListener("click", () => {
+  pg.fx.confettiRain(pg.cv.width, pg.cv.height);
+  pg.fx.shakeBy(4);
+  sfx.play("victory", 0, 1);
+});
+</script>
+</body>
+</html>
