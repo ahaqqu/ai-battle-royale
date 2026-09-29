@@ -91,6 +91,8 @@ async fn m3_gateway_end_to_end() {
         min_bots: 2,
         house_bots: 0,
         spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
     };
     tokio::spawn(async move {
         Server::start(cfg, MatchConfig::standard())
@@ -177,6 +179,8 @@ async fn solo_human_gets_house_fill() {
         min_bots: 2,
         house_bots: 8,
         spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
     };
     // Short match cap so the test doesn't run a full 5-minute BR.
     let mut match_cfg = MatchConfig::standard();
@@ -268,6 +272,8 @@ async fn lobby_host_and_invitee_play_a_private_royale() {
         min_bots: 2,
         house_bots: 8,
         spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
     };
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 25;
@@ -343,7 +349,9 @@ async fn lobby_host_and_invitee_play_a_private_royale() {
     while started_at.elapsed() < Duration::from_secs(30) && !(host_started && guest_started) {
         tokio::select! {
             msg = host_rx.next() => {
-                let Some(Ok(Message::Text(t))) = msg else { break };
+                let Some(Ok(m)) = msg else { break };
+                // The server keepalive pings: skip non-text frames.
+                let Message::Text(t) = m else { continue };
                 let v: serde_json::Value = serde_json::from_str(&t).unwrap();
                 match v["type"].as_str() {
                     Some("lobby_roster") => {
@@ -374,7 +382,9 @@ async fn lobby_host_and_invitee_play_a_private_royale() {
                 }
             }
             msg = guest_rx.next() => {
-                let Some(Ok(Message::Text(t))) = msg else { break };
+                let Some(Ok(m)) = msg else { break };
+                // The server keepalive pings: skip non-text frames.
+                let Message::Text(t) = m else { continue };
                 let v: serde_json::Value = serde_json::from_str(&t).unwrap();
                 if v["type"] == "lobby_joined" {
                     assert_eq!(v["lobby"], code);
@@ -396,13 +406,17 @@ async fn lobby_host_and_invitee_play_a_private_royale() {
     while tokio::time::Instant::now() < deadline && (host_over.is_none() || guest_over.is_none()) {
         tokio::select! {
             msg = host_rx.next() => {
-                let Some(Ok(Message::Text(t))) = msg else { break };
+                let Some(Ok(m)) = msg else { break };
+                // The server keepalive pings: skip non-text frames.
+                let Message::Text(t) = m else { continue };
                 let v: serde_json::Value = serde_json::from_str(&t).unwrap();
                 if v["type"] == "match_over" { host_over = Some(v); }
                 else if v["type"].is_null() { host_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok(); }
             }
             msg = guest_rx.next() => {
-                let Some(Ok(Message::Text(t))) = msg else { break };
+                let Some(Ok(m)) = msg else { break };
+                // The server keepalive pings: skip non-text frames.
+                let Message::Text(t) = m else { continue };
                 let v: serde_json::Value = serde_json::from_str(&t).unwrap();
                 if v["type"] == "match_over" { guest_over = Some(v); }
                 else if v["type"].is_null() { guest_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok(); }
@@ -441,6 +455,8 @@ async fn boss_lobby_casts_a_member_as_the_boss() {
         min_bots: 2,
         house_bots: 8,
         spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
     };
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 40;
@@ -516,7 +532,9 @@ async fn boss_lobby_casts_a_member_as_the_boss() {
     while started.elapsed() < Duration::from_secs(20) && (host_role.is_none() || boss_role.is_none()) {
         tokio::select! {
             msg = host_rx.next() => {
-                let Some(Ok(Message::Text(t))) = msg else { break };
+                let Some(Ok(m)) = msg else { break };
+                // The server keepalive pings: skip non-text frames.
+                let Message::Text(t) = m else { continue };
                 let v: serde_json::Value = serde_json::from_str(&t).unwrap();
                 if v["type"] == "match_start" {
                     assert_eq!(v["mode"], "boss");
@@ -531,7 +549,9 @@ async fn boss_lobby_casts_a_member_as_the_boss() {
                 host_tx.send(Message::Text(active_action(&v).unwrap_or(json!({"tick":0})).to_string())).await.ok();
             }
             msg = boss_rx.next() => {
-                let Some(Ok(Message::Text(t))) = msg else { break };
+                let Some(Ok(m)) = msg else { break };
+                // The server keepalive pings: skip non-text frames.
+                let Message::Text(t) = m else { continue };
                 let v: serde_json::Value = serde_json::from_str(&t).unwrap();
                 if v["type"] == "match_start" {
                     boss_is_boss = v["role"] == "boss";
@@ -552,13 +572,17 @@ async fn boss_lobby_casts_a_member_as_the_boss() {
     while tokio::time::Instant::now() < deadline && over.is_none() {
         tokio::select! {
             msg = host_rx.next() => {
-                let Some(Ok(Message::Text(t))) = msg else { break };
+                let Some(Ok(m)) = msg else { break };
+                // The server keepalive pings: skip non-text frames.
+                let Message::Text(t) = m else { continue };
                 let v: serde_json::Value = serde_json::from_str(&t).unwrap();
                 if v["type"] == "match_over" { over = Some(("raid-leader".into(), v)); }
                 else if v["type"].is_null() { host_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok(); }
             }
             msg = boss_rx.next() => {
-                let Some(Ok(Message::Text(t))) = msg else { break };
+                let Some(Ok(m)) = msg else { break };
+                // The server keepalive pings: skip non-text frames.
+                let Message::Text(t) = m else { continue };
                 let v: serde_json::Value = serde_json::from_str(&t).unwrap();
                 if v["type"] == "match_over" { over = Some(("guest-boss".into(), v)); }
                 else if v["type"].is_null() { boss_tx.send(Message::Text(active_action(&v).unwrap().to_string())).await.ok(); }
@@ -577,4 +601,159 @@ async fn boss_lobby_casts_a_member_as_the_boss() {
         "guest-boss was the raid boss: {:?}", replay.header.bot_names);
     let verified = abr_core::replay::verify_replay(&replay).expect("raid replay verifies");
     assert!(verified.ticks > 0, "raid had substance ({who})");
+}
+
+/// Keepalive (hardening): a registered bot that goes totally silent — reads
+/// nothing, writes nothing — is closed by the server after the idle window
+/// instead of lingering forever as a half-open connection. We observe the
+/// close through a dup'd raw socket: the WS half would auto-pong (which
+/// resets the idle clock), the raw half only reads, so only the server's
+/// idle timeout can end the connection.
+#[tokio::test(flavor = "multi_thread")]
+async fn silent_bot_socket_is_closed_after_idle_window() {
+    use tokio::io::AsyncReadExt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8937;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 1,
+        ws_idle_timeout_s: 3,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard())
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+
+    // Connect at the std level so the socket can be dup'd: tokio's TcpStream
+    // has no try_clone.
+    let sock = socket2::Socket::new(
+        socket2::Domain::IPV4,
+        socket2::Type::STREAM,
+        Some(socket2::Protocol::TCP),
+    )
+    .unwrap();
+    let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+    sock.connect(&addr.into()).expect("connect");
+    let std_stream: std::net::TcpStream = sock.into();
+    let probe_std = std_stream.try_clone().expect("dup socket");
+    std_stream.set_nonblocking(true).unwrap();
+    probe_std.set_nonblocking(true).unwrap();
+    let mut probe = tokio::net::TcpStream::from_std(probe_std).expect("probe");
+    let tcp = tokio::net::TcpStream::from_std(std_stream).expect("ws stream");
+
+    let (mut ws, _) =
+        tokio_tungstenite::client_async(format!("ws://127.0.0.1:{port}/ws/bot"), tcp)
+            .await
+            .expect("ws handshake");
+    ws.send(Message::Text(
+        json!({"type": "register", "name": "silent-bot"}).to_string(),
+    ))
+    .await
+    .unwrap();
+
+    // Consume the `registered` ack (server pings may interleave).
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        match tokio::time::timeout_at(deadline, ws.next()).await {
+            Ok(Some(Ok(Message::Text(t)))) if t.contains("registered") => break,
+            Ok(Some(Ok(_))) => {}
+            other => panic!("no registration ack: {other:?}"),
+        }
+    }
+    drop(ws); // release the WS half; the dup'd probe holds the connection
+
+    // Total silence from us: no pong can reach the server, so the idle
+    // window (3s, pinged every 1s) is the only way this ends.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    let mut buf = [0u8; 512];
+    let mut closed = false;
+    while tokio::time::Instant::now() < deadline {
+        match tokio::time::timeout_at(deadline, probe.read(&mut buf)).await {
+            Err(_) => break,        // ran out of time: never closed
+            Ok(Ok(0)) => { closed = true; break; } // EOF — server hung up
+            Ok(Err(_)) => { closed = true; break; } // reset — server hung up
+            Ok(Ok(_)) => {}          // ping frames, discarded
+        }
+    }
+    assert!(closed, "server never closed the silent socket");
+}
+
+/// A bot that registers and then stops reading its socket entirely must not
+/// stall the match loop for everyone else: the healthy entrant keeps
+/// receiving observations and the match completes. Regression net for the
+/// awaited-send lane freeze (the deterministic unit test lives in lib.rs —
+/// whether the TCP buffers back up fast enough here is kernel-dependent).
+#[tokio::test(flavor = "multi_thread")]
+async fn non_reading_bot_cannot_stall_the_match() {
+    let dir = tempfile::tempdir().unwrap();
+    let replay_dir = dir.path().join("replays");
+    let port = 8939;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: replay_dir.clone(),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 1,
+        ws_idle_timeout_s: 30,
+    };
+    let mut match_cfg = MatchConfig::standard();
+    match_cfg.match_max_s = 20;
+    tokio::spawn(async move {
+        Server::start(cfg, match_cfg).await.expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+
+    // The stalled bot: a 4 KiB receive buffer so its TCP window shuts almost
+    // immediately, then it never reads or writes again.
+    let stalled = tokio::spawn({
+        async move {
+            let sock = socket2::Socket::new(
+                socket2::Domain::IPV4,
+                socket2::Type::STREAM,
+                Some(socket2::Protocol::TCP),
+            )
+            .unwrap();
+            sock.set_recv_buffer_size(4096).ok();
+            let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+            sock.connect(&addr.into()).unwrap();
+            sock.set_nonblocking(true).unwrap();
+            let tcp = tokio::net::TcpStream::from_std(sock.into()).unwrap();
+            let (mut ws, _) =
+                tokio_tungstenite::client_async(format!("ws://127.0.0.1:{port}/ws/bot"), tcp)
+                    .await
+                    .unwrap();
+            ws.send(Message::Text(
+                json!({"type": "register", "name": "stalled-bot"}).to_string(),
+            ))
+            .await
+            .unwrap();
+            // Hold the socket open without ever reading it again.
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        }
+    });
+
+    // The healthy bot must still get a full match.
+    let over = play_as_bot(&url, "healthy-bot", idle_action, Duration::from_secs(90)).await;
+    assert!(
+        over["place"].as_i64().is_some(),
+        "healthy bot finished despite the stalled reader: {over}"
+    );
+    stalled.abort();
 }

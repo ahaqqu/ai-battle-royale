@@ -2,6 +2,17 @@
 
 import { botColor, BOT_COLORS, fmtTime } from "../types.js";
 
+/** Bot names are operator-controlled wire data (the server allows spaces and
+ * dots, and older replays predate any charset rule): escape before they touch
+ * innerHTML so a crafted name cannot carry HTML into a spectator's browser. */
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export class Hud {
   topbar = document.getElementById("topbar")!;
   matchSub = document.getElementById("match-sub")!;
@@ -35,9 +46,9 @@ export class Hud {
     const row = document.createElement("div");
     row.className = "feed-row";
     if (killer === null) {
-      row.innerHTML = `<span class="zone-kill">☠ zone</span> <span class="victim" style="color:${botColor(victim)}">${names[victim]}</span>`;
+      row.innerHTML = `<span class="zone-kill">☠ zone</span> <span class="victim" style="color:${botColor(victim)}">${esc(names[victim])}</span>`;
     } else {
-      row.innerHTML = `<span style="color:${botColor(killer)}">${names[killer]}</span> ⚡ <span class="victim" style="color:${botColor(victim)}">${names[victim]}</span>`;
+      row.innerHTML = `<span style="color:${botColor(killer)}">${esc(names[killer])}</span> ⚡ <span class="victim" style="color:${botColor(victim)}">${esc(names[victim])}</span>`;
     }
     this.killfeed.appendChild(row);
     this.feedRows.push(row);
@@ -54,7 +65,7 @@ export class Hud {
     names.forEach((name, bot) => {
       const row = document.createElement("div");
       row.className = "legend-row";
-      row.innerHTML = `<span class="legend-dot" style="background:${botColor(bot)};color:${botColor(bot)}"></span><span>${name}</span><span class="legend-elim" data-bot="${bot}"></span>`;
+      row.innerHTML = `<span class="legend-dot" style="background:${botColor(bot)};color:${botColor(bot)}"></span><span>${esc(name)}</span><span class="legend-elim" data-bot="${bot}"></span>`;
       row.addEventListener("click", () => onSelect(bot));
       this.legend.appendChild(row);
     });
@@ -87,7 +98,7 @@ export class Hud {
     this.podium.innerHTML = "";
     placements.slice(0, 5).forEach((bot, rank) => {
       const li = document.createElement("li");
-      li.innerHTML = `<span class="rank">#${rank + 1}</span><span style="color:${botColor(bot)}">${names[bot]}</span>`;
+      li.innerHTML = `<span class="rank">#${rank + 1}</span><span style="color:${botColor(bot)}">${esc(names[bot])}</span>`;
       this.podium.appendChild(li);
     });
     this.winnerModal.classList.remove("hidden");

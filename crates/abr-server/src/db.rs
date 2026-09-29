@@ -63,12 +63,16 @@ impl Db {
         })
     }
 
-    /// Register or re-register a bot; returns the db id.
+    /// Register or re-register a bot; returns the db id. A name's token is
+    /// claimable only while it is empty (first come): re-registration may
+    /// never rotate an existing token, or anyone who knew a bot's name —
+    /// and nothing else — could take over its ladder identity.
     pub fn register_bot(&self, name: &str, token: &str) -> rusqlite::Result<i64> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "INSERT INTO bots(name, token) VALUES(?1, ?2)
-             ON CONFLICT(name) DO UPDATE SET token=excluded.token",
+             ON CONFLICT(name) DO UPDATE SET token=excluded.token
+             WHERE bots.token=''",
             [name, token],
         )?;
         conn.query_row("SELECT id FROM bots WHERE name=?1", [name], |r| r.get(0))
@@ -241,6 +245,30 @@ mod tests {
         // Zero-sum-ish (symmetric pairs).
         let total: i64 = out.iter().map(|(_, _, e)| *e).sum();
         assert_eq!(total, 4000);
+    }
+
+    #[test]
+    fn claimed_token_cannot_be_rotated() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(&dir.path().join("t.db")).unwrap();
+
+        // Unclaimed name: open to anyone until a token is presented.
+        db.register_bot("bot", "").unwrap();
+        assert!(db.verify_token("bot", ""));
+        assert!(db.verify_token("bot", "anything"));
+
+        // The first non-empty token claims the name…
+        db.register_bot("bot", "secret").unwrap();
+        assert!(db.verify_token("bot", "secret"));
+        assert!(!db.verify_token("bot", ""));
+        assert!(!db.verify_token("bot", "wrong"));
+
+        // …and no later re-registration can rotate it. (The old upsert did
+        // `SET token=excluded.token` unconditionally, so a fresh connection
+        // with a new token took over the name and locked out its owner.)
+        db.register_bot("bot", "evil").unwrap();
+        assert!(db.verify_token("bot", "secret"));
+        assert!(!db.verify_token("bot", "evil"));
     }
 
     #[test]

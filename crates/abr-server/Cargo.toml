@@ -18,6 +18,10 @@ serde_json = "1"
 anyhow = "1"
 tower-http = { version = "0.6", features = ["fs"] }
 clap = { version = "4", features = ["derive"] }
+# Match seeds: the one secret of a match must not be derivable from wall time.
+getrandom = "0.2"
 
 [dev-dependencies]
 tempfile = "3"
+# E2E stall test: shrink a client socket's receive buffer.
+socket2 = "0.6"
