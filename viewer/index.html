@@ -104,20 +104,13 @@
           <div class="logo small"><span class="logo-kana">がんばって！</span><b>GUN</b>BATTE<i>★</i>ROYALE</div>
           <div class="play-join">
             <h3>▶ PLAY LIVE — humans welcome</h3>
-            <p>Play as <b>Tarsius</b>, the grumpiest sharpshooter in the arena. He'd rather nap, but his chatty <b>Jalak</b> won't stop shouting GUNBATTE! Same queue as the AI bots, strict fog, equal terms.</p>
+            <p>Play as <b>Tarsius</b> — he'd rather nap, but his chatty <b>Jalak</b> won't stop shouting GUNBATTE! Same queue as the AI bots, strict fog, equal terms.</p>
             <input id="play-name" maxlength="16" placeholder="your name" />
             <div class="play-modes">
-              <div class="play-mode-col">
-                <div class="play-mode-tag">quick match — anyone, right now</div>
-                <button id="play-btn">👥 ROYALE</button>
-                <button id="boss-btn" class="danger">⚔ SLAIN THE BOSS</button>
-              </div>
-              <div class="play-mode-col">
-                <div class="play-mode-tag">private room — share a code, start together</div>
-                <button id="lobby-royale-btn">👥 LOBBY</button>
-                <button id="lobby-boss-btn" class="danger">⚔ BOSS LOBBY</button>
-              </div>
+              <button id="play-btn">👥 ROYALE</button>
+              <button id="boss-btn" class="danger">⚔ SLAIN THE BOSS</button>
             </div>
+            <button id="lobby-open" class="lobby-link">playing with friends? open a private room →</button>
           </div>
           <div class="home-keys" aria-hidden="true">
             <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span class="home-keys-sep">+</span><kbd class="home-keys-wide">SPACE</kbd><span class="home-keys-sep">·</span><kbd>Q</kbd><kbd>E</kbd><kbd>F</kbd>
@@ -148,6 +141,7 @@
             <input id="lobby-code" maxlength="8" placeholder="CODE" autocomplete="off" spellcheck="false" />
             <button id="lobby-join">JOIN</button>
           </div>
+          <button id="lobby-back" class="lobby-ghost">← back</button>
         </div>
         <div id="lobby-room" class="hidden">
           <div class="lobby-code-badge"><span id="lobby-code-label">—</span>
