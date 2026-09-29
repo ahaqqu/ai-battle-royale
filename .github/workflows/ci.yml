@@ -36,7 +36,7 @@ jobs:
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked
       - name: Build WASM sim
-        run: wasm-pack build crates/abr-wasm --target web --release --out-dir ../../viewer/src/wasm
+        run: wasm-pack build crates/gunbatte-wasm --target web --release --out-dir ../../viewer/src/wasm
       - uses: actions/setup-node@v4
         with:
           node-version: 22

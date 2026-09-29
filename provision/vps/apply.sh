@@ -36,7 +36,7 @@ fi
 : "${GUNBATTE_DEPLOY_USER:?set GUNBATTE_DEPLOY_USER (restricted deploy identity, e.g. kajianq-deploy)}"
 : "${GUNBATTE_DIR:?set GUNBATTE_DIR (app dir, e.g. /home/kajianq-deploy/gunbatte)}"
 : "${GUNBATTE_WEB_ROOT:?set GUNBATTE_WEB_ROOT (world-readable web root, e.g. /srv/gunbatte/website)}"
-: "${GUNBATTE_PORT:?set GUNBATTE_PORT (loopback port for abr-server, e.g. 8321)}"
+: "${GUNBATTE_PORT:?set GUNBATTE_PORT (loopback port for gunbatte-server, e.g. 8321)}"
 
 echo "▶ game host : $GUNBATTE_GAME_HOST"
 echo "▶ site host : $GUNBATTE_SITE_HOST"
@@ -152,13 +152,13 @@ else
 fi
 
 # --- 5. start / refresh the service ---------------------------------------------
-if [ -x "$GUNBATTE_DIR/abr-server" ]; then
+if [ -x "$GUNBATTE_DIR/gunbatte-server" ]; then
     sudo systemctl restart gunbatte.service
     sleep 1
     systemctl is-active gunbatte.service
     echo "✓ gunbatte.service is up (state dir: $GUNBATTE_DIR — ladder.db + replays/ live here)"
 else
-    echo "!! binary $GUNBATTE_DIR/abr-server not found — upload artifacts first (deploy.sh does this)"
+    echo "!! binary $GUNBATTE_DIR/gunbatte-server not found — upload artifacts first (deploy.sh does this)"
 fi
 
 if [ "$skip_certbot" = 1 ]; then

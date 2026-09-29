@@ -45,17 +45,17 @@ build step, deployable to GitHub Pages as-is. Live at
 
 ```bash
 # 1. run an 8-bot match headless and write a replay (~0.3s of engine time)
-cargo build --release -p abr-runner
-./target/release/abr-runner run --preset default8 --seed 42 --out replays/demo.json
+cargo build --release -p gunbatte-runner
+./target/release/gunbatte-runner run --preset default8 --seed 42 --out replays/demo.json
 
 # 2. verify a replay re-simulates byte-identically
-./target/release/abr-runner verify replays/demo.json
+./target/release/gunbatte-runner verify replays/demo.json
 
 # 3. build the web viewer (WASM + PixiJS)
 make viewer          # wasm-pack + vite
 
 # 4. serve viewer + ladder + replays
-./target/release/abr-server serve --port 8321
+./target/release/gunbatte-server serve --port 8321
 # → http://127.0.0.1:8321/          (viewer: watch replays, PLAY LIVE)
 # → http://127.0.0.1:8321/ladder    (standings + match history)
 ```
@@ -87,7 +87,7 @@ real but stay off the ladder.
 ### Host your own AI bot
 
 Bots are player-hosted WebSocket clients: any language works. Reference
-implementation: [`crates/abr-bot-client`](crates/abr-bot-client).
+implementation: [`crates/gunbatte-bot-client`](crates/gunbatte-bot-client).
 
 ```
 1. connect to            wss://<host>/ws/bot
@@ -130,19 +130,33 @@ raid boss (the built-in brain, or the member you name). Members get
 ## Architecture
 
 ```
-crates/abr-core        deterministic sim: Q16.16 fixed-point math, integer
-                       trig LUTs, seeded PRNG, strict-fog observe(), thin
-                       replays with per-tick digests — compiled twice
-crates/abr-wasm        the SAME core compiled to WASM: the browser
-                       re-simulates replays exactly (no fat replays)
-crates/abr-runner      CLI: run reference-bot matches, verify replays
-crates/abr-server      one binary = gateway + 10Hz match loop + queue +
-                       ELO (SQLite) + spectate bus + ladder page
-crates/abr-bot-client  reference WebSocket bot + BeliefTracker example
-viewer/                PixiJS v8 viewer: auto-director, follow-cam,
-                       player-cam (fog), mind-cam overlay, timeline with
-                       kill markers, slow-mo kill cam, synth SFX, neon art
+crates/gunbatte-core        deterministic sim: Q16.16 fixed-point math, integer
+                            trig LUTs, seeded PRNG, strict-fog observe(), thin
+                            replays with per-tick digests — compiled twice
+crates/gunbatte-wasm        the SAME core compiled to WASM: the browser
+                            re-simulates replays exactly (no fat replays)
+crates/gunbatte-runner      CLI: run reference-bot matches, verify replays
+crates/gunbatte-node        the seam both roles share: the entrant handed
+                            from matchmaking into a match, and the ladder
+                            database (SQLite) — the only cross-role state
+crates/gunbatte-lobby       matchmaker role: bot gateway + queue + private
+                            lobbies + house bots + spectate sockets + ladder
+                            page; drafts rosters, never runs matches itself
+crates/gunbatte-gameserver  game-server role: the 10Hz match loop, fog
+                            observations, reply deadlines, replay recording,
+                            results/ELO write-back — one match, one owner
+crates/gunbatte-server      one binary wiring both roles in-process, plus
+                            the end-to-end tests that pin the pipeline
+crates/gunbatte-bot-client  reference WebSocket bot + BeliefTracker example
+viewer/                     PixiJS v8 viewer: auto-director, follow-cam,
+                            player-cam (fog), mind-cam overlay, timeline with
+                            kill markers, slow-mo kill cam, synth SFX, neon art
 ```
+
+The matchmaker and the game server are separate crates with no dependency
+between them — today the `gunbatte-server` binary runs both in one process,
+and the seam (`gunbatte-node`) is what makes splitting them across processes
+later a bounded change. [AGENTS.md](AGENTS.md) has the rules.
 
 New here? [ARCHITECTURE.md](ARCHITECTURE.md) is the short, public-facing
 version: who talks to whom, and why every match is fair and hard to cheat.

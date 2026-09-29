@@ -48,7 +48,7 @@ export class Sfx {
 
   constructor() {
     try {
-      this.muted = localStorage.getItem("abr-mute") === "1";
+      this.muted = localStorage.getItem("gunbatte-mute") === "1";
     } catch { /* private mode */ }
     // Autoplay policy: browsers only allow audio after a user gesture.
     const unlock = () => {
@@ -74,7 +74,7 @@ export class Sfx {
     this.muted = !this.muted;
     if (this.master) this.master.gain.value = this.muted ? 0 : MASTER;
     if (this.muted) this.stopMenuTheme();
-    try { localStorage.setItem("abr-mute", this.muted ? "1" : "0"); } catch { /* noop */ }
+    try { localStorage.setItem("gunbatte-mute", this.muted ? "1" : "0"); } catch { /* noop */ }
     return this.muted;
   }
 

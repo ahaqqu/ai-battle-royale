@@ -5,7 +5,7 @@ is ever edited):
 
 ```
 internet ──▶ nginx :80/:443 (shared; kajianq.conf + gunbatte.conf by Host header)
-                ├── play.<domain>  ──proxy──▶ 127.0.0.1:8321  abr-server (gunbatte.service)
+                ├── play.<domain>  ──proxy──▶ 127.0.0.1:8321  gunbatte-server (gunbatte.service)
                 └── site.<domain>  ──static── $GUNBATTE_DIR/website/
 ```
 

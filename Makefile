@@ -6,14 +6,14 @@ build:
 
 # WASM sim + web viewer into viewer/dist
 viewer:
-	wasm-pack build crates/abr-wasm --target web --release --out-dir ../../viewer/src/wasm
+	wasm-pack build crates/gunbatte-wasm --target web --release --out-dir ../../viewer/src/wasm
 	cd viewer && npm install && npm run build
 
 serve: build viewer
-	./target/release/abr-runner serve --port 8321
+	./target/release/gunbatte-runner serve --port 8321
 
 demo: build
-	./target/release/abr-runner run --preset default16 --seed 42 --out replays/demo.json
+	./target/release/gunbatte-runner run --preset default16 --seed 42 --out replays/demo.json
 
 test:
 	cargo test --workspace

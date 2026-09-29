@@ -1,0 +1,28 @@
+[package]
+name = "gunbatte-server"
+description = "The GUNBATTE node binary: runs the matchmaker and the game-server roles in one process (see AGENTS.md)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+gunbatte-core = { path = "../gunbatte-core" }
+gunbatte-lobby = { path = "../gunbatte-lobby" }
+gunbatte-gameserver = { path = "../gunbatte-gameserver" }
+gunbatte-node = { path = "../gunbatte-node" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+futures-util = "0.3"
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+serde_json = "1"
+# E2E stall test: shrink a client socket's receive buffer.
+socket2 = "0.6"
+
+[[bin]]
+name = "gunbatte-server"
+path = "src/main.rs"

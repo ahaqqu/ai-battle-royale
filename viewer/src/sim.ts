@@ -2,8 +2,8 @@
  * compact frame per tick so scrubbing is O(1) afterwards. Player-cam passes
  * re-simulate and cache strict-fog observations for one bot. */
 
-import init, { ReplaySim } from "./wasm/abr_wasm.js";
-import wasmUrl from "./wasm/abr_wasm_bg.wasm?url";
+import init, { ReplaySim } from "./wasm/gunbatte_wasm.js";
+import wasmUrl from "./wasm/gunbatte_wasm_bg.wasm?url";
 import {
   CamFrame, Frame, FrameEvent, KillMarker, MapData, P, PICKUP_STRIDE,
   PlayerCam, PROJ_STRIDE, ReplayData, UNIT_STRIDE, U, UF_ALIVE, UF_DASH, UF_SHIELD, UF_SPRINT, Z,
