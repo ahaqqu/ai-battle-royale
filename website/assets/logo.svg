@@ -90,7 +90,7 @@
   <ellipse cx="256" cy="298" rx="10" ry="8" fill="#8b3fd9"/>
   <path d="M234 332 Q256 320 278 332" fill="none" stroke="#3a2c5a" stroke-width="6" stroke-linecap="round"/>
 
-  <!-- ===== jalak: the hype-bird, mid-shout on the ring ===== -->
+  <!-- ===== jalak: the scout-bird, mid-shout on the ring ===== -->
   <g transform="translate(444 300) rotate(6)">
     <!-- tail fan -->
     <g fill="#fbfdff" stroke="#3a2c5a" stroke-width="5" stroke-linejoin="round">

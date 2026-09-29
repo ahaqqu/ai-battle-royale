@@ -1,4 +1,4 @@
-/** Juicy-but-cheap particle system, Fall Guys style: pooled glow puffs plus
+/** Juicy-but-cheap particle system, candy-arcade style: pooled glow puffs plus
  * spinning confetti pieces with gravity. All feel, zero server cost (PLAN §7.3).
  * Tuned LOUD: deaths are bombastic set pieces (core flash + shockwaves +
  * confetti cannon + embers + smoke), every action pops at a glance. */

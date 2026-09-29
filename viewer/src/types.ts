@@ -85,7 +85,7 @@ export interface PlayerCam {
   frames: (CamFrame | null)[];
 }
 
-/** The 16-slot candy palette — Fall Guys-style vivid candy hues, tuned to
+/** The 16-slot candy palette — vivid arcade-candy hues, tuned to
  * read on a bright pastel floor and survive stream compression (PLAN §7.3).
  * The first 8 are the standard lineup: maximally distinct hues. */
 export const BOT_COLORS = [

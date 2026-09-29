@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GUNBATTE ROYALE — Character Assets (proposal)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #3a2c5a;
+    --ink-soft: rgba(58, 44, 90, 0.55);
+    --melon: #ff5f7e;
+    --melon-deep: #e6455f;
+    --cream: #fffdf5;
+    --face-cream: #f5e7c8;
+    --sky: #35c1f0;
+    --ear-cyan: #1fb2e8;
+    --ear-blue: #3a41d6;
+    --grape: #8b3fd9;
+    --gold: #f7d308;
+    --banana: #ffd93b;
+    --pinkpop: #ff5fd0;
+    --tang: #ff9d3b;
+    --leaf: #43d66e;
+    --cloud: #fbfdff;
+    --blaster: #8a5cff;
+    --panel: rgba(255, 255, 255, 0.94);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Baloo 2", "Trebuchet MS", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 12% 18%, rgba(255,255,255,0.55) 0 3px, transparent 4px),
+      radial-gradient(circle at 78% 34%, rgba(255,255,255,0.4) 0 2.5px, transparent 3.5px),
+      radial-gradient(ellipse at 30% 0%, #a8dcff 0%, #7ec9f5 55%, #5db2ea 100%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+    padding-bottom: 90px;
+  }
+  b { font-weight: 800; }
+
+  /* ---------- proposal banner + top bar ---------- */
+  .banner {
+    background: repeating-linear-gradient(-45deg, var(--banana) 0 18px, #ffe27a 18px 36px);
+    border-bottom: 3px solid var(--ink);
+    text-align: center;
+    font-weight: 800;
+    font-size: 13.5px;
+    letter-spacing: 0.06em;
+    padding: 7px 12px;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 22px;
+    background: rgba(255, 253, 245, 0.92);
+    backdrop-filter: blur(6px);
+    border-bottom: 3px solid var(--ink);
+  }
+  .topbar .brand { font-weight: 800; font-size: 17px; letter-spacing: 0.04em; }
+  .topbar .brand i { color: var(--melon); font-style: normal; }
+  .topbar nav { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  .chip {
+    text-decoration: none; color: var(--ink);
+    font-weight: 800; font-size: 12px; letter-spacing: 0.05em;
+    padding: 5px 12px; border-radius: 999px;
+    background: var(--cream); border: 2.5px solid var(--ink);
+    box-shadow: 0 2.5px 0 var(--ink);
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .chip:hover { transform: translateY(-2px); box-shadow: 0 4.5px 0 var(--ink); }
+
+  /* ---------- layout ---------- */
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 22px; }
+  section { margin-top: 46px; }
+  .sec-kana {
+    display: inline-block; color: var(--pinkpop); font-weight: 800;
+    font-size: 13px; letter-spacing: 0.4em; margin-bottom: 4px;
+  }
+  h2 { font-size: 34px; font-weight: 800; line-height: 1.1; }
+  .sec-sub { margin-top: 6px; font-size: 15.5px; font-weight: 600; color: var(--ink-soft); max-width: 70ch; }
+  .cards { display: grid; gap: 20px; margin-top: 22px; }
+  .cols-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .cols-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .cols-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .card {
+    background: var(--panel);
+    border: 3px solid var(--ink);
+    border-radius: 22px;
+    box-shadow: 0 6px 0 rgba(58, 44, 90, 0.22);
+    padding: 20px 20px 16px;
+    position: relative;
+  }
+  .card h3 { font-size: 19px; font-weight: 800; }
+  .card .role {
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.3em;
+    color: var(--melon); margin-bottom: 2px;
+  }
+  .card p.note { font-size: 13.5px; font-weight: 600; color: var(--ink-soft); margin-top: 8px; line-height: 1.45; }
+  .stage {
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 35% 28%, #ffffff 0%, #f2f6ff 70%, #e8eeff 100%);
+    border: 2.5px solid rgba(58, 44, 90, 0.18);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .stage.blue { background: radial-gradient(circle at 35% 28%, #bfe7ff 0%, #8fd2f7 70%, #6fc0ef 100%); }
+  .stage svg { width: 100%; height: auto; display: block; }
+  .tag {
+    position: absolute; top: -12px; left: 16px;
+    background: var(--melon); color: #fff;
+    border: 2.5px solid var(--ink); border-radius: 999px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+    padding: 3px 12px; box-shadow: 0 2.5px 0 var(--ink);
+  }
+  .tag.cyan { background: var(--ear-cyan); }
+  .tag.banana { background: var(--banana); color: var(--ink); }
+  .tag.grape { background: var(--grape); }
+  .tag.leaf { background: var(--leaf); }
+
+  /* ---------- palette ---------- */
+  .palette { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+  .swatch {
+    width: 118px; border: 3px solid var(--ink); border-radius: 14px;
+    overflow: hidden; background: var(--panel);
+    box-shadow: 0 4px 0 rgba(58, 44, 90, 0.22);
+  }
+  .swatch i { display: block; height: 52px; border-bottom: 3px solid var(--ink); }
+  .swatch span { display: block; padding: 6px 8px 7px; font-size: 11px; font-weight: 800; }
+  .swatch em { display: block; font-style: normal; font-weight: 600; color: var(--ink-soft); font-size: 10.5px; }
+
+  /* ---------- canvas demos ---------- */
+  .anim-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+  .anim-cell {
+    background: radial-gradient(circle at 35% 28%, #bfe7ff 0%, #8fd2f7 75%, #6fc0ef 100%);
+    border: 3px solid var(--ink); border-radius: 16px; overflow: hidden;
+    box-shadow: 0 5px 0 rgba(58, 44, 90, 0.22);
+  }
+  .anim-cell canvas { display: block; width: 100%; height: auto; }
+  .anim-cell figcaption {
+    background: var(--cream); border-top: 3px solid var(--ink);
+    font-size: 12px; font-weight: 800; letter-spacing: 0.08em;
+    padding: 6px 10px; text-align: center;
+  }
+  .scale-row { display: flex; gap: 26px; align-items: flex-end; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+  .scale-row figure { text-align: center; }
+  .scale-row canvas { display: block; margin: 0 auto; image-rendering: auto; }
+  .scale-row figcaption { font-size: 11.5px; font-weight: 800; color: var(--ink-soft); margin-top: 6px; }
+
+  /* ---------- menu mock ---------- */
+  .menu-mock {
+    max-width: 460px; margin: 20px auto 0;
+    background: rgba(255, 255, 255, 0.96);
+    border: 3px solid var(--ink); border-radius: 24px;
+    box-shadow: 0 8px 0 rgba(58, 44, 90, 0.25);
+    padding: 22px 24px 20px; position: relative;
+  }
+  .menu-mock .mm-title { text-align: center; font-weight: 800; letter-spacing: 0.06em; font-size: 15px; }
+  .menu-mock .mm-title i { color: var(--melon); font-style: normal; }
+  .mm-kana { text-align: center; color: var(--pinkpop); font-size: 10px; font-weight: 800; letter-spacing: 0.4em; }
+  .mm-play {
+    display: flex; align-items: center; gap: 10px; margin-top: 12px;
+    background: var(--cream); border: 2.5px dashed rgba(58,44,90,0.35);
+    border-radius: 14px; padding: 10px 14px;
+  }
+  .mm-btn {
+    display: block; text-align: center; margin-top: 14px;
+    background: linear-gradient(180deg, #ffb054, var(--tang));
+    border: 3px solid var(--ink); border-radius: 999px;
+    color: #fff; font-weight: 800; letter-spacing: 0.12em; font-size: 14px;
+    padding: 10px 0; text-shadow: 0 1.5px 0 rgba(58,44,90,0.4);
+    box-shadow: 0 4px 0 var(--ink);
+  }
+  #menuCanvas { display: block; width: 100%; height: auto; }
+
+  /* ---------- notes ---------- */
+  .notes { margin-top: 18px; display: grid; gap: 12px; }
+  .note-card {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: var(--panel); border: 3px solid var(--ink); border-radius: 16px;
+    padding: 14px 16px; box-shadow: 0 4px 0 rgba(58,44,90,0.18);
+  }
+  .note-card .dot {
+    flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+    border: 2.5px solid var(--ink); display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+  }
+  .note-card p { font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.5; }
+  .note-card p small { color: var(--ink-soft); }
+
+  footer { margin-top: 60px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+  @media (max-width: 720px) {
+    .anim-strip { grid-template-columns: 1fr; }
+    h2 { font-size: 27px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="banner">PROPOSAL SHEET — new standalone file (website/characters.html). No existing file has been modified.</div>
+
+<header class="topbar">
+  <div class="brand"><i>GUN</i>BATTE★ROYALE — character assets</div>
+  <nav>
+    <a class="chip" href="#head">Head</a>
+    <a class="chip" href="#site">Website Mascot</a>
+    <a class="chip" href="#logo">Logo</a>
+    <a class="chip" href="#sprite">In-game Sprite</a>
+    <a class="chip" href="#anim">Animation</a>
+    <a class="chip" href="#small">Menu Scale</a>
+    <a class="chip" href="#jalak">Jalak</a>
+    <a class="chip" href="#palette">Palette</a>
+    <a class="chip" href="#notes">Notes</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+  <!-- ================= HEAD ================= -->
+  <section id="head">
+    <span class="sec-kana">あたま</span>
+    <h2>The canonical head — logo construction, finished</h2>
+    <p class="sec-sub">Same construction you liked in the logo: outlined melon ball, cream mask inside,
+      concentric dish ears. Tuned with the union-outline trick from the game art, bigger
+      tarsier-true eyes, and brows that reach for the ears. These four faces are the whole
+      emotional range he needs.</p>
+    <div class="cards cols-4">
+      <div class="card">
+        <span class="tag">default · grump</span>
+        <div class="stage" data-head="grumpy"></div>
+        <p class="note"><b>Grumpy.</b> Half-lidded gold eyes, low brows, small frown. The resting face for the site and the logo.</p>
+      </div>
+      <div class="card">
+        <span class="tag cyan">asleep</span>
+        <div class="stage" data-head="asleep"></div>
+        <p class="note"><b>Asleep.</b> Eyes shut, brows smoothed out. For the menu nap loop and the "five more minutes" bubble.</p>
+      </div>
+      <div class="card">
+        <span class="tag banana">alert</span>
+        <div class="stage" data-head="awake"></div>
+        <p class="note"><b>Alert.</b> Full round tarsier eyes — the real animal's signature. Used in-game when a fight starts.</p>
+      </div>
+      <div class="card">
+        <span class="tag grape">lock-in</span>
+        <div class="stage" data-head="squint"></div>
+        <p class="note"><b>Lock-in.</b> One eye screwed shut, aim down. A marksman-only emote for kills and clutches.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= WEBSITE MASCOT ================= -->
+  <section id="site">
+    <span class="sec-kana">おおきい</span>
+    <h2>Large mascot — the website hero duo</h2>
+    <p class="sec-sub">The front-facing pair the landing page deserves. Same composition as today, with the
+      fixes from the head section: the cream face gets its ink outline (it used to float unoutlined),
+      the eyes sit <b>on</b> the cream, and the hands become real gripping paws. He is done for today;
+      she is not.</p>
+    <div class="cards cols-2">
+      <div class="card" style="grid-column: 1 / -1;">
+        <span class="tag">hero illustration</span>
+        <div class="stage blue" style="max-width: 900px; margin: 0 auto;">
+          <svg viewBox="0 0 560 430" id="heroDuo" aria-label="Tarsius napping with blaster while Jalak shouts"></svg>
+        </div>
+        <p class="note"><b>Tarsius:</b> sitting, blaster planted, eyelids at 70%. <b>Jalak:</b> mid-hover, wings out,
+          shouting the trademark. The face mask is now one outlined shape — on the sky background it finally
+          reads as a head instead of a sticker.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LOGO ================= -->
+  <section id="logo">
+    <span class="sec-kana">ロゴ</span>
+    <h2>Logo — the head at badge scale</h2>
+    <p class="sec-sub">Your liked logo head, dropped into the badge unchanged in spirit: disc, rising-sun rays,
+      ring text. The new mask outline keeps the face readable down to favicon size.</p>
+    <div class="cards cols-3">
+      <div class="card">
+        <span class="tag">badge · 512</span>
+        <div class="stage" id="logoBadge"></div>
+        <p class="note">Full badge with ring text — navbar, og:image, footer.</p>
+      </div>
+      <div class="card">
+        <span class="tag cyan">head only · 64px</span>
+        <div class="stage" style="padding: 18px;">
+          <div id="favicon" style="width:64px;height:64px;"></div>
+        </div>
+        <p class="note">Favicon / avatar crop: just ears + head. The outlined mask survives 16px.</p>
+      </div>
+      <div class="card">
+        <span class="tag banana">16px favicon</span>
+        <div class="stage" style="padding: 24px;">
+          <div id="favicon16" style="width:16px;height:16px;"></div>
+        </div>
+        <p class="note">At 16px only the silhouette matters: pink ball + dish ears + cream crescent.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= IN-GAME SPRITE ================= -->
+  <section id="sprite">
+    <span class="sec-kana">ユニット</span>
+    <h2>In-game sprite — side view, hands fixed</h2>
+    <p class="sec-sub">The unit every match actually renders, facing +X like the current art. Real-tarsier
+      additions: one huge gold eye, a long thin tail with a cream tip, and a snout that nudges past the
+      body silhouette. The hands are the rework: a gripping three-fingered paw around his blaster —
+      no more floating dot-mittens.</p>
+    <div class="cards cols-2">
+      <div class="card">
+        <span class="tag">armed · idle grip</span>
+        <div class="stage blue" id="spriteArmed"></div>
+        <p class="note">Default battle pose: blaster in a wrapped three-finger grip, tail out for balance,
+          dish ear catching the wind.</p>
+      </div>
+      <div class="card">
+        <span class="tag cyan">unarmed · stroll</span>
+        <div class="stage blue" id="spritePlain"></div>
+        <p class="note">Same body, blaster slung: free hand hangs as a relaxed mitten. For the menu stroll
+          and non-combat moments.</p>
+      </div>
+    </div>
+    <div class="cards cols-2">
+      <div class="card">
+        <span class="tag banana">hands: today vs proposal</span>
+        <div class="stage" style="padding: 8px 0;" id="handsCompare"></div>
+        <p class="note"><b>Today (left):</b> a flat ellipse with two detached claw dots — reads as a balloon at any size.
+        <b>Proposal (right):</b> palm + three finger scallops + a subtle thumb line; gripping when armed, relaxed
+        when not. Real tarsiers are famous for their fingers — this keeps a hint of that inside the chunky candy bean.</p>
+      </div>
+      <div class="card">
+        <span class="tag grape">boss tint check</span>
+        <div class="stage blue" id="spriteBoss"></div>
+        <p class="note">Slain-the-Boss raid recolor (crimson fur, scale ×2.3). The mask outline keeps the face
+          legible when he fills the arena.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ANIMATION ================= -->
+  <section id="anim">
+    <span class="sec-kana">アニメ</span>
+    <h2>Animation — the three game loops</h2>
+    <p class="sec-sub">The sprite above, live: the shuffle waddle, the idle breathe-blink, and the signature
+      flop. Rendered by the same draw calls the sheet uses, so what you approve is what the game would draw.</p>
+    <div class="anim-strip">
+      <figure class="anim-cell"><canvas id="cvWalk" width="330" height="240"></canvas><figcaption>SHUFFLE — lazy waddle</figcaption></figure>
+      <figure class="anim-cell"><canvas id="cvIdle" width="330" height="240"></canvas><figcaption>IDLE — breathe + blink</figcaption></figure>
+      <figure class="anim-cell"><canvas id="cvNap" width="330" height="240"></canvas><figcaption>FLOP — do not disturb</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- ================= MENU SCALE ================= -->
+  <section id="small">
+    <span class="sec-kana">ちいさい</span>
+    <h2>Small mascot — menu & HUD scale</h2>
+    <p class="sec-sub">The outline trick earns its keep here: at 24–64px the face must still read as cream-on-pink.
+      Below, the sprite at three game sizes, then the menu-card scenario — him asleep by the queue button,
+      her orbiting overhead.</p>
+    <div class="card">
+      <span class="tag">scale ladder</span>
+      <div class="stage blue" style="padding: 18px 10px;">
+        <div class="scale-row">
+          <figure><canvas id="sc24" width="180" height="90" style="width:150px;height:75px;"></canvas><figcaption>24 px · HUD icon</figcaption></figure>
+          <figure><canvas id="sc40" width="180" height="90" style="width:150px;height:75px;"></canvas><figcaption>40 px · in-match unit</figcaption></figure>
+          <figure><canvas id="sc64" width="180" height="90" style="width:150px;height:75px;"></canvas><figcaption>64 px · menu buddy</figcaption></figure>
+        </div>
+      </div>
+      <div class="menu-mock">
+        <p class="mm-kana">がんばって！</p>
+        <p class="mm-title"><i>GUN</i>BATTE★ROYALE</p>
+        <div class="mm-play">
+          <canvas id="menuCanvas" width="140" height="86" style="width:70px;height:43px;flex:0 0 auto;"></canvas>
+          <div>
+            <b style="color:var(--pinkpop); font-size:13.5px;">▶ PLAY LIVE — humans welcome</b>
+            <div style="font-size:11.5px; color:var(--ink-soft); font-weight:600;">Play as <b>Tarsius</b> — he'd rather nap,
+            but his chatty Jalak won't stop shouting GUNBATTE!</div>
+          </div>
+        </div>
+        <a class="mm-btn" href="#small" onclick="return false;">▬ ROYALE</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= JALAK ================= -->
+  <section id="jalak">
+    <span class="sec-kana">とり</span>
+    <h2>Jalak — the Bali myna scout</h2>
+    <p class="sec-sub">Kept true to the real bird: white body, black-tipped wings and tail, bare cobalt eye
+      patch, long spiky crest, pale horn beak, grey-blue legs — then candified: chunkier bean, thicker
+      ink, shout louder.</p>
+    <div class="cards cols-3">
+      <div class="card">
+        <span class="tag">perched · shouting</span>
+        <div class="stage" id="jalakPerch"></div>
+        <p class="note">Beak wide open, crest up, trademark loaded. Website mascot + menu intro pose.</p>
+      </div>
+      <div class="card">
+        <span class="tag cyan">in flight</span>
+        <div class="stage" id="jalakFly"></div>
+        <p class="note">Tour-guide glide between menu controls, tail fan spread, black wing tips reading at small size.</p>
+      </div>
+      <div class="card">
+        <span class="tag banana">sprite · 40px</span>
+        <div class="stage blue" style="padding: 16px;" id="jalakSmall"></div>
+        <p class="note">The recall-companion at HUD scale: white bean + black tips + cobalt cheek is the whole read.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PALETTE ================= -->
+  <section id="palette">
+    <span class="sec-kana">いろ</span>
+    <h2>Palette — arcade candy, house ink</h2>
+    <p class="sec-sub">Unchanged from the current brand (it was already candy-bright at heart): one dark indigo
+      ink for every outline, five candy fills per character max, cream reserved for faces and pages.</p>
+    <div class="palette" id="paletteRow"></div>
+  </section>
+
+  <!-- ================= NOTES ================= -->
+  <section id="notes">
+    <span class="sec-kana">めも</span>
+    <h2>What changed, and why</h2>
+    <div class="notes">
+      <div class="note-card"><div class="dot" style="background:var(--melon);">1</div>
+        <p><b>One head everywhere.</b> The logo construction you liked is now the single source: outlined melon ball →
+        cream mask inside → dish ears. The website hero abandons its floating unoutlined face and adopts it.
+        <small>Fixes: duo-card vs hero inconsistency; hero face had no ink outline.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--ear-cyan);">2</div>
+        <p><b>The mask gets the game's union outline.</b> Stroke-everything-then-fill-everything — the exact trick
+        <b>units.ts</b> already uses — so the cream reads as one shape with a chunky ink edge, at any scale.
+        <small>This is why the face survives the 16px favicon and the 24px HUD icon.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--gold);">3</div>
+        <p><b>Bigger, tarsier-true eyes.</b> Eye ratio raised toward the real animal's (tarsiers are basically all eye).
+        Still half-lidded by default because he is <i>so</i> tired — the alert face unlocks the full circles.
+        <small>Persona intact: grumpy first, awake only when the fight starts.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--grape);">4</div>
+        <p><b>Hands reworked.</b> Flat dot-mittens → a palm with three finger scallops and a thumb line, wrapped
+        around the blaster when armed, relaxed when not. <small>Your note: "head in game is okay but the hand
+        seems weird" — this is that fix, propagated to every scenario.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--leaf);">5</div>
+        <p><b>A tail, finally.</b> Real tarsiers carry a long thin tail; the sprite gets an ink-line tail with a
+        cream tuft that waves in the walk loop and droops in the flop. <small>Front-facing poses hide it —
+        no impact on the hero or logo.</small></p></div>
+      <div class="note-card"><div class="dot" style="background:var(--pinkpop);">6</div>
+        <p><b>Nothing existing is touched.</b> This file is standalone; index.html, logo.svg and units.ts are
+        byte-identical. If you approve, the same geometry back-ports into those three places.
+        <small>Jalak stays on-model with the real Bali myna: cobalt eye patch, black tips, spiky crest.</small></p></div>
+    </div>
+  </section>
+
+  <footer>GUNBATTE ROYALE — character asset proposal · tarsius the marksman &amp; jalak the scout · がんばって！</footer>
+</div>
+
+<script>
+/* ============================================================
+   Palette + shared constants (mirrors the CSS custom props)
+   ============================================================ */
+const C = {
+  ink: "#3a2c5a", melon: "#ff5f7e", melonDeep: "#e6455f",
+  cream: "#fffdf5", face: "#f5e7c8",
+  cyan: "#1fb2e8", blue: "#3a41d6", grape: "#8b3fd9",
+  gold: "#f7d308", banana: "#ffd93b", pinkpop: "#ff5fd0",
+  tang: "#ff9d3b", cloud: "#fbfdff", blaster: "#8a5cff",
+  beak: "#e8d9a8", leg: "#8d93b5", boss: "#c22a4a",
+};
+
+/* ============================================================
+   HEAD FACTORY — canonical head, viewBox 0 0 200 200
+   Construction: dish ears (behind) → melon ball → cream mask
+   (union outline: stroke all, then fill all) → fur wedge →
+   face per mood. Same layering the game renderer uses.
+   ============================================================ */
+function headSVG(mood, opts = {}) {
+  const fur = opts.fur || C.melon;
+  const ear = (cx) => `
+    <g stroke="${C.ink}">
+      <circle cx="${cx}" cy="54" r="32" fill="${C.cyan}" stroke-width="7"/>
+      <circle cx="${cx}" cy="54" r="19.5" fill="${C.blue}" stroke-width="5"/>
+      <circle cx="${cx}" cy="54" r="9" fill="${C.grape}" stroke-width="4"/>
+    </g>`;
+  const maskShapes = `
+    <ellipse cx="100" cy="124" rx="52" ry="36"/>
+    <ellipse cx="72"  cy="100" rx="27" ry="30"/>
+    <ellipse cx="128" cy="100" rx="27" ry="30"/>`;
+  const mask = `
+    <g fill="none" stroke="${C.ink}" stroke-width="8">${maskShapes}</g>
+    <g fill="${C.face}">${maskShapes}</g>`;
+  const wedge = `<polygon points="94,74 106,74 100,92" fill="${fur}"/>`;
+  const nose = `<ellipse cx="100" cy="130" rx="7.5" ry="6" fill="${C.grape}" stroke="${C.ink}" stroke-width="3"/>`;
+  const frown = (y = 152, dip = 10) =>
+    `<path d="M ${100 - 16} ${y} Q 100 ${y - dip} ${100 + 16} ${y}" fill="none" stroke="${C.ink}" stroke-width="5.5" stroke-linecap="round"/>`;
+  const brow = (x1, y1, x2, y2) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${C.ink}" stroke-width="6.5" stroke-linecap="round"/>`;
+  const eyeOpen = (cx) => `
+    <circle cx="${cx}" cy="102" r="22" fill="${C.gold}" stroke="${C.ink}" stroke-width="5.5"/>
+    <circle cx="${cx - 9}" cy="110" r="6" fill="#ffffff"/>
+    <circle cx="${cx + 8}" cy="94" r="3" fill="#ffffff" opacity="0.9"/>`;
+  const lid = (cx, chord = 96) => `
+    <path d="M ${cx - 22} ${chord} A 22 22 0 0 1 ${cx + 22} ${chord} Z"
+          fill="${fur}" stroke="${C.ink}" stroke-width="4.5"/>`;
+  let face = "";
+  if (mood === "grumpy") {
+    face = eyeOpen(72) + eyeOpen(128) + lid(72) + lid(128)
+      + brow(48, 74, 86, 84) + brow(152, 74, 114, 84) + nose + frown();
+  } else if (mood === "asleep") {
+    face = `
+      <path d="M 52 104 Q 72 116 92 104" fill="none" stroke="${C.ink}" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M 108 104 Q 128 116 148 104" fill="none" stroke="${C.ink}" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M 56 88 Q 72 96 88 90" fill="none" stroke="${C.ink}" stroke-width="5" stroke-linecap="round" opacity="0.75"/>
+      <path d="M 144 88 Q 128 96 112 90" fill="none" stroke="${C.ink}" stroke-width="5" stroke-linecap="round" opacity="0.75"/>`
+      + nose + frown(148, 6) + `
+      <text x="158" y="38" font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800"
+            font-size="24" fill="${C.grape}" stroke="${C.ink}" stroke-width="1" transform="rotate(14 158 38)">z</text>
+      <text x="178" y="20" font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800"
+            font-size="17" fill="${C.grape}" stroke="${C.ink}" stroke-width="0.8" transform="rotate(22 178 20)">z</text>`;
+  } else if (mood === "awake") {
+    face = eyeOpen(72) + eyeOpen(128)
+      + brow(50, 64, 86, 70) + brow(150, 64, 114, 70) + nose
+      + `<path d="M 92 150 L 108 150" fill="none" stroke="${C.ink}" stroke-width="5" stroke-linecap="round"/>`;
+  } else if (mood === "squint") {
+    face = eyeOpen(72) + lid(72, 98)
+      + `<ellipse cx="128" cy="104" rx="19" ry="8.5" fill="${C.gold}" stroke="${C.ink}" stroke-width="4.5"/>`
+      + brow(48, 74, 86, 84) + brow(152, 88, 114, 96) + nose
+      + frown(154, 7);
+  }
+  return `<svg viewBox="0 0 200 200" role="img" aria-label="Tarsius head, ${mood}">
+    ${ear(52)}${ear(148)}
+    <circle cx="100" cy="112" r="70" fill="${fur}" stroke="${C.ink}" stroke-width="9"/>
+    ${mask}${wedge}${face}
+  </svg>`;
+}
+document.querySelectorAll("[data-head]").forEach((el) => {
+  el.innerHTML = headSVG(el.dataset.head);
+});
+document.getElementById("favicon").innerHTML = headSVG("grumpy");
+document.getElementById("favicon16").innerHTML = headSVG("grumpy");
+
+/* ============================================================
+   HERO DUO — large website mascot (front view + jalak)
+   ============================================================ */
+(function () {
+  const el = document.getElementById("heroDuo");
+  const M = C.melon, I = C.ink, F = C.face;
+  el.innerHTML = `
+  <svg viewBox="0 0 560 430">
+    <ellipse cx="212" cy="396" rx="152" ry="19" fill="${I}" opacity="0.10"/>
+    <!-- jalak -->
+    <g transform="translate(438 118) rotate(-6)">
+      <g stroke="${I}" stroke-width="4.5" stroke-linejoin="round">
+        <path d="M 26 26 Q 58 40 66 74 Q 36 66 20 44 Z" fill="${C.cloud}"/>
+        <path d="M 56 62 Q 63 72 66 74 Q 52 70 46 62 Z" fill="#25293f"/>
+        <path d="M -8 -14 Q -46 -58 -90 -58 Q -60 -26 -20 -4 Z" fill="${C.cloud}"/>
+        <path d="M -68 -50 Q -50 -36 -34 -18 L -48 -12 Q -62 -34 -68 -50 Z" fill="#25293f"/>
+        <path d="M 10 -16 Q 46 -60 88 -64 Q 62 -30 22 -6 Z" fill="${C.cloud}"/>
+        <path d="M 66 -54 Q 50 -32 36 -14 L 50 -8 Q 62 -34 66 -54 Z" fill="#25293f"/>
+        <path d="M 12 24 Q 40 40 46 70 Q 24 60 8 40 Z" fill="${C.cloud}"/>
+        <ellipse cx="0" cy="8" rx="30" ry="23" fill="${C.cloud}"/>
+        <path d="M -10 -34 Q -20 -56 -2 -62 Q 0 -48 4 -38 Z" fill="${C.cloud}"/>
+        <path d="M -4 -36 Q 2 -60 20 -58 Q 12 -44 8 -34 Z" fill="${C.cloud}"/>
+        <path d="M 2 -38 Q 16 -54 28 -46 Q 16 -36 12 -30 Z" fill="${C.cloud}"/>
+        <circle cx="-12" cy="-24" r="19" fill="${C.cloud}"/>
+      </g>
+      <ellipse cx="-19" cy="-27" rx="10.5" ry="8" fill="#1e7ff0"/>
+      <circle cx="-19" cy="-27" r="5.2" fill="#ffffff"/>
+      <circle cx="-20" cy="-27" r="2.6" fill="${I}"/>
+      <g fill="${C.beak}" stroke="${I}" stroke-width="3.5" stroke-linejoin="round">
+        <path d="M -30 -30 L -58 -27 L -30 -22 Z"/>
+        <path d="M -30 -20 L -52 -10 L -28 -13 Z"/>
+      </g>
+    </g>
+    <g transform="translate(452 150) rotate(-8)">
+      <path d="M -60 -44 Q -34 -40 -22 -26" fill="none" stroke="${C.pinkpop}" stroke-width="3" stroke-dasharray="1 7" stroke-linecap="round"/>
+    </g>
+    <!-- tarsius -->
+    <g>
+      <g stroke="${I}">
+        <circle cx="104" cy="118" r="48" fill="${C.cyan}" stroke-width="9"/>
+        <circle cx="104" cy="118" r="29.5" fill="${C.blue}" stroke-width="7"/>
+        <circle cx="104" cy="118" r="13.5" fill="${C.grape}" stroke-width="5"/>
+        <circle cx="300" cy="112" r="48" fill="${C.cyan}" stroke-width="9"/>
+        <circle cx="300" cy="112" r="29.5" fill="${C.blue}" stroke-width="7"/>
+        <circle cx="300" cy="112" r="13.5" fill="${C.grape}" stroke-width="5"/>
+      </g>
+      <ellipse cx="202" cy="280" rx="103" ry="92" fill="${M}" stroke="${I}" stroke-width="9"/>
+      <g stroke="${I}" stroke-width="6">
+        <circle cx="150" cy="354" r="20" fill="${C.cyan}"/>
+        <circle cx="254" cy="356" r="20" fill="${C.cyan}"/>
+      </g>
+      <g fill="${C.grape}">
+        <circle cx="141" cy="362" r="2.6"/><circle cx="150" cy="365" r="2.6"/><circle cx="159" cy="362" r="2.6"/>
+        <circle cx="245" cy="364" r="2.6"/><circle cx="254" cy="367" r="2.6"/><circle cx="263" cy="364" r="2.6"/>
+      </g>
+      <!-- face mask: one outlined union -->
+      <g fill="none" stroke="${I}" stroke-width="8">
+        <ellipse cx="202" cy="208" rx="76" ry="50"/>
+        <ellipse cx="162" cy="178" rx="34" ry="37"/>
+        <ellipse cx="242" cy="178" rx="34" ry="37"/>
+      </g>
+      <g fill="${F}">
+        <ellipse cx="202" cy="208" rx="76" ry="50"/>
+        <ellipse cx="162" cy="178" rx="34" ry="37"/>
+        <ellipse cx="242" cy="178" rx="34" ry="37"/>
+      </g>
+      <polygon points="194,150 210,150 202,172" fill="${M}"/>
+      <g stroke="${I}">
+        <circle cx="162" cy="180" r="27" fill="${C.gold}" stroke-width="6"/>
+        <circle cx="242" cy="180" r="27" fill="${C.gold}" stroke-width="6"/>
+        <path d="M 135 172 A 27 27 0 0 1 189 172 Z" fill="${M}" stroke-width="5"/>
+        <path d="M 215 172 A 27 27 0 0 1 269 172 Z" fill="${M}" stroke-width="5"/>
+      </g>
+      <circle cx="151" cy="192" r="8" fill="#ffffff"/>
+      <circle cx="231" cy="192" r="8" fill="#ffffff"/>
+      <circle cx="170" cy="171" r="4" fill="#ffffff" opacity="0.9"/>
+      <circle cx="250" cy="171" r="4" fill="#ffffff" opacity="0.9"/>
+      <g stroke="${I}" stroke-width="8" stroke-linecap="round">
+        <line x1="136" y1="142" x2="180" y2="152"/>
+        <line x1="268" y1="142" x2="224" y2="152"/>
+      </g>
+      <ellipse cx="202" cy="214" rx="8.5" ry="6.5" fill="${C.grape}" stroke="${I}" stroke-width="3"/>
+      <path d="M 184 240 Q 202 230 220 240" fill="none" stroke="${I}" stroke-width="6" stroke-linecap="round"/>
+      <!-- left arm: shoulder → relaxed mitten with finger scallops -->
+      <ellipse cx="160" cy="300" rx="20" ry="12" fill="${M}" transform="rotate(12 160 300)"/>
+      <ellipse cx="138" cy="306" rx="14" ry="11.5" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
+      <g fill="${C.cyan}" stroke="${I}" stroke-width="3.5">
+        <circle cx="129" cy="314" r="5"/><circle cx="138" cy="317" r="5.5"/><circle cx="147" cy="314" r="5"/>
+      </g>
+      <!-- right arm: shoulder → gripping the planted blaster -->
+      <g transform="rotate(14 300 282)">
+        <rect x="262" y="266" width="76" height="32" rx="14" fill="${C.blaster}" stroke="${I}" stroke-width="6"/>
+        <rect x="272" y="296" width="26" height="30" rx="10" fill="${C.banana}" stroke="${I}" stroke-width="6"/>
+        <circle cx="342" cy="282" r="12" fill="${C.pinkpop}" stroke="${I}" stroke-width="6"/>
+      </g>
+      <ellipse cx="248" cy="296" rx="22" ry="12" fill="${M}" transform="rotate(-14 248 296)"/>
+      <ellipse cx="272" cy="290" rx="13" ry="11" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
+      <g fill="${C.cyan}" stroke="${I}" stroke-width="3.5">
+        <ellipse cx="284" cy="276" rx="5" ry="6.5"/>
+        <ellipse cx="293" cy="281" rx="5" ry="6.5"/>
+        <ellipse cx="301" cy="288" rx="5" ry="6.5"/>
+      </g>
+    </g>
+  </svg>`;
+})();
+
+/* ============================================================
+   LOGO BADGE — head at badge scale
+   ============================================================ */
+(function () {
+  const head = headSVG("grumpy").replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
+  const badge = `
+    <svg viewBox="0 0 512 512" role="img" aria-label="GUNBATTE ROYALE badge proposal">
+      <defs>
+        <path id="rayP" d="M256 250 L237 108 A150 150 0 0 1 275 108 Z" fill="${C.melon}"/>
+        <path id="arcT" d="M 66,256 A 190,190 0 0 1 446,256"/>
+        <path id="arcB" d="M 51,256 A 205,205 0 0 0 461,256"/>
+      </defs>
+      <circle cx="256" cy="256" r="250" fill="${C.cream}" stroke="${C.ink}" stroke-width="16"/>
+      <circle cx="256" cy="256" r="228" fill="none" stroke="${C.melon}" stroke-width="4" opacity="0.35"/>
+      <g opacity="0.13">
+        <use href="#rayP"/><use href="#rayP" transform="rotate(45 256 256)"/>
+        <use href="#rayP" transform="rotate(90 256 256)"/><use href="#rayP" transform="rotate(135 256 256)"/>
+        <use href="#rayP" transform="rotate(180 256 256)"/><use href="#rayP" transform="rotate(225 256 256)"/>
+        <use href="#rayP" transform="rotate(270 256 256)"/><use href="#rayP" transform="rotate(315 256 256)"/>
+      </g>
+      <circle cx="256" cy="256" r="152" fill="none" stroke="${C.ink}" stroke-width="3" opacity="0.4"/>
+      <g stroke="${C.ink}" stroke-width="7" stroke-linecap="round" opacity="0.7">
+        <line x1="256" y1="92" x2="256" y2="116"/><line x1="256" y1="396" x2="256" y2="420"/>
+        <line x1="92" y1="256" x2="116" y2="256"/><line x1="396" y1="256" x2="420" y2="256"/>
+      </g>
+      <text font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800" font-size="34" letter-spacing="6" fill="${C.ink}">
+        <textPath href="#arcT" startOffset="50%" text-anchor="middle">GUNBATTE ★ ROYALE</textPath>
+      </text>
+      <text font-family="'Baloo 2','Hiragino Maru Gothic ProN','Noto Sans JP',sans-serif" font-weight="800" font-size="30" letter-spacing="10" fill="${C.pinkpop}">
+        <textPath href="#arcB" startOffset="50%" text-anchor="middle">がんばって！！</textPath>
+      </text>
+      <g transform="translate(106 296) scale(0.5)">
+        <path d="M0 -34l10 21 23 3-17 16 4 23-20-11-20 11 4-23-17-16 23-3z" fill="${C.banana}" stroke="${C.ink}" stroke-width="7" stroke-linejoin="round"/>
+      </g>
+      <g transform="translate(398 300) scale(0.4) rotate(18)">
+        <path d="M0 -34l10 21 23 3-17 16 4 23-20-11-20 11 4-23-17-16 23-3z" fill="${C.banana}" stroke="${C.ink}" stroke-width="7" stroke-linejoin="round"/>
+      </g>
+      <g transform="translate(121 111) scale(1.35)">${head}</g>
+    </svg>`;
+  document.getElementById("logoBadge").innerHTML = badge;
+})();
+
+/* ============================================================
+   SIDE-VIEW SPRITE (SVG, static poses) — shared geometry
+   ============================================================ */
+function sideSpriteSVG(opts = {}) {
+  const fur = opts.fur || C.melon;
+  const armed = opts.armed !== false;
+  const boss = opts.fur === C.boss;
+  const I = C.ink;
+  const maskShapes = `
+      <ellipse cx="134" cy="94" rx="27" ry="24"/>
+      <ellipse cx="130" cy="72" rx="21" ry="20"/>`;
+  const blaster = `
+      <g>
+        <rect x="148" y="118" width="38" height="19" rx="8" fill="${C.blaster}" stroke="${I}" stroke-width="4.5"/>
+        <rect x="154" y="134" width="15" height="16" rx="6" fill="${C.banana}" stroke="${I}" stroke-width="4.5"/>
+        <circle cx="190" cy="127" r="6.5" fill="${C.pinkpop}" stroke="${I}" stroke-width="4.5"/>
+      </g>`;
+  const handArmed = `
+      <ellipse cx="150" cy="129" rx="10.5" ry="9" fill="${C.cyan}" stroke="${I}" stroke-width="4.5"/>
+      <g fill="${C.cyan}" stroke="${I}" stroke-width="3">
+        <ellipse cx="159" cy="119" rx="4.2" ry="5.8" transform="rotate(-12 159 119)"/>
+        <ellipse cx="166" cy="121" rx="4.2" ry="5.8" transform="rotate(-2 166 121)"/>
+        <ellipse cx="172" cy="125" rx="4.2" ry="5.8" transform="rotate(10 172 125)"/>
+      </g>`;
+  const handRelaxed = `
+      <ellipse cx="150" cy="131" rx="10" ry="9" fill="${C.cyan}" stroke="${I}" stroke-width="4.5"/>
+      <g fill="${C.cyan}" stroke="${I}" stroke-width="3">
+        <circle cx="145" cy="138" r="3.6"/><circle cx="152" cy="140" r="3.8"/><circle cx="159" cy="137" r="3.6"/>
+      </g>`;
+  const arm = armed
+    ? `<ellipse cx="122" cy="124" rx="12" ry="7.5" fill="${fur}" stroke="${I}" stroke-width="4.5" transform="rotate(18 122 124)"/>${blaster}${handArmed}`
+    : `<ellipse cx="124" cy="126" rx="12" ry="7.5" fill="${fur}" stroke="${I}" stroke-width="4.5" transform="rotate(24 124 126)"/>${handRelaxed}`;
+  return `
+  <svg viewBox="0 0 230 170" role="img" aria-label="Tarsius side view sprite">
+    <ellipse cx="118" cy="153" rx="80" ry="9" fill="${I}" opacity="0.10"/>
+    <path d="M 56 112 C 24 124 12 96 30 72" fill="none" stroke="${I}" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="30" cy="72" r="7.5" fill="${C.face}" stroke="${I}" stroke-width="3.5"/>
+    <g transform="rotate(-26 92 40)">
+      <ellipse cx="92" cy="40" rx="9" ry="14" fill="${C.blue}" stroke="${I}" stroke-width="4"/>
+    </g>
+    <ellipse cx="98" cy="138" rx="14" ry="10" fill="${C.cyan}" stroke="${I}" stroke-width="4.5" opacity="0.85"/>
+    <ellipse cx="104" cy="92" rx="56" ry="50" fill="${fur}" stroke="${I}" stroke-width="7"/>
+    <ellipse cx="136" cy="143" rx="16" ry="11" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
+    <g fill="${C.grape}">
+      <circle cx="129" cy="147" r="2.3"/><circle cx="136" cy="149" r="2.3"/><circle cx="143" cy="147" r="2.3"/>
+      <circle cx="91" cy="143" r="2.1"/><circle cx="98" cy="145" r="2.1"/><circle cx="105" cy="143" r="2.1"/>
+    </g>
+    <g fill="none" stroke="${I}" stroke-width="6.5">${maskShapes}</g>
+    <g fill="${C.face}">${maskShapes}</g>
+    <polygon points="107,58 119,56 111,73" fill="${fur}"/>
+    <circle cx="128" cy="77" r="13" fill="${C.gold}" stroke="${I}" stroke-width="4.5"/>
+    <circle cx="123" cy="71" r="4.5" fill="#ffffff"/>
+    <circle cx="134" cy="83" r="2" fill="#ffffff" opacity="0.9"/>
+    <ellipse cx="162" cy="88" rx="5" ry="4" fill="${C.grape}" stroke="${I}" stroke-width="2.5"/>
+    <path d="M 150 105 Q 158 110 166 102" fill="none" stroke="${I}" stroke-width="3" stroke-linecap="round"/>
+    ${arm}
+    <g transform="rotate(-22 84 46)">
+      <ellipse cx="84" cy="46" rx="16" ry="25" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
+      <ellipse cx="83" cy="46" rx="9.5" ry="15.5" fill="${C.blue}"/>
+      <ellipse cx="82" cy="47" rx="5.5" ry="9" fill="${C.grape}"/>
+    </g>
+  </svg>`;
+}
+document.getElementById("spriteArmed").innerHTML = sideSpriteSVG({ armed: true });
+document.getElementById("spritePlain").innerHTML = sideSpriteSVG({ armed: false });
+document.getElementById("spriteBoss").innerHTML = sideSpriteSVG({ armed: true, fur: C.boss });
+
+/* ---------- hands: today vs proposal ---------- */
+(function () {
+  const I = C.ink;
+  document.getElementById("handsCompare").innerHTML = `
+  <svg viewBox="0 0 440 150">
+    <line x1="220" y1="14" x2="220" y2="136" stroke="${I}" stroke-width="2.5" stroke-dasharray="3 8" opacity="0.35"/>
+    <!-- today: units.ts paw -->
+    <g transform="translate(110 62)">
+      <path d="M -34 44 Q 0 58 34 44" fill="none" stroke="${I}" stroke-width="5" opacity="0.35"/>
+      <ellipse cx="0" cy="12" rx="42" ry="30" fill="${C.melon}" stroke="${I}" stroke-width="5" opacity="0.3"/>
+      <g transform="translate(0 -6)">
+        <ellipse cx="0" cy="14" rx="34" ry="24" fill="${C.cyan}" stroke="${I}" stroke-width="5" opacity="0.9"/>
+        <circle cx="-12" cy="-9" r="7" fill="${C.grape}"/>
+        <circle cx="14" cy="-7" r="7" fill="${C.grape}"/>
+      </g>
+      <text x="0" y="76" text-anchor="middle" font-family="'Baloo 2',sans-serif" font-weight="800" font-size="13.5" fill="${I}" opacity="0.75">today — ellipse + 2 dots</text>
+    </g>
+    <!-- proposal: palm + 3 fingers + thumb -->
+    <g transform="translate(330 62)">
+      <path d="M -34 44 Q 0 58 34 44" fill="none" stroke="${I}" stroke-width="5" opacity="0.35"/>
+      <ellipse cx="0" cy="12" rx="42" ry="30" fill="${C.melon}" stroke="${I}" stroke-width="5" opacity="0.3"/>
+      <g transform="translate(0 -6)">
+        <ellipse cx="0" cy="14" rx="34" ry="24" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
+        <ellipse cx="-16" cy="-8" rx="9" ry="12" fill="${C.cyan}" stroke="${I}" stroke-width="3.5"/>
+        <ellipse cx="1" cy="-12" rx="9.5" ry="13" fill="${C.cyan}" stroke="${I}" stroke-width="3.5"/>
+        <ellipse cx="18" cy="-8" rx="9" ry="12" fill="${C.cyan}" stroke="${I}" stroke-width="3.5"/>
+        <path d="M -30 6 Q -38 2 -36 -6" fill="none" stroke="${I}" stroke-width="3.5" stroke-linecap="round"/>
+      </g>
+      <text x="0" y="76" text-anchor="middle" font-family="'Baloo 2',sans-serif" font-weight="800" font-size="13.5" fill="${I}">proposal — palm + 3 fingers + thumb</text>
+    </g>
+  </svg>`;
+})();
+
+/* ============================================================
+   CANVAS SPRITE — the animated game art
+   ============================================================ */
+function makeTarsiusPainter() {
+  const I = C.ink;
+  // face geometry is body-relative (body center = 0,0), matching the SVG
+  const MASK = [[30, 2, 27, 24], [26, -20, 21, 20]];
+  function maskEllipses(ctx) {
+    MASK.forEach(([x, y, rx, ry]) => {
+      ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+    });
+  }
+  /**
+   * o: {x, y, scale, flip, t, mode, armed, fur}
+   * mode: walk | idle | nap
+   */
+  return function draw(ctx, o) {
+    const { x, y, scale = 1, flip = 1, t = 0, mode = "walk", armed = true, fur = C.melon } = o;
+    const ph = t * 7.2;
+    const grip = armed && mode !== "nap";
+    const planted = armed && mode === "nap";
+    let bob = 0, squash = 1, breathe = 0;
+    let footN = { dx: 0, lift: 0 }, footF = { dx: 0, lift: 0 };
+    let earTilt = Math.sin(t * 1.4) * 0.04, tailSway = Math.sin(t * 1.7) * 6;
+    let blink = (t % 3.1) < 0.14 ? 0.1 : 1;
+    let eyeShut = false;
+
+    if (mode === "walk") {
+      bob = Math.abs(Math.cos(ph)) * 3;
+      footN = { dx: Math.sin(ph) * 13, lift: Math.max(0, Math.sin(ph)) * 7 };
+      footF = { dx: -Math.sin(ph) * 11, lift: Math.max(0, -Math.sin(ph)) * 5 };
+      earTilt = Math.sin(ph) * 0.07;
+      tailSway = Math.sin(ph * 0.9 + 0.8) * 9;
+    } else if (mode === "nap") {
+      squash = 0.8; bob = -2 + Math.sin(t * 1.3) * 1.2;
+      eyeShut = true;
+      tailSway = Math.sin(t * 0.9) * 2;
+      earTilt = 0.5 + Math.sin(t * 1.9) * 0.05;
+    } else { // idle
+      breathe = Math.sin(t * 2) * 0.015;
+      tailSway = Math.sin(t * 1.4) * 4;
+      earTilt = Math.sin(t * 1.1) * 0.045 + ((t % 4.2) < 0.16 ? 0.12 : 0);
+    }
+
+    ctx.save();
+    ctx.translate(x, y - bob * scale);
+    ctx.scale(flip * scale, scale * (squash + breathe));
+
+    // ground shadow
+    ctx.beginPath(); ctx.ellipse(14, 56, 62, 8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(58,44,90,0.14)"; ctx.fill();
+
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+
+    // tail
+    ctx.strokeStyle = I; ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(-46, 16);
+    ctx.quadraticCurveTo(-80, 26 + tailSway * 0.4, -72, -22 + tailSway);
+    ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-72, -24 + tailSway, 7, 7.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = C.face; ctx.fill(); ctx.lineWidth = 3.5; ctx.stroke();
+
+    // far ear (behind body)
+    ctx.save(); ctx.translate(-12, -50); ctx.rotate(-0.5 + earTilt * 0.5);
+    ctx.beginPath(); ctx.ellipse(0, 0, 9, 14, 0, 0, Math.PI * 2);
+    ctx.fillStyle = C.blue; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = I; ctx.stroke();
+    ctx.restore();
+
+    // far foot
+    ctx.beginPath();
+    ctx.ellipse(2 + footF.dx, 48 - footF.lift, 14, 10, 0, 0, Math.PI * 2);
+    ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I;
+    ctx.globalAlpha = 0.85; ctx.stroke(); ctx.fill(); ctx.globalAlpha = 1;
+
+    // body
+    ctx.beginPath(); ctx.ellipse(0, 0, 56, 50, 0, 0, Math.PI * 2);
+    ctx.fillStyle = fur; ctx.fill(); ctx.lineWidth = 7; ctx.strokeStyle = I; ctx.stroke();
+
+    // near foot
+    ctx.beginPath();
+    ctx.ellipse(30 + footN.dx, 51 - footN.lift, 16, 11, 0, 0, Math.PI * 2);
+    ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 5; ctx.stroke();
+    ctx.fillStyle = C.grape;
+    for (const [tx, ty] of [[23, 55], [30, 57], [37, 55]]) {
+      ctx.beginPath(); ctx.arc(tx + footN.dx, ty - footN.lift, 2.3, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // face mask (union outline: stroke all → fill all)
+    ctx.lineWidth = 6.5; ctx.strokeStyle = I;
+    maskEllipses(ctx);
+    ctx.fillStyle = C.face;
+    MASK.forEach(([mx, my, rx, ry]) => {
+      ctx.beginPath(); ctx.ellipse(mx, my, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // fur wedge
+    ctx.beginPath(); ctx.moveTo(3, -34); ctx.lineTo(15, -36); ctx.lineTo(7, -19);
+    ctx.closePath(); ctx.fillStyle = fur; ctx.fill();
+
+    // eye
+    if (eyeShut) {
+      ctx.strokeStyle = I; ctx.lineWidth = 4.5;
+      ctx.beginPath(); ctx.moveTo(12, -14); ctx.quadraticCurveTo(24, -6, 36, -14); ctx.stroke();
+    } else {
+      ctx.save(); ctx.translate(24, -15); ctx.scale(1, blink);
+      ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2);
+      ctx.fillStyle = C.gold; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I; ctx.stroke();
+      ctx.beginPath(); ctx.arc(-5, -5.5, 4.5, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+      ctx.beginPath(); ctx.arc(6, 6, 2, 0, Math.PI * 2); ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
+      ctx.restore();
+    }
+
+    // nose + mouth
+    ctx.beginPath(); ctx.ellipse(58, -4, 5, 4, 0, 0, Math.PI * 2);
+    ctx.fillStyle = C.grape; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = I; ctx.stroke();
+    ctx.lineWidth = 3;
+    if (mode === "nap") {
+      ctx.beginPath(); ctx.moveTo(46, 12); ctx.quadraticCurveTo(54, 8, 61, 13); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.moveTo(46, 13); ctx.quadraticCurveTo(54, 18, 62, 10); ctx.stroke();
+    }
+
+    // arm + blaster
+    if (planted) {
+      // blaster planted point-down beside him
+      ctx.save(); ctx.translate(80, -62); ctx.rotate(0.1);
+      ctx.beginPath(); ctx.roundRect(-9, 0, 18, 52, 8);
+      ctx.fillStyle = C.blaster; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I; ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(-7, 14, 14, 16, 5);
+      ctx.fillStyle = C.banana; ctx.fill(); ctx.lineWidth = 4; ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 56, 7, 0, Math.PI * 2);
+      ctx.fillStyle = C.pinkpop; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
+      ctx.restore();
+    } else if (grip) {
+      ctx.save();
+      ctx.translate(0, footN.lift * 0.3);
+      ctx.beginPath(); ctx.ellipse(18, 32, 12, 7.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = fur; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I; ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(44, 26, 38, 19, 8);
+      ctx.fillStyle = C.blaster; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(50, 42, 15, 16, 6);
+      ctx.fillStyle = C.banana; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(86, 35, 6.5, 0, Math.PI * 2);
+      ctx.fillStyle = C.pinkpop; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(46, 37, 10.5, 9, 0, 0, Math.PI * 2);
+      ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
+      ctx.fillStyle = C.cyan; ctx.strokeStyle = I; ctx.lineWidth = 3;
+      [[55, 27, -0.21], [62, 29, -0.04], [68, 33, 0.17]].forEach(([fx, fy, r]) => {
+        ctx.save(); ctx.translate(fx, fy); ctx.rotate(r);
+        ctx.beginPath(); ctx.ellipse(0, 0, 4.2, 5.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      });
+      ctx.restore();
+    } else {
+      ctx.beginPath(); ctx.ellipse(20, 34, 12, 7.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = fur; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I; ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(46, 39, 10, 9, 0, 0, Math.PI * 2);
+      ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
+      ctx.fillStyle = C.cyan; ctx.strokeStyle = I; ctx.lineWidth = 3;
+      [[41, 46], [48, 48], [55, 45]].forEach(([fx, fy]) => {
+        ctx.beginPath(); ctx.arc(fx, fy, 3.7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      });
+    }
+
+    // near ear (in front)
+    ctx.save(); ctx.translate(-20, -46); ctx.rotate(earTilt);
+    ctx.beginPath(); ctx.ellipse(0, 0, 16, 25, 0, 0, Math.PI * 2);
+    ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = I; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-1, 0, 9.5, 15.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = C.blue; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-2, 1, 5.5, 9, 0, 0, Math.PI * 2);
+    ctx.fillStyle = C.grape; ctx.fill();
+    ctx.restore();
+
+    // nap extras: zzz
+    if (mode === "nap") {
+      for (let i = 0; i < 3; i++) {
+        const zp = ((t * 0.5 + i * 0.33) % 1);
+        ctx.save();
+        ctx.globalAlpha = zp < 0.15 ? zp / 0.15 : 1 - Math.max(0, (zp - 0.6) / 0.4);
+        ctx.translate(46 + zp * 34, -62 - zp * 44);
+        ctx.rotate(0.3);
+        ctx.fillStyle = C.grape;
+        ctx.font = `800 ${13 + i * 4}px 'Baloo 2','Trebuchet MS',sans-serif`;
+        ctx.fillText("z", 0, 0);
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+  };
+}
+const drawTarsius = makeTarsiusPainter();
+
+/* ---------- wire up the animation loops ---------- */
+function loopCanvas(id, modeFn) {
+  const cv = document.getElementById(id);
+  const ctx = cv.getContext("2d");
+  function frame(now) {
+    const t = now / 1000;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    modeFn(ctx, t, cv);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+const W = 330, H = 240;
+/* the sprite's visual box is tail(-80) … blaster tip(+196) around body
+   center 0 — center by that, not by the body, so nothing clips */
+const centerX = (s, armed) => W / 2 - (armed ? 58 : 40) * s;
+loopCanvas("cvWalk", (ctx, t) => {
+  ctx.fillStyle = "rgba(255,255,255,0.25)";
+  ctx.fillRect(0, 218, W, 22);
+  drawTarsius(ctx, { x: centerX(1.15, true), y: 152, scale: 1.15, t, mode: "walk" });
+});
+loopCanvas("cvIdle", (ctx, t) => {
+  ctx.fillStyle = "rgba(255,255,255,0.25)";
+  ctx.fillRect(0, 218, W, 22);
+  drawTarsius(ctx, { x: centerX(1.15, true), y: 154, scale: 1.15, t, mode: "idle" });
+});
+loopCanvas("cvNap", (ctx, t) => {
+  ctx.fillStyle = "rgba(255,255,255,0.25)";
+  ctx.fillRect(0, 218, W, 22);
+  drawTarsius(ctx, { x: centerX(1.15, true), y: 160, scale: 1.15, t, mode: "nap", armed: true });
+});
+
+/* ---------- scale ladder + menu mock ---------- */
+function stillCanvas(id, s) {
+  const cv = document.getElementById(id);
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawTarsius(ctx, {
+    x: cv.width / 2 - 58 * s,
+    y: cv.height - 6 - 56 * s,
+    scale: s, t: 0.4, mode: "idle", armed: true,
+  });
+}
+stillCanvas("sc24", 0.19);   // ≈24 px tall
+stillCanvas("sc40", 0.315);  // ≈40 px tall
+stillCanvas("sc64", 0.5);    // ≈64 px tall
+loopCanvas("menuCanvas", (ctx, t) => {
+  ctx.clearRect(0, 0, 140, 86);
+  drawTarsius(ctx, { x: 70 - 40.5 * 0.55, y: 86 - 6 - 56 * 0.55, scale: 0.55, t, mode: "nap", armed: false });
+});
+
+/* ============================================================
+   JALAK — perched / flying / sprite
+   ============================================================ */
+function jalakPerchSVG() {
+  const I = C.ink, W = C.cloud;
+  return `
+  <svg viewBox="0 0 220 240" role="img" aria-label="Jalak perched, shouting">
+    <ellipse cx="110" cy="222" rx="70" ry="8" fill="${I}" opacity="0.10"/>
+    <line x1="330" y1="10" x2="330" y2="10" stroke="none"/>
+    <!-- tail fan -->
+    <g stroke="${I}" stroke-width="4.5" stroke-linejoin="round">
+      <path d="M 146 172 Q 188 180 202 210 Q 164 208 136 186 Z" fill="${W}"/>
+      <path d="M 186 196 Q 196 206 202 210 Q 186 209 176 202 Z" fill="#25293f"/>
+      <path d="M 148 188 Q 196 200 208 230 Q 166 226 138 200 Z" fill="${W}"/>
+      <path d="M 192 216 Q 202 226 208 230 Q 190 229 180 222 Z" fill="#25293f"/>
+    </g>
+    <!-- legs -->
+    <g stroke="${C.leg}" stroke-width="6" stroke-linecap="round">
+      <line x1="98" y1="192" x2="94" y2="216"/><line x1="122" y1="192" x2="124" y2="216"/>
+    </g>
+    <g stroke="${C.leg}" stroke-width="4.5" stroke-linecap="round">
+      <line x1="94" y1="216" x2="84" y2="220"/><line x1="94" y1="216" x2="98" y2="222"/>
+      <line x1="124" y1="216" x2="114" y2="221"/><line x1="124" y1="216" x2="130" y2="221"/>
+    </g>
+    <!-- body -->
+    <ellipse cx="112" cy="152" rx="42" ry="48" fill="${W}" stroke="${I}" stroke-width="6"/>
+    <!-- folded wing with black tip -->
+    <path d="M 128 120 Q 160 138 158 176 Q 132 168 116 142 Z" fill="${W}" stroke="${I}" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M 146 160 Q 156 170 158 176 Q 142 172 134 164 Z" fill="#25293f"/>
+    <!-- crest -->
+    <g fill="${W}" stroke="${I}" stroke-width="5" stroke-linejoin="round">
+      <path d="M 92 56 Q 78 24 96 14 Q 102 36 108 50 Z"/>
+      <path d="M 104 52 Q 104 18 124 14 Q 118 38 118 52 Z"/>
+      <path d="M 116 56 Q 128 30 146 32 Q 132 48 126 62 Z"/>
+    </g>
+    <!-- head -->
+    <circle cx="98" cy="82" r="30" fill="${W}" stroke="${I}" stroke-width="6"/>
+    <ellipse cx="86" cy="78" rx="11.5" ry="8.5" fill="#1e7ff0"/>
+    <circle cx="86" cy="78" r="5.5" fill="#ffffff"/>
+    <circle cx="85" cy="78" r="2.8" fill="${I}"/>
+    <!-- shouting beak -->
+    <g fill="${C.beak}" stroke="${I}" stroke-width="3.5" stroke-linejoin="round">
+      <path d="M 66 74 L 34 64 L 66 84 Z"/>
+      <path d="M 66 90 L 42 104 L 68 96 Z"/>
+    </g>
+    <!-- bubble -->
+    <g transform="translate(160 34) rotate(6)">
+      <rect x="-52" y="-20" width="104" height="38" rx="14" fill="#ffffff" stroke="${I}" stroke-width="4.5"/>
+      <path d="M -20 16 L -30 32 L -4 17 Z" fill="#ffffff" stroke="${I}" stroke-width="4.5" stroke-linejoin="round"/>
+      <rect x="-52" y="-20" width="104" height="38" rx="14" fill="#ffffff"/>
+      <text x="0" y="6" text-anchor="middle" font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800" font-size="17" fill="${C.pinkpop}">GUNBATTE!!</text>
+    </g>
+  </svg>`;
+}
+function jalakFlySVG() {
+  const I = C.ink, W = C.cloud;
+  return `
+  <svg viewBox="0 0 220 200" role="img" aria-label="Jalak in flight">
+    <ellipse cx="110" cy="184" rx="56" ry="7" fill="${I}" opacity="0.08"/>
+    <g stroke="${I}" stroke-width="4.5" stroke-linejoin="round">
+      <path d="M 128 96 Q 162 108 170 140 Q 138 132 118 112 Z" fill="${W}"/>
+      <path d="M 158 126 Q 165 136 170 140 Q 154 136 148 128 Z" fill="#25293f"/>
+      <path d="M 104 100 Q 70 56 30 52 Q 56 82 94 106 Z" fill="${W}"/>
+      <path d="M 48 60 Q 68 78 86 100 L 70 106 Q 52 84 48 60 Z" fill="#25293f"/>
+      <path d="M 116 98 Q 148 54 188 50 Q 162 82 126 104 Z" fill="${W}"/>
+      <path d="M 166 58 Q 148 78 132 98 L 148 104 Q 162 82 166 58 Z" fill="#25293f"/>
+      <ellipse cx="114" cy="112" rx="30" ry="23" fill="${W}"/>
+      <path d="M 106 66 Q 94 38 110 30 Q 114 50 118 62 Z" fill="${W}"/>
+      <path d="M 112 64 Q 118 36 138 34 Q 128 54 124 66 Z" fill="${W}"/>
+      <path d="M 122 68 Q 138 48 152 52 Q 140 66 134 76 Z" fill="${W}"/>
+      <circle cx="100" cy="84" r="19" fill="${W}"/>
+    </g>
+    <ellipse cx="93" cy="81" rx="9.5" ry="7.5" fill="#1e7ff0"/>
+    <circle cx="93" cy="81" r="4.5" fill="#ffffff"/>
+    <circle cx="92" cy="81" r="2.3" fill="${I}"/>
+    <g fill="${C.beak}" stroke="${I}" stroke-width="3.5" stroke-linejoin="round">
+      <path d="M 84 78 L 60 76 L 84 86 Z"/>
+      <path d="M 84 90 L 66 100 L 86 94 Z"/>
+    </g>
+  </svg>`;
+}
+document.getElementById("jalakPerch").innerHTML = jalakPerchSVG();
+document.getElementById("jalakFly").innerHTML = jalakFlySVG();
+document.getElementById("jalakSmall").innerHTML = jalakFlySVG();
+
+/* ============================================================
+   PALETTE
+   ============================================================ */
+(function () {
+  const rows = [
+    ["melon", C.melon, "tarsius fur"],
+    ["melon deep", C.melonDeep, "shade / danger"],
+    ["face cream", C.face, "face mask + tail tip"],
+    ["ear cyan", C.cyan, "ears, paws, feet"],
+    ["ear blue", C.blue, "ear mid ring"],
+    ["grape", C.grape, "ear core, nose, claws"],
+    ["eye gold", C.gold, "the big tarsier eyes"],
+    ["banana", C.banana, "blaster grip, stars"],
+    ["pinkpop", C.pinkpop, "GUNBATTE!, blaster tip"],
+    ["blaster", C.blaster, "blaster body"],
+    ["cloud", C.cloud, "jalak plumage"],
+    ["ink", C.ink, "every outline"],
+  ];
+  document.getElementById("paletteRow").innerHTML = rows.map(([name, hex, use]) => `
+    <div class="swatch"><i style="background:${hex}"></i>
+      <span>${name}<em>${hex} · ${use}</em></span>
+    </div>`).join("");
+})();
+</script>
+</body>
+</html>
