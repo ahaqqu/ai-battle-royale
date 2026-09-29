@@ -67,13 +67,21 @@ echo "▶ building abr-server (release)…"
 ( cd "$repo" && cargo build --release -p abr-server )
 
 # Stage the upload. The website copy gets its CTAs pointed at the real game
-# host; the repo copy keeps the localhost default for local dev.
+# host; the repo copy keeps the localhost default for local dev. The whole
+# website/ tree ships — staging only index.html silently dropped every other
+# page (that is how /characters and /gameplay ended up 404 on the live site).
 cp "$repo/target/release/abr-server" "$stage/"
 cp -r "$repo/viewer/dist" "$stage/viewer-dist"
 mkdir -p "$stage/website"
-sed "s|http://127.0.0.1:8321|https://$GUNBATTE_GAME_HOST|g" \
-    "$repo/website/index.html" > "$stage/website/index.html"
-cp -r "$repo/website/assets" "$repo/website/style.css" "$stage/website/"
+cp -r "$repo/website/." "$stage/website/"
+# Rewrite via a temp file rather than `sed -i`: BSD sed (macOS) demands an
+# argument after -i, so the in-place flag is not portable across the dev
+# laptop and the Linux CI runner.
+find "$stage/website" -type f -name '*.html' | while IFS= read -r page; do
+    sed "s|http://127.0.0.1:8321|https://$GUNBATTE_GAME_HOST|g" \
+        "$page" > "$page.tmp"
+    mv "$page.tmp" "$page"
+done
 cp -r "$repo/provision" "$stage/provision"
 
 if [ "$BOOTSTRAP" = 1 ]; then
