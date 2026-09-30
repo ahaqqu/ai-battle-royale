@@ -88,14 +88,15 @@ pub async fn run_match(ctx: MatchContext, entrants: Vec<MatchEntrant>, config: M
             );
     }
     println!(
-        "▶ match started: {} entrants: {}{}",
+        "▶ match started: {} entrants: {}{}{}",
         n,
         names.join(", "),
         if boss_bot.is_some() {
             format!("  [SLAIN THE BOSS — boss: {}]", names[n - 1])
         } else {
             String::new()
-        }
+        },
+        if ctx.rated { "" } else { "  [unrated]" },
     );
 
     let tick_ms: u64 = 1000 / config.tick_rate_hz.max(1) as u64;
@@ -104,6 +105,7 @@ pub async fn run_match(ctx: MatchContext, entrants: Vec<MatchEntrant>, config: M
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut disconnected = vec![false; n];
     let mut send_stalls = vec![0u32; n];
+    let mut stale_warned = vec![false; n];
 
     while !engine.state.finished {
         interval.tick().await;
@@ -122,6 +124,7 @@ pub async fn run_match(ctx: MatchContext, entrants: Vec<MatchEntrant>, config: M
             &entrants,
             tick_start,
             &mut disconnected,
+            &mut stale_warned,
         )
         .await;
         tokio::time::sleep(Duration::from_millis(
@@ -137,6 +140,7 @@ pub async fn run_match(ctx: MatchContext, entrants: Vec<MatchEntrant>, config: M
             &entrants,
             tick_start,
             &mut disconnected,
+            &mut stale_warned,
         )
         .await;
 
@@ -177,7 +181,12 @@ pub async fn run_match(ctx: MatchContext, entrants: Vec<MatchEntrant>, config: M
         .iter()
         .map(|nm| (nm.clone(), ctx.db.elo_of(nm)))
         .collect();
-    let elos = db::elo_update(&ratings, &places, 32.0);
+    // House-filled matches are sparring, not competition (issue #37): the
+    // matchmaking side says so via the context. K=0 moves nobody's rating,
+    // while the match row, placements, games and wins still record — the
+    // ladder ranks by elo, so nothing farmable remains.
+    let k = if ctx.rated { 32.0 } else { 0.0 };
+    let elos = db::elo_update(&ratings, &places, k);
     let results: Vec<(String, i64, i64)> = summary
         .placements
         .iter()
@@ -243,6 +252,15 @@ fn push_observations(engine: &mut MatchEngine, entrants: &[MatchEntrant], stalls
     }
 }
 
+/// The reply window's tick discipline (issue #37): a message stamped with a
+/// tick other than the one being decided is an answer to a question the
+/// server didn't ask — a replayed old decision — and is dropped. 0 (a client
+/// that omits the stamp) asserts nothing and is accepted; every first-party
+/// sender (bot-client, the viewer, house bots) echoes the observation's tick.
+fn accepts_tick(client_tick: u64, current: u64) -> bool {
+    client_tick == 0 || client_tick == current
+}
+
 /// Collect each entrant's newest message in the window and submit it.
 async fn drain_inputs(
     engine: &mut MatchEngine,
@@ -250,16 +268,29 @@ async fn drain_inputs(
     entrants: &[MatchEntrant],
     tick_start: Instant,
     disconnected: &mut [bool],
+    stale_warned: &mut [bool],
 ) {
     for (b, h) in entrants.iter().enumerate() {
         let mut rx = h.in_rx.lock().await;
         // Coalesce: each submit overwrites the bot's pending slot, so only
         // the newest message in the window can matter — a flooding bot costs
-        // one parse, not a burst.
+        // one parse, not a burst. Stale-stamped replies are dropped here, at
+        // the same gate, so they never reach the engine or the replay.
+        let current_tick = engine.state.tick;
         let mut newest: Option<BotMsg> = None;
         loop {
             match rx.try_recv() {
-                Ok(msg) => newest = Some(msg),
+                Ok(msg) => {
+                    if accepts_tick(msg.client_tick, current_tick) {
+                        newest = Some(msg);
+                    } else if !stale_warned[b] {
+                        stale_warned[b] = true;
+                        println!(
+                            "⏳ {} answered tick {} while {} was being decided — dropped",
+                            h.name, msg.client_tick, current_tick
+                        );
+                    }
+                }
                 Err(mpsc::error::TryRecvError::Empty) => break,
                 Err(mpsc::error::TryRecvError::Disconnected) => {
                     // Socket died: 10s of momentum, then forfeit (PLAN §4.3.4).
@@ -300,6 +331,19 @@ mod tests {
         assert_ne!(a, b, "two OS-random u64s colliding is ~2^-64");
         assert_eq!(a & 1, 1, "seed stays odd (match-start invariant)");
         assert_eq!(b & 1, 1);
+    }
+
+    #[test]
+    fn tick_stamp_discipline() {
+        // The current tick's stamp is on time…
+        assert!(accepts_tick(42, 42));
+        // …an omitted stamp (serde default) asserts nothing…
+        assert!(accepts_tick(0, 42));
+        // …and anything else answers a question nobody asked: replayed
+        // old decisions (well below) and future claims (above) both drop.
+        assert!(!accepts_tick(41, 42), "previous tick's replay");
+        assert!(!accepts_tick(1, 42), "ancient replay");
+        assert!(!accepts_tick(43, 42), "future claim");
     }
 
     #[test]

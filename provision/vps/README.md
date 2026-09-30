@@ -90,6 +90,31 @@ needs the service to exist.
 | `gunbatte.service` | — | systemd unit template (`__GUNBATTE_*__` placeholders) |
 | `nginx/gunbatte.conf` | — | nginx site template (HTTP-only; certbot adds TLS in place) |
 
+## Abuse limits (issue #37)
+
+Availability and ladder-integrity ceilings, split by who can see the real
+client IP: nginx limits per IP, the app limits totals (behind the proxy the
+app's socket address is 127.0.0.1, so per-IP state there would be useless).
+
+| Layer | Limit | Purpose |
+|---|---|---|
+| nginx `limit_conn` | 10 per IP on `/ws/bot` + `/ws/spectate` | per-IP socket ceiling |
+| nginx `limit_req` | 10 WS handshakes/min per IP, burst 20 | reconnect churn, room-code brute-forcing |
+| nginx `client_max_body_size` | 1m | inputs are ~200 bytes; nothing takes uploads |
+| app `--max-connections` | 256 | concurrent sockets (bots + spectators share one pool); full pool refuses the upgrade |
+| app `--max-lobbies` | 64 | live private rooms |
+| app `--join-attempts-per-min` | 30 | global failed-`join` bucket (~1M code space stays impractical to brute-force) |
+| app `--new-names-per-min` | 60 | global first-time-registration bucket (name cycling cannot spam `bots` rows; reconnects bypass it) |
+| app `--max-replays` | 100 | startup sweep deletes the oldest `match-*.json` (hand-placed fixtures are never touched) |
+| app HTTP layers | 30s request timeout on dynamic routes, 256 global in-flight | slowloris / run-away request insurance; replay downloads are exempt from the timeout |
+
+`0` on any app knob disables that ceiling. The request timeout is applied only
+to dynamic routes — a tens-of-MB replay download over a slow link is
+legitimate — while the in-flight cap covers everything, replays included.
+
+When one of these fires in production, [LIMITS.md](../../LIMITS.md) maps the
+symptom the client sees to the knob that caused it.
+
 ## Why this can't disturb the other apps
 
 - One new nginx file, symlinked into `sites-enabled/`; existing server blocks

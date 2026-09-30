@@ -90,6 +90,15 @@ impl Db {
         }
     }
 
+    /// Is this name in the registry at all? Read-only check so the
+    /// matchmaker can rate-limit first-time registrations (issue #37)
+    /// without conflating them with reconnects.
+    pub fn bot_exists(&self, name: &str) -> bool {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row("SELECT 1 FROM bots WHERE name=?1", [name], |_| Ok(()))
+            .is_ok()
+    }
+
     pub fn elo_of(&self, name: &str) -> i64 {
         let conn = self.conn.lock().unwrap();
         conn.query_row("SELECT elo FROM bots WHERE name=?1", [name], |r| r.get(0))

@@ -118,6 +118,11 @@ async fn m3_gateway_end_to_end() {
         spectate_delay_s: 0,
         ws_ping_every_s: 10,
         ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 30,
+        new_names_per_min: 60,
+        max_replays: 100,
     };
     tokio::spawn(async move {
         Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
@@ -155,6 +160,21 @@ async fn m3_gateway_end_to_end() {
     let body = reqwest_get(&format!("{http}/api/standings")).await;
     assert!(body.contains("test-alpha"), "standings: {body}");
     assert!(body.contains("test-beta"), "standings: {body}");
+    // Rated matches move ELO — the contrast for the unrated house-fill test.
+    let rows: serde_json::Value = serde_json::from_str(&body).unwrap();
+    for name in ["test-alpha", "test-beta"] {
+        let row = rows
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["name"] == name)
+            .expect("standings row");
+        assert_ne!(
+            row["elo"].as_i64(),
+            Some(1000),
+            "rated match must move ELO: {row}"
+        );
+    }
     let body = reqwest_get(&format!("{http}/api/matches")).await;
     assert!(
         body.contains(replay_url.trim_start_matches("/replays/")),
@@ -182,7 +202,13 @@ async fn reqwest_get(url: &str) -> String {
     stream.write_all(req.as_bytes()).await.unwrap();
     let mut buf = Vec::new();
     stream.read_to_end(&mut buf).await.unwrap();
-    String::from_utf8_lossy(&buf).to_string()
+    let raw = String::from_utf8_lossy(&buf);
+    // Body only: some callers parse the payload as JSON, so the status line
+    // and headers (everything before the first blank line) must go.
+    match raw.split_once("\r\n\r\n") {
+        Some((_, body)) => body.to_string(),
+        None => raw.to_string(),
+    }
 }
 
 /// M4.5 acceptance (solo play): a single human registering `human: true` is
@@ -206,6 +232,11 @@ async fn solo_human_gets_house_fill() {
         spectate_delay_s: 0,
         ws_ping_every_s: 10,
         ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 30,
+        new_names_per_min: 60,
+        max_replays: 100,
     };
     // Short match cap so the test doesn't run a full 5-minute BR.
     let mut match_cfg = MatchConfig::standard();
@@ -276,6 +307,20 @@ async fn solo_human_gets_house_fill() {
     let body = reqwest_get(&format!("http://127.0.0.1:{port}/api/standings")).await;
     assert!(body.contains("solo-human"), "standings: {body}");
     assert!(!body.contains("house·"), "house bots must not appear: {body}");
+    // And the house-filled match is unrated (issue #37): sparring against
+    // scripted bots must not move anyone's rating.
+    let rows: serde_json::Value = serde_json::from_str(&body).unwrap();
+    let human = rows
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["name"] == "solo-human")
+        .expect("human standings row");
+    assert_eq!(
+        human["elo"].as_i64(),
+        Some(1000),
+        "house-filled match must be unrated: {human}"
+    );
 }
 
 /// Lobby (PLAN extension): a host creates a room, shares the code, an
@@ -299,6 +344,11 @@ async fn lobby_host_and_invitee_play_a_private_royale() {
         spectate_delay_s: 0,
         ws_ping_every_s: 10,
         ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 30,
+        new_names_per_min: 60,
+        max_replays: 100,
     };
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 25;
@@ -482,6 +532,11 @@ async fn boss_lobby_casts_a_member_as_the_boss() {
         spectate_delay_s: 0,
         ws_ping_every_s: 10,
         ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 30,
+        new_names_per_min: 60,
+        max_replays: 100,
     };
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 40;
@@ -652,6 +707,11 @@ async fn silent_bot_socket_is_closed_after_idle_window() {
         spectate_delay_s: 0,
         ws_ping_every_s: 1,
         ws_idle_timeout_s: 3,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 30,
+        new_names_per_min: 60,
+        max_replays: 100,
     };
     tokio::spawn(async move {
         Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
@@ -736,6 +796,11 @@ async fn non_reading_bot_cannot_stall_the_match() {
         spectate_delay_s: 0,
         ws_ping_every_s: 1,
         ws_idle_timeout_s: 30,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 30,
+        new_names_per_min: 60,
+        max_replays: 100,
     };
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 20;
@@ -803,6 +868,11 @@ async fn bots_requeue_after_a_match_and_get_drafted_again() {
         spectate_delay_s: 0,
         ws_ping_every_s: 10,
         ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 30,
+        new_names_per_min: 60,
+        max_replays: 100,
     };
     // Short match cap so two full matches don't take a full BR's worth of time.
     let mut match_cfg = MatchConfig::standard();
@@ -827,4 +897,333 @@ async fn bots_requeue_after_a_match_and_get_drafted_again() {
         a[1]["place"].as_i64().is_some() && b[1]["place"].as_i64().is_some(),
         "second match must report placements: {a:?} {b:?}"
     );
+}
+
+// --- issue #37: identity & resource ceilings ---------------------------------
+
+type WsStream = tokio_tungstenite::WebSocketStream<
+    tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+>;
+type WsTx = futures_util::stream::SplitSink<WsStream, Message>;
+type WsRx = futures_util::stream::SplitStream<WsStream>;
+
+/// Open a bot socket and register with `payload`. The reply is read via
+/// [`reply_of_type`].
+async fn connect_and_register(url: &str, payload: serde_json::Value) -> (WsTx, WsRx) {
+    let (ws, _) = tokio_tungstenite::connect_async(url)
+        .await
+        .expect("ws connects");
+    let (mut tx, rx) = ws.split();
+    tx.send(Message::Text(payload.to_string())).await.unwrap();
+    (tx, rx)
+}
+
+/// Read text frames until one parses to a message whose `type` is in `want`
+/// (skipping keepalive pings), or panic.
+async fn reply_of_type(rx: &mut WsRx, wait: Duration, want: &[&str]) -> serde_json::Value {
+    let deadline = tokio::time::Instant::now() + wait;
+    loop {
+        let msg = match tokio::time::timeout_at(deadline, rx.next()).await {
+            Ok(Some(Ok(m))) => m,
+            other => panic!("waiting for {want:?} got {other:?}"),
+        };
+        let Message::Text(t) = msg else { continue };
+        let v: serde_json::Value = serde_json::from_str(&t).unwrap_or(json!(null));
+        if v["type"].as_str().is_some_and(|ty| want.contains(&ty)) {
+            return v;
+        }
+    }
+}
+
+/// Connection ceiling (issue #37): the socket pool is bounded — a full pool
+/// refuses the upgrade outright, and a released permit is reusable.
+#[tokio::test(flavor = "multi_thread")]
+async fn connection_cap_refuses_overflow_and_recovers() {
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8943;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
+        max_connections: 2,
+        max_lobbies: 64,
+        join_attempts_per_min: 30,
+        new_names_per_min: 60,
+        max_replays: 100,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+
+    // Two sockets fill the pool. No register needed: the permit is taken at
+    // upgrade time, which is exactly what bounds task spawn.
+    let (ws1, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    let (ws2, _) = tokio_tungstenite::connect_async(&url).await.unwrap();
+    assert!(
+        tokio_tungstenite::connect_async(&url).await.is_err(),
+        "third socket must be refused while the pool is full"
+    );
+
+    // Releasing one socket frees its permit for the next taker.
+    drop(ws1);
+    let mut reconnected = false;
+    for _ in 0..40 {
+        if tokio_tungstenite::connect_async(&url).await.is_ok() {
+            reconnected = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    assert!(reconnected, "released permit must admit a new socket");
+    drop(ws2);
+}
+
+/// Lobby ceiling (issue #37): live rooms are capped.
+#[tokio::test(flavor = "multi_thread")]
+async fn lobby_cap_rejects_creation_beyond_max() {
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8945;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 1,
+        join_attempts_per_min: 0,
+        new_names_per_min: 0,
+        max_replays: 100,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+
+    let (mut _host_tx, mut host_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"cap-host","decision_rate":1,"lobby_action":"create"}),
+    )
+    .await;
+    let joined = reply_of_type(&mut host_rx, Duration::from_secs(10), &["lobby_joined"]).await;
+    assert_eq!(joined["host"], "cap-host");
+
+    // The one live room is taken: a second creation is refused.
+    let (_, mut second_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"cap-second","decision_rate":1,"lobby_action":"create"}),
+    )
+    .await;
+    let err = reply_of_type(&mut second_rx, Duration::from_secs(10), &["error"]).await;
+    assert!(
+        err["error"].as_str().unwrap().contains("lobby limit"),
+        "second room must hit the ceiling: {err}"
+    );
+}
+
+/// Host authorization is handle identity, not a name string (issue #37): a
+/// second socket registering the same name can join a room it knows the code
+/// for, but starting it stays the creator's — and the room survives.
+#[tokio::test(flavor = "multi_thread")]
+async fn same_name_socket_cannot_start_anothers_lobby() {
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8947;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 0,
+        new_names_per_min: 0,
+        max_replays: 100,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+
+    let (mut _host_tx, mut host_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"spoof-host","decision_rate":1,"lobby_action":"create"}),
+    )
+    .await;
+    let joined = reply_of_type(&mut host_rx, Duration::from_secs(10), &["lobby_joined"]).await;
+    let code = joined["lobby"].as_str().unwrap().to_string();
+
+    // The spoofer: same name, knows the code, joins as an ordinary member.
+    let (mut spoofer_tx, mut spoofer_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"spoof-host","decision_rate":1,
+               "lobby_action":"join","lobby":code}),
+    )
+    .await;
+    let joined = reply_of_type(&mut spoofer_rx, Duration::from_secs(10), &["lobby_joined"]).await;
+    assert_eq!(joined["lobby"], code, "spoofer joined the room");
+
+    // …and tries to start it. Name-based authorization would let this
+    // through; handle identity must refuse and keep the room.
+    spoofer_tx
+        .send(Message::Text(json!({"type":"lobby_start","action":"start"}).to_string()))
+        .await
+        .unwrap();
+    let err = reply_of_type(&mut spoofer_rx, Duration::from_secs(10), &["error"]).await;
+    assert_eq!(err["error"], "only the host can start", "spoofer: {err}");
+
+    // The room was put back: an innocent guest can still join it.
+    let (_, mut guest_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"innocent-guest","decision_rate":1,
+               "lobby_action":"join","lobby":code}),
+    )
+    .await;
+    let rejoined = reply_of_type(&mut guest_rx, Duration::from_secs(10), &["lobby_joined"]).await;
+    assert_eq!(rejoined["lobby"], code, "room must survive the spoof attempt");
+}
+
+/// Join throttle (issue #37): wrong codes draw from a global bucket, so
+/// reconnect churn cannot brute-force the room-code space.
+#[tokio::test(flavor = "multi_thread")]
+async fn join_brute_force_is_throttled() {
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8949;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 2,
+        new_names_per_min: 0,
+        max_replays: 100,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+
+    for attempt in 1..=3 {
+        let payload = json!({"type":"register","name":"joiner","decision_rate":1,
+                             "lobby_action":"join","lobby":"ZZZZ"});
+        let (_, mut rx) = connect_and_register(&url, payload).await;
+        let err = reply_of_type(&mut rx, Duration::from_secs(10), &["error"]).await;
+        let msg = err["error"].as_str().unwrap();
+        if attempt <= 2 {
+            assert_eq!(msg, "no such lobby", "attempt {attempt}: {err}");
+        } else {
+            assert_eq!(
+                msg,
+                "too many join attempts, slow down",
+                "attempt {attempt} must hit the bucket: {err}"
+            );
+        }
+    }
+}
+
+/// Registration ceiling (issue #37): first-time names draw from a global
+/// bucket (cycling unique names cannot mint unbounded ladder rows); a known
+/// name reconnecting bypasses it.
+#[tokio::test(flavor = "multi_thread")]
+async fn new_name_registration_is_rate_limited() {
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8951;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 0,
+        new_names_per_min: 1,
+        max_replays: 100,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+
+    // The first fresh name takes the bucket's one token and registers.
+    let (_, mut rx1) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"fresh-a","decision_rate":1}),
+    )
+    .await;
+    let ok = reply_of_type(&mut rx1, Duration::from_secs(10), &["registered", "error"]).await;
+    assert_eq!(ok["type"], "registered", "{ok}");
+
+    // A second fresh name finds the bucket empty.
+    let (_, mut rx2) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"fresh-b","decision_rate":1}),
+    )
+    .await;
+    let err = reply_of_type(&mut rx2, Duration::from_secs(10), &["registered", "error"]).await;
+    assert_eq!(
+        err["error"],
+        "too many new bots, slow down",
+        "fresh name must hit the bucket: {err}"
+    );
+
+    // A known name reconnecting bypasses the bucket entirely.
+    let (_, mut rx3) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"fresh-a","decision_rate":1}),
+    )
+    .await;
+    let ok = reply_of_type(&mut rx3, Duration::from_secs(10), &["registered", "error"]).await;
+    assert_eq!(ok["type"], "registered", "known name must bypass: {ok}");
 }
