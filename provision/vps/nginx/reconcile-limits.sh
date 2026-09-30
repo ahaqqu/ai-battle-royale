@@ -16,13 +16,27 @@
 # identity's sudo grant is scoped to the app service).
 #
 # Usage (on the VPS):
-#   sudo bash reconcile-limits.sh [/etc/nginx/sites-enabled/gunbatte.conf]
+#   sudo bash reconcile-limits.sh [--dry-run] [SITE_FILE]
 # Preview the exact diff without writing or reloading:
-#   DRY_RUN=1 sudo bash reconcile-limits.sh
+#   sudo bash reconcile-limits.sh --dry-run
+# (--dry-run is a flag on purpose: sudo strips environment variables, so a
+# DRY_RUN=1 prefix would silently NOT survive `sudo bash ...`.)
 set -euo pipefail
 
-target="${1:-/etc/nginx/sites-enabled/gunbatte.conf}"
+target=""
 dry="${DRY_RUN:-0}"
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) dry=1 ;;
+        *) target="$arg" ;;
+    esac
+done
+target="${target:-/etc/nginx/sites-enabled/gunbatte.conf}"
+# Resolve symlinks BEFORE anything else: sites-enabled entries are normally
+# symlinks into sites-available, and nginx includes every file in
+# sites-enabled/ — a backup dropped next to the link would be parsed as a
+# second copy of the config and fail `nginx -t` with duplicate listeners.
+target="$(readlink -f "$target")"
 [ -f "$target" ] || { echo "!! $target not found" >&2; exit 1; }
 
 work="$(mktemp)"
@@ -121,9 +135,12 @@ EOF
     echo "▶ locations: /ws/bot + /ws/spectate inserted into the proxy block (port ${port})"
 fi
 
-# --- 4. preview or commit --------------------------------------------------------
+# --- 4. preview, no-op (with a config sanity check), or commit -------------------
 if diff -q "$target" "$work" >/dev/null 2>&1; then
     echo "✓ nginx: nothing to reconcile"
+    # The file may be fine while the DIRECTORY around it is not (a stray file
+    # in sites-enabled/ broke this exact path once) — surface it.
+    nginx -t
     exit 0
 fi
 if [ "$dry" = 1 ]; then
@@ -131,10 +148,20 @@ if [ "$dry" = 1 ]; then
     diff -u "$target" "$work" || true
     exit 0
 fi
+# Backup beside the RESOLVED target (sites-available/, never sites-enabled/).
 backup="${target}.bak-$(date +%Y%m%d-%H%M%S)"
 cp "$target" "$backup"
 tee "$target" < "$work" >/dev/null
 echo "✓ nginx: limits reconciled (backup: ${backup})"
-nginx -t
+if ! nginx -t; then
+    echo "!! nginx -t rejected the reconciled file — restoring the backup" >&2
+    cp "$backup" "$target"
+    if nginx -t; then
+        echo "✓ previous config restored (still live — nginx was never reloaded)"
+    else
+        echo "!! restored file ALSO fails nginx -t — restore by hand from ${backup}" >&2
+    fi
+    exit 1
+fi
 systemctl reload nginx
 echo "✓ nginx reloaded"
