@@ -144,6 +144,20 @@ else
         echo "⚠ gunbatte.service is not installed on the VPS yet — artifacts uploaded."
         echo "  Finish setup once with: ./provision/vps/deploy.sh --bootstrap"
     fi
+
+    # Post-deploy doctor (the shared-box gate): the read-only sweep from the
+    # homepage repo verifies nginx, sites-enabled hygiene, failed units, every
+    # app's listeners and certs — so whichever deploy breaks the box turns its
+    # own run red, with no cross-repo review needed. Runs as the deploy
+    # identity; the sudoers drop-in above carries the two read-only
+    # diagnostics it needs. Until apply.sh has been re-run to install that
+    # widened grant, the sweep's nginx check degrades to a warning rather than
+    # failing every deploy. URL overridable via GUNBATTE_DOCTOR_URL.
+    if ssh "$GUNBATTE_SSH" "systemctl list-unit-files gunbatte.service --no-legend" | grep -q gunbatte; then
+        echo "▶ post-deploy doctor (cross-app health gate)…"
+        doctor_url="${GUNBATTE_DOCTOR_URL:-https://raw.githubusercontent.com/ahaqqu/homepage/main/provision/vps/doctor.sh}"
+        ssh "$GUNBATTE_SSH" 'f="$(mktemp)" && curl -fsSL --retry 2 "'"$doctor_url"'" -o "$f" && bash "$f"; r=$?; rm -f "$f"; exit $r'
+    fi
 fi
 
 echo "✔ deployed."
