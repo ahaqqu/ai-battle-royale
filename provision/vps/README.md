@@ -86,9 +86,10 @@ needs the service to exist.
 | File | Runs on | Purpose |
 |---|---|---|
 | `deploy.sh` | local | build + upload + (bootstrap or restart) |
-| `apply.sh` | VPS | install unit / sudoers / nginx / certs, start service |
+| `apply.sh` | VPS | install unit / sudoers / nginx / certs, reconcile limits, start service |
 | `gunbatte.service` | — | systemd unit template (`__GUNBATTE_*__` placeholders) |
 | `nginx/gunbatte.conf` | — | nginx site template (HTTP-only; certbot adds TLS in place) |
+| `nginx/reconcile-limits.sh` | VPS | add-only reconcile of the #37 abuse limits into an installed site file (`DRY_RUN=1` previews) |
 
 ## Abuse limits (issue #37)
 
@@ -111,6 +112,18 @@ app's socket address is 127.0.0.1, so per-IP state there would be useless).
 `0` on any app knob disables that ceiling. The request timeout is applied only
 to dynamic routes — a tens-of-MB replay download over a slow link is
 legitimate — while the in-flight cap covers everything, replays included.
+
+**Applying the nginx half:** every deploy ships the updated template files,
+but only `apply.sh` may touch nginx — and it never re-installs an installed
+site file, because certbot owns its TLS edits. To land a template change on
+the VPS, re-run `apply.sh` (as root, as in the bootstrap); its limits
+reconcile (`nginx/reconcile-limits.sh`) is add-only — it inserts the zones,
+the `/ws/*` location blocks, and the 1m body cap if missing, never touching
+hostnames, TLS, or redirects — and is a verified no-op when everything is
+already in place. Preview first with
+`DRY_RUN=1 sudo bash $GUNBATTE_DIR/provision/vps/nginx/reconcile-limits.sh`.
+Normal deploys deliberately cannot do this step: the deploy identity's sudo
+grant is scoped to the app service, so CI can never edit nginx.
 
 When one of these fires in production, [LIMITS.md](../../LIMITS.md) maps the
 symptom the client sees to the knob that caused it.
