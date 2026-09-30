@@ -112,6 +112,9 @@ app's socket address is 127.0.0.1, so per-IP state there would be useless).
 to dynamic routes — a tens-of-MB replay download over a slow link is
 legitimate — while the in-flight cap covers everything, replays included.
 
+When one of these fires in production, [LIMITS.md](../../LIMITS.md) maps the
+symptom the client sees to the knob that caused it.
+
 ## Why this can't disturb the other apps
 
 - One new nginx file, symlinked into `sites-enabled/`; existing server blocks
