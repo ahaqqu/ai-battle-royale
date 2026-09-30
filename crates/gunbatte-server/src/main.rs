@@ -49,6 +49,24 @@ enum Cmd {
         /// Seconds of total silence before a bot socket is closed (0 disables).
         #[arg(long, default_value_t = 45)]
         ws_idle_timeout_s: u64,
+        /// Ceiling on concurrent WebSocket sockets, bots + spectators (0 = no cap).
+        #[arg(long, default_value_t = 256)]
+        max_connections: usize,
+        /// Ceiling on live private rooms (0 = no cap).
+        #[arg(long, default_value_t = 64)]
+        max_lobbies: usize,
+        /// Global failed-join attempts per minute (0 = no limit) — room-code
+        /// brute-forcing throttle.
+        #[arg(long, default_value_t = 30)]
+        join_attempts_per_min: u32,
+        /// Global first-time bot registrations per minute (0 = no limit) —
+        /// ladder-row spam throttle; reconnects bypass it.
+        #[arg(long, default_value_t = 60)]
+        new_names_per_min: u32,
+        /// Replay retention: delete the oldest match-*.json beyond this many
+        /// at startup (0 = keep everything).
+        #[arg(long, default_value_t = 100)]
+        max_replays: usize,
     },
 }
 
@@ -68,6 +86,11 @@ async fn main() {
             spectate_delay_s,
             ws_ping_every_s,
             ws_idle_timeout_s,
+            max_connections,
+            max_lobbies,
+            join_attempts_per_min,
+            new_names_per_min,
+            max_replays,
         } => {
             let cfg = ServerConfig {
                 port,
@@ -81,6 +104,11 @@ async fn main() {
                 spectate_delay_s,
                 ws_ping_every_s,
                 ws_idle_timeout_s,
+                max_connections,
+                max_lobbies,
+                join_attempts_per_min,
+                new_names_per_min,
+                max_replays,
             };
             gunbatte_lobby::Server::start(
                 cfg,

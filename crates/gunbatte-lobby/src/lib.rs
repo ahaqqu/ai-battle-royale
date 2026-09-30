@@ -142,6 +142,22 @@ pub struct ServerConfig {
     /// closed, so a vanished peer's half-open connection cannot linger. Must
     /// exceed the ping interval; 0 disables the idle check.
     pub ws_idle_timeout_s: u64,
+    /// Ceiling on concurrent WebSocket sockets (bot gateway + spectators
+    /// share one pool); each spawns tasks and channels. 0 = unlimited.
+    pub max_connections: usize,
+    /// Ceiling on live private rooms. 0 = unlimited.
+    pub max_lobbies: usize,
+    /// Global token-bucket rate for failed `join` attempts per minute: a
+    /// wrong code draws from one shared bucket, so brute-forcing the ~1M
+    /// room-code space cannot run at connection speed. 0 = unlimited.
+    pub join_attempts_per_min: u32,
+    /// Global token-bucket rate for first-time bot-name registrations per
+    /// minute: cycling unique names cannot mint unbounded ladder rows.
+    /// Repeat connections and server-side house bots bypass it. 0 = unlimited.
+    pub new_names_per_min: u32,
+    /// Replay retention: startup deletes the oldest `match-*.json` beyond
+    /// this many. 0 = keep everything.
+    pub max_replays: usize,
 }
 
 impl Default for ServerConfig {
@@ -158,6 +174,79 @@ impl Default for ServerConfig {
             spectate_delay_s: 30,
             ws_ping_every_s: 10,
             ws_idle_timeout_s: 45,
+            max_connections: 256,
+            max_lobbies: 64,
+            join_attempts_per_min: 30,
+            new_names_per_min: 60,
+            max_replays: 100,
+        }
+    }
+}
+
+/// Global token bucket for the per-minute abuse ceilings (issue #37): starts
+/// full, refills continuously at `capacity` per minute, and `take` draws one
+/// token. A `capacity` of 0 means unlimited (every take succeeds) so a zero
+/// knob disables the ceiling instead of bricking the door.
+struct TokenBucket {
+    tokens: f64,
+    capacity: f64,
+    per_sec: f64,
+    last: Instant,
+}
+
+impl TokenBucket {
+    fn new(per_minute: u32) -> Self {
+        let capacity = f64::from(per_minute);
+        TokenBucket {
+            tokens: capacity,
+            capacity,
+            per_sec: capacity / 60.0,
+            last: Instant::now(),
+        }
+    }
+
+    fn take(&mut self) -> bool {
+        if self.capacity == 0.0 {
+            return true;
+        }
+        let now = Instant::now();
+        self.tokens = (self.tokens + now.duration_since(self.last).as_secs_f64() * self.per_sec)
+            .min(self.capacity);
+        self.last = now;
+        if self.tokens >= 1.0 {
+            self.tokens -= 1.0;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Startup replay retention (issue #37): delete the oldest `match-*.json`
+/// beyond `keep`. Only files whose name parses as `match-<millis>.json` are
+/// touched, so hand-placed fixtures (demo8.json, m1-acceptance.json) and any
+/// unrecognized file survive; 0 keeps everything.
+pub fn sweep_replays(dir: &std::path::Path, keep: usize) {
+    if keep == 0 {
+        return;
+    }
+    let mut seqs: Vec<(u64, PathBuf)> = match std::fs::read_dir(dir) {
+        Ok(rd) => rd
+            .flatten()
+            .filter_map(|e| {
+                let p = e.path();
+                let stem = p.file_stem()?.to_str()?;
+                let seq = stem.strip_prefix("match-")?.parse::<u64>().ok()?;
+                (p.extension()?.to_str()? == "json").then_some((seq, p))
+            })
+            .collect(),
+        Err(_) => return,
+    };
+    seqs.sort_by_key(|(seq, _)| *seq);
+    while seqs.len() > keep {
+        let (_, path) = seqs.remove(0);
+        if std::fs::remove_file(&path).is_ok() {
+            println!("🗑 replay retention: removed {}", path.display());
         }
     }
 }
@@ -174,6 +263,14 @@ pub struct Server {
     pub lobby_seq: Arc<AtomicU64>,
     pub spectate_tx: broadcast::Sender<String>,
     pub lane_count: Arc<tokio::sync::Semaphore>,
+    /// Concurrent-socket ceiling shared by the bot gateway and spectators:
+    /// a permit is held for the life of each upgraded connection.
+    conn_permits: Arc<tokio::sync::Semaphore>,
+    /// Abuse ceilings drawn once per offense (wrong join code / brand-new
+    /// bot name) — global on purpose, since per-IP state behind the reverse
+    /// proxy would trust spoofable headers.
+    join_bucket: std::sync::Mutex<TokenBucket>,
+    new_name_bucket: std::sync::Mutex<TokenBucket>,
 }
 
 #[derive(Deserialize)]
@@ -232,6 +329,11 @@ const HOUSE_MATCH_MAX: usize = 8;
 /// practice, still overflow-safe on the timer wheel (Duration::MAX is not).
 const KEEPALIVE_OFF: Duration = Duration::from_secs(365 * 24 * 3600);
 
+/// Global in-flight HTTP request ceiling (issue #37): per-IP limiting is the
+/// reverse proxy's job (the socket address here is the proxy's), so this is
+/// one blunt, correctly-total cap.
+const HTTP_CONCURRENCY: usize = 256;
+
 /// Bot names are operator-controlled wire data that render into the viewer
 /// HUD and the ladder page. Pin them to a markup-free charset so a crafted
 /// name can never carry HTML into a spectator's browser.
@@ -259,9 +361,18 @@ impl Server {
     ) -> anyhow::Result<()> {
         let db = Arc::new(gunbatte_node::db::Db::open(&cfg.db_path)?);
         std::fs::create_dir_all(&cfg.replay_dir).ok();
+        sweep_replays(&cfg.replay_dir, cfg.max_replays);
         let (spectate_tx, _) = broadcast::channel(1024);
+        let permits = if cfg.max_connections == 0 {
+            usize::MAX
+        } else {
+            cfg.max_connections
+        };
         let server = Arc::new(Server {
             lane_count: Arc::new(tokio::sync::Semaphore::new(cfg.lanes)),
+            conn_permits: Arc::new(tokio::sync::Semaphore::new(permits)),
+            join_bucket: std::sync::Mutex::new(TokenBucket::new(cfg.join_attempts_per_min)),
+            new_name_bucket: std::sync::Mutex::new(TokenBucket::new(cfg.new_names_per_min)),
             cfg,
             db,
             config,
@@ -341,10 +452,14 @@ impl Server {
     /// work and moved here in the lobby/game-server split.)
     async fn spawn_match(self: &Arc<Self>, drafted: Vec<Arc<BotHandle>>, config: MatchConfig) {
         let permit = self.lane_count.clone().acquire_owned().await.unwrap();
+        // House-filled matches are sparring (issue #37): matchmaking knows it
+        // topped the roster up, the game role only honors the verdict.
+        let rated = !drafted.iter().any(|h| h.house);
         let ctx = MatchContext {
             db: self.db.clone(),
             replay_dir: self.cfg.replay_dir.clone(),
             spectate: self.spectate_tx.clone(),
+            rated,
         };
         let entrants: Vec<MatchEntrant> = drafted.iter().map(|h| h.entrant()).collect();
         let fut = self.host.host_match(ctx, entrants, config);
@@ -426,6 +541,18 @@ impl Server {
                 Ok(())
             }
             LobbyIntent::Create { boss } => {
+                // Live-room ceiling (issue #37): rooms are consumed by their
+                // match, so this bounds matchmaking bookkeeping, not play.
+                if self.cfg.max_lobbies > 0 && self.lobbies.lock().await.len() >= self.cfg.max_lobbies
+                {
+                    let _ = ws_tx
+                        .send(tmsg(
+                            json!({"type":"error","error":"lobby limit reached, try later"})
+                                .to_string(),
+                        ))
+                        .await;
+                    return Ok(());
+                }
                 let code = self.new_lobby_code().await;
                 handle.set_lobby(Some(code.clone()));
                 let lobby = Lobby {
@@ -446,11 +573,23 @@ impl Server {
                 let mut lobbies = self.lobbies.lock().await;
                 let Some(lobby) = lobbies.get_mut(&code) else {
                     drop(lobbies);
-                    let _ = ws_tx
-                        .send(tmsg(
-                            json!({"type":"error","error":"no such lobby"}).to_string(),
-                        ))
-                        .await;
+                    // Wrong codes draw from a global bucket (issue #37): one
+                    // join per connection otherwise lets reconnect churn
+                    // brute-force the ~1M room-code space at wire speed.
+                    if !self.join_bucket.lock().unwrap().take() {
+                        let _ = ws_tx
+                            .send(tmsg(
+                                json!({"type":"error","error":"too many join attempts, slow down"})
+                                    .to_string(),
+                            ))
+                            .await;
+                    } else {
+                        let _ = ws_tx
+                            .send(tmsg(
+                                json!({"type":"error","error":"no such lobby"}).to_string(),
+                            ))
+                            .await;
+                    }
                     return Ok(());
                 };
                 let cap = if lobby.boss_raid {
@@ -523,7 +662,11 @@ impl Server {
         let Some(lobby) = lobbies.remove(&code) else {
             return Err("lobby is gone".into());
         };
-        if lobby.host.name != host.name {
+        // Host authorization is handle identity, not a name string (issue
+        // #37): a second socket registering the same name shares one ladder
+        // row (name-UNIQUE upsert), so only ptr_eq — the same primitive the
+        // disconnect path uses — can tell the creator from a spoofer.
+        if !Arc::ptr_eq(&lobby.host, host) {
             // Put the room back — only its creator starts the match.
             lobbies.insert(code, lobby);
             return Err("only the host can start".into());
@@ -541,7 +684,7 @@ impl Server {
             .filter(|m| m.entrant().connected.load(Ordering::Relaxed))
             .cloned()
             .collect();
-        if !drafted.iter().any(|m| m.name == host.name) {
+        if !drafted.iter().any(|m| Arc::ptr_eq(m, host)) {
             return Err("host is disconnected".into());
         }
         if drafted.len() < 2 && self.cfg.house_bots == 0 {
@@ -719,7 +862,17 @@ async fn start_axum(server: Arc<Server>) -> anyhow::Result<()> {
         .nest_service(
             "/replays",
             ServeDir::new(&replays_dir).append_index_html_on_directories(false),
-        );
+        )
+        // Slowloris backstop (issue #37): a 30s ceiling on every dynamic
+        // request. Deliberately applied BEFORE /replays is nested so replay
+        // downloads — tens of MB over a slow link is legitimate — stay
+        // exempt; WS upgrades are safe under it (the response completes at
+        // the 101, the upgraded socket outlives the request). tower-http's
+        // TimeoutLayer answers 408 instead of erroring, as axum requires.
+        .layer(tower_http::timeout::TimeoutLayer::with_status_code(
+            axum::http::StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(30),
+        ));
 
     if let Some(viewer) = &server.cfg.viewer_dir {
         let index = viewer.join("index.html");
@@ -729,7 +882,12 @@ async fn start_axum(server: Arc<Server>) -> anyhow::Result<()> {
         }
     }
 
-    let app = app.with_state(server.clone());
+    let app = app
+        .with_state(server.clone())
+        // One global in-flight ceiling (issue #37) — cheap insurance if the
+        // server is ever exposed without the nginx limits; replay downloads
+        // are included here on purpose (disk IO is exactly what needs a cap).
+        .layer(tower::limit::ConcurrencyLimitLayer::new(HTTP_CONCURRENCY));
 
     let listener = tokio::net::TcpListener::bind((server.cfg.bind.as_str(), server.cfg.port)).await?;
     println!(
@@ -747,18 +905,39 @@ async fn ladder_page(State(s): State<Arc<Server>>) -> impl IntoResponse {
 async fn ws_bot_handler(
     State(server): State<Arc<Server>>,
     ws: WebSocketUpgrade,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| on_bot_socket(server, socket))
+) -> axum::response::Response {
+    // Connection ceiling (issue #37): hold a permit for the life of the
+    // socket — bots and spectators draw from the same pool. A full pool
+    // refuses the upgrade outright instead of spawning more tasks.
+    let Ok(permit) = server.conn_permits.clone().try_acquire_owned() else {
+        return (
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            "connection limit reached",
+        )
+            .into_response();
+    };
+    ws.on_upgrade(move |socket| on_bot_socket(server, socket, permit))
 }
 
 async fn ws_spectate_handler(
     State(server): State<Arc<Server>>,
     ws: WebSocketUpgrade,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| on_spectate_socket(server, socket))
+) -> axum::response::Response {
+    let Ok(permit) = server.conn_permits.clone().try_acquire_owned() else {
+        return (
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            "connection limit reached",
+        )
+            .into_response();
+    };
+    ws.on_upgrade(move |socket| on_spectate_socket(server, socket, permit))
 }
 
-async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
+async fn on_bot_socket(
+    server: Arc<Server>,
+    ws: WebSocket,
+    _conn_permit: tokio::sync::OwnedSemaphorePermit,
+) {
     let (mut ws_tx, mut ws_rx) = ws.split();
     // Handshake: first message must be a register.
     let first = tokio::time::timeout(Duration::from_secs(10), ws_rx.next()).await;
@@ -782,6 +961,19 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
         let _ = ws_tx
             .send(tmsg(
                 json!({"type":"error","error":"invalid name"}).to_string(),
+            ))
+            .await;
+        return;
+    }
+    // First-sight names draw from a global bucket (issue #37): cycling
+    // unique names at connection speed otherwise inserts unbounded ladder
+    // rows before any queue admission. Known names — every reconnect, and
+    // house bots (they register server-side) — bypass the bucket.
+    let known = server.db.bot_exists(&reg.name);
+    if !known && !server.new_name_bucket.lock().unwrap().take() {
+        let _ = ws_tx
+            .send(tmsg(
+                json!({"type":"error","error":"too many new bots, slow down"}).to_string(),
             ))
             .await;
         return;
@@ -984,7 +1176,11 @@ async fn on_bot_socket(server: Arc<Server>, ws: WebSocket) {
     }
 }
 
-async fn on_spectate_socket(server: Arc<Server>, ws: WebSocket) {
+async fn on_spectate_socket(
+    server: Arc<Server>,
+    ws: WebSocket,
+    _conn_permit: tokio::sync::OwnedSemaphorePermit,
+) {
     let (mut ws_tx, mut ws_rx) = ws.split();
     let mut sub = server.spectate_tx.subscribe();
     let delay_ticks = server.cfg.spectate_delay_s * server.config.tick_rate_hz as u64;
@@ -1040,5 +1236,60 @@ mod tests {
         assert!(!valid_name("a&b"));
         assert!(!valid_name("\u{1f600}")); // emoji — multi-byte
         assert!(!valid_name(&"x".repeat(33)));
+    }
+
+    #[test]
+    fn token_bucket_drains_then_refills() {
+        let mut b = TokenBucket::new(3);
+        assert!(b.take());
+        assert!(b.take());
+        assert!(b.take());
+        assert!(!b.take(), "empty bucket refuses");
+        // Refill is continuous: ~3/min means a token after 20s.
+        b.last -= Duration::from_secs(20);
+        assert!(b.take(), "20s at 3/min accrues one token");
+    }
+
+    #[test]
+    fn zero_capacity_bucket_is_unlimited() {
+        let mut b = TokenBucket::new(0);
+        for _ in 0..1000 {
+            assert!(b.take(), "0 = no ceiling, never refuses");
+        }
+    }
+
+    #[test]
+    fn replay_sweep_keeps_newest_and_leaves_foreign_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let touch = |name: &str| std::fs::write(dir.path().join(name), b"{}").unwrap();
+        touch("match-3.json");
+        touch("match-9.json");
+        touch("match-5.json");
+        touch("match-broken.json"); // unparseable sequence: never deleted
+        touch("demo8.json"); // hand-placed fixture: never deleted
+        touch("notes.txt"); // not a replay: never deleted
+
+        sweep_replays(dir.path(), 2);
+        let left: Vec<String> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .flatten()
+            .filter_map(|e| e.file_name().into_string().ok())
+            .collect();
+        assert!(!left.iter().any(|n| n == "match-3.json"), "oldest swept: {left:?}");
+        assert!(left.contains(&"match-5.json".to_string()), "{left:?}");
+        assert!(left.contains(&"match-9.json".to_string()), "{left:?}");
+        assert!(left.contains(&"match-broken.json".to_string()), "{left:?}");
+        assert!(left.contains(&"demo8.json".to_string()), "{left:?}");
+        assert!(left.contains(&"notes.txt".to_string()), "{left:?}");
+    }
+
+    #[test]
+    fn replay_sweep_zero_keeps_everything() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..5 {
+            std::fs::write(dir.path().join(format!("match-{i}.json")), b"{}").unwrap();
+        }
+        sweep_replays(dir.path(), 0);
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 5);
     }
 }

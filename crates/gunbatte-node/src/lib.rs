@@ -35,18 +35,25 @@ pub struct MatchEntrant {
 
 /// One message from an entrant inside a tick's reply window.
 pub struct BotMsg {
-    /// Client-asserted tick — currently advisory; the loop coalesces to the
-    /// newest message per window regardless.
+    /// Client-asserted tick: the tick of the observation this reply answers.
+    /// The game role drops replies stamped with any other tick; 0 (the serde
+    /// default of a client that omits the field) means "no assertion" and is
+    /// accepted.
     pub client_tick: u64,
     pub input: BotInput,
     pub arrived: Instant,
 }
 
 /// Per-match resources the matchmaker hands the game role: where replays
-/// and results go, and where spectator frames are published. Everything
-/// else a match needs arrives via `MatchConfig` and the entrants.
+/// and results go, where spectator frames are published, and whether the
+/// match counts for the ladder (false when matchmaking topped the roster up
+/// with house bots — such matches must not move ELO). Everything else a
+/// match needs arrives via `MatchConfig` and the entrants.
 pub struct MatchContext {
     pub db: Arc<db::Db>,
     pub replay_dir: PathBuf,
     pub spectate: broadcast::Sender<String>,
+    /// Does this match count for the ladder? Matchmaking knows whether it
+    /// added house bots; the game role only honors the verdict.
+    pub rated: bool,
 }

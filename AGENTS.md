@@ -73,8 +73,9 @@ lobby ↔ gameserver edge anywhere, not even a dev-dependency.
 
 - The handoff: `BotHandle::entrant()` (lobby) builds a `MatchEntrant`
   (node); `Server::spawn_match` passes entrants + `MatchContext` (db, replay
-  dir, spectate sink) to `MatchHost::host_match`; `GameHost` (gunbatte-server)
-  binds that to `run_match` (gameserver).
+  dir, spectate sink, `rated` verdict for house-filled matches) to
+  `MatchHost::host_match`; `GameHost` (gunbatte-server) binds that to
+  `run_match` (gameserver).
 - `MatchHost` is the only way matchmaking reaches a match. When the roles
   split across processes, the trait's implementation becomes the assignment
   protocol and no lobby code changes.
