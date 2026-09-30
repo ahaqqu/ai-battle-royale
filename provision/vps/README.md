@@ -121,7 +121,9 @@ reconcile (`nginx/reconcile-limits.sh`) is add-only — it inserts the zones,
 the `/ws/*` location blocks, and the 1m body cap if missing, never touching
 hostnames, TLS, or redirects — and is a verified no-op when everything is
 already in place. Preview first with
-`DRY_RUN=1 sudo bash $GUNBATTE_DIR/provision/vps/nginx/reconcile-limits.sh`.
+`sudo bash $GUNBATTE_DIR/provision/vps/nginx/reconcile-limits.sh --dry-run`
+(the `--dry-run` flag is deliberate: `sudo` strips environment variables, so
+a `DRY_RUN=1` prefix would silently not survive it).
 Normal deploys deliberately cannot do this step: the deploy identity's sudo
 grant is scoped to the app service, so CI can never edit nginx.
 
