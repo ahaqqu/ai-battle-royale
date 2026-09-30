@@ -125,6 +125,13 @@ else
     echo "✓ nginx: gunbatte site installed (HTTP only; certbot adds TLS next)"
 fi
 
+# The limits reconcile is add-only (zones, WS locations, body cap — never
+# TLS), so it is safe to run on every apply.sh: a no-op on a fresh install of
+# the current template, an insertion into any older one. Preview by hand with
+# DRY_RUN=1. deploy.sh ships the script on every deploy but cannot run it —
+# the deploy identity's sudo grant is scoped to the app service on purpose.
+bash "$here/nginx/reconcile-limits.sh" /etc/nginx/sites-enabled/gunbatte.conf
+
 # --- 5. TLS via certbot (needs both hostnames resolving to THIS machine) --------
 # Resolve via the local resolver and compare against this host's own
 # addresses — read with `hostname -I`, not `ip` (which can fail under sudo's
