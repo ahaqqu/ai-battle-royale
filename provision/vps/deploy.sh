@@ -148,16 +148,17 @@ else
     # Post-deploy doctor (the shared-box gate): the read-only sweep verifies
     # nginx, sites-enabled hygiene, failed units, every app's listeners and
     # certs — so whichever deploy breaks the box turns its own run red. The
-    # script is vendored in this repo (canonical: ahaqqu/homepage, private —
-    # the box cannot fetch from it unauthenticated and the gate must not need
-    # a credential) and piped over ssh stdin: nothing fetched at deploy time,
-    # nothing left on the box's disk. Runs as the deploy identity; the
-    # sudoers drop-in above carries the two read-only diagnostics it needs.
-    # Until apply.sh has been re-run to install that widened grant, the
-    # sweep's nginx check degrades to a warning rather than failing deploys.
+    # script is NOT shipped by this repo: homepage (the box's owner) updates
+    # $OPS_DIR/doctor.sh on every one of its deploys, and both apps run that
+    # single copy — no vendored duplicate, no fetch, no credential. Until
+    # homepage has deployed once since the ops-dir bootstrap, the file may not
+    # exist yet; that is a warning, not a failed deploy. Runs as the deploy
+    # identity; the sudoers drop-in above carries the two read-only
+    # diagnostics it needs (until apply.sh is re-run to install that widened
+    # grant, the sweep's nginx check degrades to a warning).
     if ssh "$GUNBATTE_SSH" "systemctl list-unit-files gunbatte.service --no-legend" | grep -q gunbatte; then
         echo "▶ post-deploy doctor (cross-app health gate)…"
-        ssh "$GUNBATTE_SSH" 'bash -s' < "$repo/provision/vps/doctor.sh"
+        ssh "$GUNBATTE_SSH" 'if [ -x /srv/vps-ops/doctor.sh ]; then bash /srv/vps-ops/doctor.sh; else echo "⚠ /srv/vps-ops/doctor.sh not present yet — has homepage deployed since the ops-dir bootstrap?" >&2; fi'
     fi
 fi
 

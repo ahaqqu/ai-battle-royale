@@ -131,15 +131,16 @@ grant is scoped to the app service, so CI can never edit nginx.
 doctor sweep — nginx config test, `sites-enabled/` hygiene, failed units,
 every app's listeners and certs. A gunbatte deploy that leaves the box
 unhealthy turns its own run red, with no cross-repo review needed. The sweep
-is **vendored** at `provision/vps/doctor.sh` (canonical copy: the private
-ahaqqu/homepage repo, `provision/vps/` — the box cannot fetch from a private
-repo unauthenticated and the gate must not need a credential) and piped over
-ssh stdin: nothing is fetched at deploy time and nothing lands on the box's
-disk. It runs as the deploy identity, whose sudoers drop-in carries two
-read-only diagnostics for it (`nginx -t`, `certbot certificates` — neither
-changes state); re-run `apply.sh` once after merging to install that widened
-grant. Until then the sweep degrades to warnings. The box-wide view of what
-doctor checks lives in homepage's private `MACHINE.md`.
+is **one copy on the box**: homepage (the box's owner) updates
+`/srv/vps-ops/doctor.sh` on every one of its deploys, and this repo's deploy
+runs that file — nothing vendored here, nothing fetched, no credential. If
+homepage has not deployed since the ops dir was bootstrapped, the gate prints
+a warning instead of failing. It runs as the deploy identity, whose sudoers
+drop-in carries two read-only diagnostics for it (`nginx -t`,
+`certbot certificates` — neither changes state); re-run `apply.sh` once after
+merging to install that widened grant. Until then the sweep degrades to
+warnings. The box-wide view of what doctor checks lives in homepage's private
+`provision/vps/MACHINE.md`.
 
 When one of these fires in production, [LIMITS.md](../../LIMITS.md) maps the
 symptom the client sees to the knob that caused it.
