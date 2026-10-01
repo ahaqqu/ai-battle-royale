@@ -50,14 +50,14 @@
   </g>
 
   <!-- ===== tarsius: the grumpy sharpshooter ===== -->
-  <!-- dish ears (cyan rim / mid blue / purple core) -->
+  <!-- dish ears (cyan rim / mid blue / purple core), a touch elliptical -->
   <g stroke="#3a2c5a" stroke-width="9">
-    <circle cx="171" cy="205" r="46" fill="#1fb2e8"/>
-    <circle cx="171" cy="205" r="29" fill="#3a41d6" stroke-width="7"/>
-    <circle cx="171" cy="205" r="14" fill="#8b3fd9" stroke-width="6"/>
-    <circle cx="341" cy="205" r="46" fill="#1fb2e8"/>
-    <circle cx="341" cy="205" r="29" fill="#3a41d6" stroke-width="7"/>
-    <circle cx="341" cy="205" r="14" fill="#8b3fd9" stroke-width="6"/>
+    <ellipse cx="171" cy="205" rx="42" ry="49" fill="#1fb2e8"/>
+    <ellipse cx="171" cy="205" rx="26.5" ry="31" fill="#3a41d6" stroke-width="7"/>
+    <ellipse cx="171" cy="205" rx="12.5" ry="15" fill="#8b3fd9" stroke-width="6"/>
+    <ellipse cx="341" cy="205" rx="42" ry="49" fill="#1fb2e8"/>
+    <ellipse cx="341" cy="205" rx="26.5" ry="31" fill="#3a41d6" stroke-width="7"/>
+    <ellipse cx="341" cy="205" rx="12.5" ry="15" fill="#8b3fd9" stroke-width="6"/>
   </g>
   <!-- head -->
   <circle cx="256" cy="280" r="106" fill="#ff5f7e" stroke="#3a2c5a" stroke-width="10"/>
@@ -81,11 +81,6 @@
   <circle cx="288" cy="276" r="8" fill="#ffffff"/>
   <circle cx="212" cy="270" r="3.5" fill="#ffffff" opacity="0.9"/>
   <circle cx="300" cy="270" r="3.5" fill="#ffffff" opacity="0.9"/>
-  <!-- annoyed brows -->
-  <g stroke="#3a2c5a" stroke-width="9" stroke-linecap="round">
-    <line x1="182" y1="222" x2="230" y2="234"/>
-    <line x1="330" y1="222" x2="282" y2="234"/>
-  </g>
   <!-- nose + grumpy frown -->
   <ellipse cx="256" cy="298" rx="10" ry="8" fill="#8b3fd9"/>
   <path d="M234 332 Q256 320 278 332" fill="none" stroke="#3a2c5a" stroke-width="6" stroke-linecap="round"/>

@@ -1,6 +1,6 @@
 /** Unit sprites: chunky tarsius heroes — round fur ball (team color), huge
  * cyan ears with purple cores, cream face mask, big glossy yellow eyes, cyan
- * paws with claw tips — plus swinging arms, stepping feet, soft drop shadows
+ * mitten paws — plus swinging arms, stepping feet, soft drop shadows
  * and squash-stretch juice. Companions are jalak (Bali starling) birds that
  * flap along beside their owner.
  *
@@ -29,7 +29,6 @@ const EAR_CYAN = 0x1fb2e8;
 const EAR_BLUE = 0x3a41d6;
 const EAR_INNER = 0x8b3fd9;
 const PAW_CYAN = 0x1fb2e8;
-const CLAW = 0x8a46e8;
 const FACE_CREAM = 0xf5e7c8;
 const EYE_YELLOW = 0xf7d308;
 const NOSE_PURPLE = 0x8b3fd9;
@@ -80,17 +79,16 @@ export interface JalakArt {
   flash: Graphics;
 }
 
-/** The tarsius: cyan clawed paws, huge dish ears behind the head, round fur
+/** The tarsius: cyan mitten paws, huge dish ears behind the head, round fur
  * ball, cream face mask with big yellow eyes, purple nose and a smile — all
  * facing local +X so the caller can point it along a bearing. */
 export function makeTarsius(col: number): TarsiusArt {
   const root = new Container();
-  // Paws: cyan mittens with two purple claw tips.
+  // Paws: plain cyan mittens — claw dots were tried and rejected in review
+  // (matches the approved character sheet).
   const paw = (rx: number, ry: number, ow: number): Graphics => {
     const g = new Graphics();
     g.ellipse(0, 0, rx, ry).fill({ color: PAW_CYAN }).stroke({ width: ow, color: INK, alpha: 0.85 });
-    g.circle(rx * 0.55, -ry * 0.38, 1.35).fill({ color: CLAW });
-    g.circle(rx * 0.62, ry * 0.34, 1.35).fill({ color: CLAW });
     return g;
   };
   const armL = paw(5.4, 3.8, 2);

@@ -215,19 +215,19 @@
     <span class="sec-kana">あたま</span>
     <h2>The canonical head — logo construction, finished</h2>
     <p class="sec-sub">Same construction you liked in the logo: outlined melon ball, cream mask inside,
-      concentric dish ears. Tuned with the union-outline trick from the game art, bigger
-      tarsier-true eyes, and brows that reach for the ears. These four faces are the whole
-      emotional range he needs.</p>
+      concentric dish ears, now a touch elliptical. Tuned with the union-outline trick from the game
+      art and bigger, tarsier-true eyes — and zero eyebrows, because the real animal doesn't have
+      any. These four faces are the whole emotional range he needs.</p>
     <div class="cards cols-4">
       <div class="card">
         <span class="tag">default · grump</span>
         <div class="stage" data-head="grumpy"></div>
-        <p class="note"><b>Grumpy.</b> Half-lidded gold eyes, low brows, small frown. The resting face for the site and the logo.</p>
+        <p class="note"><b>Grumpy.</b> Half-lidded gold eyes, small frown. The resting face for the site and the logo.</p>
       </div>
       <div class="card">
         <span class="tag cyan">asleep</span>
         <div class="stage" data-head="asleep"></div>
-        <p class="note"><b>Asleep.</b> Eyes shut, brows smoothed out. For the menu nap loop and the "five more minutes" bubble.</p>
+        <p class="note"><b>Asleep.</b> Eyes shut, everything smoothed out. For the menu nap loop and the "five more minutes" bubble.</p>
       </div>
       <div class="card">
         <span class="tag banana">alert</span>
@@ -247,8 +247,9 @@
     <span class="sec-kana">おおきい</span>
     <h2>Large mascot — the website hero duo</h2>
     <p class="sec-sub">The front-facing pair the landing page deserves. Same composition as today, with the
-      fixes from the head section: the cream face gets its ink outline (it used to float unoutlined),
-      the eyes sit <b>on</b> the cream, and the hands become real gripping paws. He is done for today;
+      fixes from the head section: the whole head <b>is</b> the canonical construction now — it used to
+      be a face painted on the body ball with ears floating free — and the hands are bare mittens, same
+      as the game sprite: fingers were tried here too and cut for being clutter. He is done for today;
       she is not.</p>
     <div class="cards cols-2">
       <div class="card" style="grid-column: 1 / -1;">
@@ -257,8 +258,8 @@
           <svg viewBox="0 0 560 430" id="heroDuo" aria-label="Tarsius napping with blaster while Jalak shouts"></svg>
         </div>
         <p class="note"><b>Tarsius:</b> sitting, blaster planted, eyelids at 70%. <b>Jalak:</b> mid-hover, wings out,
-          shouting the trademark. The face mask is now one outlined shape — on the sky background it finally
-          reads as a head instead of a sticker.</p>
+          shouting the trademark. The head is the canonical construction dropped in whole — same dish
+          ears, mask and grump as the logo, no more face painted on the body ball.</p>
       </div>
     </div>
   </section>
@@ -298,13 +299,13 @@
     <h2>In-game sprite — side view, hands fixed</h2>
     <p class="sec-sub">The unit every match actually renders, facing +X like the current art. Real-tarsier
       additions: one huge gold eye, a long thin tail with a cream tip, and a snout that nudges past the
-      body silhouette. The hands are the rework: a gripping three-fingered paw around his blaster —
-      no more floating dot-mittens.</p>
+      body silhouette. The hands stay candy-simple: one clean mitten around his blaster — no fingers,
+      no claw dots, on hands or feet, here or on the big website mascot.</p>
     <div class="cards cols-2">
       <div class="card">
         <span class="tag">armed · idle grip</span>
         <div class="stage blue" id="spriteArmed"></div>
-        <p class="note">Default battle pose: blaster in a wrapped three-finger grip, tail out for balance,
+        <p class="note">Default battle pose: blaster in a clean mitten grip, tail out for balance,
           dish ear catching the wind.</p>
       </div>
       <div class="card">
@@ -316,11 +317,11 @@
     </div>
     <div class="cards cols-2">
       <div class="card">
-        <span class="tag banana">hands: today vs proposal</span>
+        <span class="tag banana">hands: fingers rejected</span>
         <div class="stage" style="padding: 8px 0;" id="handsCompare"></div>
-        <p class="note"><b>Today (left):</b> a flat ellipse with two detached claw dots — reads as a balloon at any size.
-        <b>Proposal (right):</b> palm + three finger scallops + a subtle thumb line; gripping when armed, relaxed
-        when not. Real tarsiers are famous for their fingers — this keeps a hint of that inside the chunky candy bean.</p>
+        <p class="note"><b>Rejected (left):</b> the bundled tarsier-finger hand — after the game dropped its
+        fingers, the big mascot's were tried and let go too. <b>Final (right):</b> one bare mitten on every
+        hand, game and website alike — simpler, and nothing to misread at any size.</p>
       </div>
       <div class="card">
         <span class="tag grape">boss tint check</span>
@@ -418,8 +419,9 @@
     <div class="notes">
       <div class="note-card"><div class="dot" style="background:var(--melon);">1</div>
         <p><b>One head everywhere.</b> The logo construction you liked is now the single source: outlined melon ball →
-        cream mask inside → dish ears. The website hero abandons its floating unoutlined face and adopts it.
-        <small>Fixes: duo-card vs hero inconsistency; hero face had no ink outline.</small></p></div>
+        cream mask inside → dish ears, now a touch elliptical. The website hero abandons its painted-on face and
+        adopts the canonical head whole.
+        <small>Fixes: duo-card vs hero inconsistency; hero face had no ink outline; hero ears floated free of the body.</small></p></div>
       <div class="note-card"><div class="dot" style="background:var(--ear-cyan);">2</div>
         <p><b>The mask gets the game's union outline.</b> Stroke-everything-then-fill-everything — the exact trick
         <b>units.ts</b> already uses — so the cream reads as one shape with a chunky ink edge, at any scale.
@@ -427,18 +429,25 @@
       <div class="note-card"><div class="dot" style="background:var(--gold);">3</div>
         <p><b>Bigger, tarsier-true eyes.</b> Eye ratio raised toward the real animal's (tarsiers are basically all eye).
         Still half-lidded by default because he is <i>so</i> tired — the alert face unlocks the full circles.
-        <small>Persona intact: grumpy first, awake only when the fight starts.</small></p></div>
+        <small>Persona intact: grumpy first, awake only when the fight starts. And no eyebrows anywhere —
+        real tarsiers don't have them.</small></p></div>
       <div class="note-card"><div class="dot" style="background:var(--grape);">4</div>
-        <p><b>Hands reworked.</b> Flat dot-mittens → a palm with three finger scallops and a thumb line, wrapped
-        around the blaster when armed, relaxed when not. <small>Your note: "head in game is okay but the hand
-        seems weird" — this is that fix, propagated to every scenario.</small></p></div>
+        <p><b>No fingers anywhere — final.</b> Three rounds: the scallop proposal (rejected), bundled
+        tarsier-true fingers on the game sprite (rejected — too small to read), then the same bundled hand
+        on the website mascot (rejected — even done right they read as clutter). Every hand is now one bare
+        mitten and every foot a plain disc, game and website alike.
+        <small>Your notes: "the hand and fingers is weird — please check real tarsius", "i only want to show
+        finger in mascot website only. in real game no need for finger in foot and hand", "remove finger
+        also in large mascot, better and simpler without finger".</small></p></div>
       <div class="note-card"><div class="dot" style="background:var(--leaf);">5</div>
         <p><b>A tail, finally.</b> Real tarsiers carry a long thin tail; the sprite gets an ink-line tail with a
         cream tuft that waves in the walk loop and droops in the flop. <small>Front-facing poses hide it —
         no impact on the hero or logo.</small></p></div>
       <div class="note-card"><div class="dot" style="background:var(--pinkpop);">6</div>
-        <p><b>Nothing existing is touched.</b> This file is standalone; index.html, logo.svg and units.ts are
-        byte-identical. If you approve, the same geometry back-ports into those three places.
+        <p><b>Approved and applied — every drawing now has one source.</b> The approved geometry lives in all four
+        places: this sheet, the website (hero duo, portraits, demo), logo.svg, and the game's units.ts (bare mitten
+        paws, connected arms). Inside the sheet each part is a named factory emitting one shape list that both the
+        SVG renderer and the canvas animator consume — the site's hero and portrait markup was generated from it.
         <small>Jalak stays on-model with the real Bali myna: cobalt eye patch, black tips, spiky crest.</small></p></div>
     </div>
   </section>
@@ -457,72 +466,286 @@ const C = {
   gold: "#f7d308", banana: "#ffd93b", pinkpop: "#ff5fd0",
   tang: "#ff9d3b", cloud: "#fbfdff", blaster: "#8a5cff",
   beak: "#e8d9a8", leg: "#8d93b5", boss: "#c22a4a",
+  jayBlack: "#25293f", jayEye: "#1e7ff0",
 };
 
 /* ============================================================
-   HEAD FACTORY — canonical head, viewBox 0 0 200 200
-   Construction: dish ears (behind) → melon ball → cream mask
-   (union outline: stroke all, then fill all) → fur wedge →
-   face per mood. Same layering the game renderer uses.
+   SHAPE MODEL — the single source both renderers consume.
+   A drawing is a plain list of shapes:
+     {t:"e", x,y,rx,ry, rot?,              f?,s?,sw?, o?}  ellipse (rot in deg)
+     {t:"r", x,y,w,h, r?,                  f?,s?,sw?, o?}  (rounded) rect
+     {t:"y", pts:[[x,y],…],                f?,s?,sw?, o?}  polygon
+     {t:"p", d,                            f?,s?,sw?, cap?, o?}  path
+     {t:"t", x,y, str, size, rot?,         f?,s?,sw?, o?}  text
+     {t:"g", x?,y?, sx?,sy?, rot?,cx?,cy?, o?, kids}       group:
+         translate(x,y) · scale(sx,sy) · rotate(rot about cx,cy)
+   svgShapes() renders a list to SVG markup, paintShapes() to a
+   2d context — a drawing defined once is identical in both, so
+   the sheet's SVG previews and the canvas animation loops can't
+   drift apart. Every part below is a factory emitting a list.
    ============================================================ */
-function headSVG(mood, opts = {}) {
-  const fur = opts.fur || C.melon;
-  const ear = (cx) => `
-    <g stroke="${C.ink}">
-      <circle cx="${cx}" cy="54" r="32" fill="${C.cyan}" stroke-width="7"/>
-      <circle cx="${cx}" cy="54" r="19.5" fill="${C.blue}" stroke-width="5"/>
-      <circle cx="${cx}" cy="54" r="9" fill="${C.grape}" stroke-width="4"/>
-    </g>`;
-  const maskShapes = `
-    <ellipse cx="100" cy="124" rx="52" ry="36"/>
-    <ellipse cx="72"  cy="100" rx="27" ry="30"/>
-    <ellipse cx="128" cy="100" rx="27" ry="30"/>`;
-  const mask = `
-    <g fill="none" stroke="${C.ink}" stroke-width="8">${maskShapes}</g>
-    <g fill="${C.face}">${maskShapes}</g>`;
-  const wedge = `<polygon points="94,74 106,74 100,92" fill="${fur}"/>`;
-  const nose = `<ellipse cx="100" cy="130" rx="7.5" ry="6" fill="${C.grape}" stroke="${C.ink}" stroke-width="3"/>`;
-  const frown = (y = 152, dip = 10) =>
-    `<path d="M ${100 - 16} ${y} Q 100 ${y - dip} ${100 + 16} ${y}" fill="none" stroke="${C.ink}" stroke-width="5.5" stroke-linecap="round"/>`;
-  const brow = (x1, y1, x2, y2) =>
-    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${C.ink}" stroke-width="6.5" stroke-linecap="round"/>`;
-  const eyeOpen = (cx) => `
-    <circle cx="${cx}" cy="102" r="22" fill="${C.gold}" stroke="${C.ink}" stroke-width="5.5"/>
-    <circle cx="${cx - 9}" cy="110" r="6" fill="#ffffff"/>
-    <circle cx="${cx + 8}" cy="94" r="3" fill="#ffffff" opacity="0.9"/>`;
-  const lid = (cx, chord = 96) => `
-    <path d="M ${cx - 22} ${chord} A 22 22 0 0 1 ${cx + 22} ${chord} Z"
-          fill="${fur}" stroke="${C.ink}" stroke-width="4.5"/>`;
-  let face = "";
-  if (mood === "grumpy") {
-    face = eyeOpen(72) + eyeOpen(128) + lid(72) + lid(128)
-      + brow(48, 74, 86, 84) + brow(152, 74, 114, 84) + nose + frown();
-  } else if (mood === "asleep") {
-    face = `
-      <path d="M 52 104 Q 72 116 92 104" fill="none" stroke="${C.ink}" stroke-width="5.5" stroke-linecap="round"/>
-      <path d="M 108 104 Q 128 116 148 104" fill="none" stroke="${C.ink}" stroke-width="5.5" stroke-linecap="round"/>
-      <path d="M 56 88 Q 72 96 88 90" fill="none" stroke="${C.ink}" stroke-width="5" stroke-linecap="round" opacity="0.75"/>
-      <path d="M 144 88 Q 128 96 112 90" fill="none" stroke="${C.ink}" stroke-width="5" stroke-linecap="round" opacity="0.75"/>`
-      + nose + frown(148, 6) + `
-      <text x="158" y="38" font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800"
-            font-size="24" fill="${C.grape}" stroke="${C.ink}" stroke-width="1" transform="rotate(14 158 38)">z</text>
-      <text x="178" y="20" font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800"
-            font-size="17" fill="${C.grape}" stroke="${C.ink}" stroke-width="0.8" transform="rotate(22 178 20)">z</text>`;
-  } else if (mood === "awake") {
-    face = eyeOpen(72) + eyeOpen(128)
-      + brow(50, 64, 86, 70) + brow(150, 64, 114, 70) + nose
-      + `<path d="M 92 150 L 108 150" fill="none" stroke="${C.ink}" stroke-width="5" stroke-linecap="round"/>`;
-  } else if (mood === "squint") {
-    face = eyeOpen(72) + lid(72, 98)
-      + `<ellipse cx="128" cy="104" rx="19" ry="8.5" fill="${C.gold}" stroke="${C.ink}" stroke-width="4.5"/>`
-      + brow(48, 74, 86, 84) + brow(152, 88, 114, 96) + nose
-      + frown(154, 7);
+function svgShapes(kids) {
+  const attrs = (o) =>
+    ` fill="${o.f || "none"}"` +
+    (o.s ? ` stroke="${o.s}" stroke-width="${o.sw}" stroke-linejoin="round"${o.cap ? ` stroke-linecap="round"` : ""}` : "") +
+    (o.o != null ? ` opacity="${o.o}"` : "");
+  let out = "";
+  for (const o of kids) {
+    if (o.t === "g") {
+      const tr = [];
+      if (o.x != null || o.y != null) tr.push(`translate(${o.x || 0} ${o.y || 0})`);
+      if (o.sx != null) tr.push(`scale(${o.sx} ${o.sy ?? o.sx})`);
+      if (o.rot != null) tr.push(`rotate(${o.rot} ${o.cx || 0} ${o.cy || 0})`);
+      out += `<g${tr.length ? ` transform="${tr.join(" ")}"` : ""}${o.o != null ? ` opacity="${o.o}"` : ""}>${svgShapes(o.kids)}</g>`;
+    } else if (o.t === "e") {
+      out += `<ellipse cx="${o.x}" cy="${o.y}" rx="${o.rx}" ry="${o.ry}"${o.rot ? ` transform="rotate(${o.rot} ${o.x} ${o.y})"` : ""}${attrs(o)}/>`;
+    } else if (o.t === "r") {
+      out += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}"${o.r ? ` rx="${o.r}"` : ""}${attrs(o)}/>`;
+    } else if (o.t === "y") {
+      out += `<polygon points="${o.pts.map((p) => p.join(",")).join(" ")}"${attrs(o)}/>`;
+    } else if (o.t === "p") {
+      out += `<path d="${o.d}"${attrs(o)}/>`;
+    } else if (o.t === "t") {
+      out += `<text x="${o.x}" y="${o.y}" font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800" font-size="${o.size}"${o.rot ? ` transform="rotate(${o.rot} ${o.x} ${o.y})"` : ""}${o.ax ? ` text-anchor="${o.ax}"` : ""} fill="${o.f}"${o.s ? ` stroke="${o.s}" stroke-width="${o.sw || 1}"` : ""}${o.o != null ? ` opacity="${o.o}"` : ""}>${o.str}</text>`;
+    }
   }
-  return `<svg viewBox="0 0 200 200" role="img" aria-label="Tarsius head, ${mood}">
-    ${ear(52)}${ear(148)}
-    <circle cx="100" cy="112" r="70" fill="${fur}" stroke="${C.ink}" stroke-width="9"/>
-    ${mask}${wedge}${face}
-  </svg>`;
+  return out;
+}
+function paintShapes(ctx, kids) {
+  for (const o of kids) {
+    ctx.globalAlpha = o.o != null ? o.o : 1;
+    if (o.t === "g") {
+      ctx.save();
+      if (o.x != null || o.y != null) ctx.translate(o.x || 0, o.y || 0);
+      if (o.sx != null) ctx.scale(o.sx, o.sy ?? o.sx);
+      if (o.rot != null) {
+        ctx.translate(o.cx || 0, o.cy || 0);
+        ctx.rotate((o.rot * Math.PI) / 180);
+        ctx.translate(-(o.cx || 0), -(o.cy || 0));
+      }
+      paintShapes(ctx, o.kids);
+      ctx.restore();
+    } else if (o.t === "t") {
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      if (o.rot) ctx.rotate((o.rot * Math.PI) / 180);
+      ctx.font = `800 ${o.size}px 'Baloo 2','Trebuchet MS',sans-serif`;
+      if (o.s) { ctx.strokeStyle = o.s; ctx.lineWidth = o.sw || 1; ctx.strokeText(o.str, 0, 0); }
+      ctx.fillStyle = o.f;
+      ctx.fillText(o.str, 0, 0);
+      ctx.restore();
+    } else {
+      ctx.beginPath();
+      if (o.t === "e") {
+        ctx.ellipse(o.x, o.y, o.rx, o.ry, ((o.rot || 0) * Math.PI) / 180, 0, Math.PI * 2);
+      } else if (o.t === "r") {
+        ctx.roundRect(o.x, o.y, o.w, o.h, o.r || 0);
+      } else if (o.t === "y") {
+        ctx.moveTo(o.pts[0][0], o.pts[0][1]);
+        for (let i = 1; i < o.pts.length; i++) ctx.lineTo(o.pts[i][0], o.pts[i][1]);
+        ctx.closePath();
+      } else if (o.t === "p") {
+        // absolute M/L/Q/C/Z subset — enough for every shared path
+        const tk = o.d.match(/[MLQCZ]|-?\d*\.?\d+/g);
+        let cmd = "";
+        for (let i = 0; i < tk.length; ) {
+          if (/[MLQCZ]/.test(tk[i])) {
+            cmd = tk[i++];
+            if (cmd === "Z") ctx.closePath();
+            continue;
+          }
+          if (cmd === "M") { ctx.moveTo(+tk[i], +tk[i + 1]); i += 2; }
+          else if (cmd === "L") { ctx.lineTo(+tk[i], +tk[i + 1]); i += 2; }
+          else if (cmd === "Q") { ctx.quadraticCurveTo(+tk[i], +tk[i + 1], +tk[i + 2], +tk[i + 3]); i += 4; }
+          else if (cmd === "C") { ctx.bezierCurveTo(+tk[i], +tk[i + 1], +tk[i + 2], +tk[i + 3], +tk[i + 4], +tk[i + 5]); i += 6; }
+          else i += 1;
+        }
+      }
+      if (o.f && o.f !== "none") { ctx.fillStyle = o.f; ctx.fill(); }
+      if (o.s) {
+        ctx.strokeStyle = o.s; ctx.lineWidth = o.sw || 1;
+        ctx.lineJoin = "round"; ctx.lineCap = o.cap ? "round" : "butt";
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ============================================================
+   PART FACTORIES — named, parameterized, single-source. Hands
+   are bare candy mittens and feet are plain discs everywhere —
+   fingers, thumbs and claw dots were tried and rejected in
+   review, at every size and on every asset.
+   ============================================================ */
+
+/* canonical front-view dish ear — three concentric candy rings,
+   a touch elliptical (a tarsier dish, not a coin) */
+function dishEarShapes(cx, cy) {
+  return [
+    { t: "e", x: cx, y: cy, rx: 29, ry: 34, f: C.cyan, s: C.ink, sw: 7 },
+    { t: "e", x: cx, y: cy, rx: 17.5, ry: 20.5, f: C.blue, s: C.ink, sw: 5 },
+    { t: "e", x: cx, y: cy, rx: 8, ry: 9.5, f: C.grape, s: C.ink, sw: 4 },
+  ];
+}
+
+/* One hand = one bare candy mitten. Finger bundles and thumbs
+   were tried (game-only, then website-only) and rejected in
+   review — simpler without them at every size. */
+function handShapes(o) {
+  return [{ t: "e", x: o.x, y: o.y, rx: o.rx, ry: o.ry, f: C.cyan, s: C.ink, sw: o.sw || 4.5 }];
+}
+
+/* front-view foot: plain candy disc */
+function footShapes(x, y, r, opts = {}) {
+  return [{ t: "e", x, y, rx: r, ry: r, f: C.cyan, s: C.ink, sw: opts.sw || 5 }];
+}
+
+/* the side-view blaster — one geometry everywhere */
+function blasterShapes(x, y) {
+  return [
+    { t: "r", x, y, w: 38, h: 19, r: 8, f: C.blaster, s: C.ink, sw: 4.5 },
+    { t: "r", x: x + 6, y: y + 16, w: 15, h: 16, r: 6, f: C.banana, s: C.ink, sw: 4.5 },
+    { t: "e", x: x + 42, y: y + 9, rx: 6.5, ry: 6.5, f: C.pinkpop, s: C.ink, sw: 4.5 },
+  ];
+}
+
+/* ============================================================
+   SIDE-VIEW GAME UNIT — the one definition of the in-match
+   tarsius, in body-relative coordinates (0,0 = body center,
+   facing +X). sideSpriteSVG renders it as markup; the canvas
+   painter renders the same list per animation frame.
+   ============================================================ */
+function unitShapes(o = {}) {
+  const fur = o.fur || C.melon;
+  const p = o.pose || {};
+  const footN = p.footN || { dx: 0, lift: 0 };
+  const footF = p.footF || { dx: 0, lift: 0 };
+  const sway = p.tailSway || 0;
+  const s = [];
+
+  // tail + cream tip
+  s.push({ t: "p", d: `M -46 16 Q -80 ${26 + sway * 0.4} -72 ${-22 + sway}`, s: C.ink, sw: 7, cap: "round" });
+  s.push({ t: "e", x: -72, y: -24 + sway, rx: 7, ry: 7.5, f: C.face, s: C.ink, sw: 3.5 });
+
+  // far ear (behind body)
+  s.push({ t: "e", x: -12, y: -50, rx: 9, ry: 14, rot: p.earF ?? -26, f: C.blue, s: C.ink, sw: 4 });
+
+  // far foot
+  s.push({ t: "e", x: 2 + footF.dx, y: 48 - footF.lift, rx: 14, ry: 10, f: C.cyan, s: C.ink, sw: 4.5, o: 0.85 });
+
+  // body
+  s.push({ t: "e", x: 0, y: 0, rx: 56, ry: 50, f: fur, s: C.ink, sw: 7 });
+
+  // near foot
+  s.push({ t: "e", x: 30 + footN.dx, y: 51 - footN.lift, rx: 16, ry: 11, f: C.cyan, s: C.ink, sw: 5 });
+
+  // face mask (union outline: stroke all → fill all)
+  const mask = [
+    { t: "e", x: 30, y: 2, rx: 27, ry: 24 },
+    { t: "e", x: 26, y: -20, rx: 21, ry: 20 },
+  ];
+  for (const m of mask) s.push({ ...m, f: "none", s: C.ink, sw: 6.5 });
+  for (const m of mask) s.push({ ...m, f: C.face });
+
+  // fur wedge
+  s.push({ t: "y", pts: [[3, -34], [15, -36], [7, -19]], f: fur });
+
+  // eye
+  if (p.eyeShut) {
+    s.push({ t: "p", d: "M 12 -14 Q 24 -6 36 -14", s: C.ink, sw: 4.5, cap: "round" });
+  } else {
+    s.push({ t: "g", x: 24, y: -15, sx: 1, sy: p.blink ?? 1, kids: [
+      { t: "e", x: 0, y: 0, rx: 13, ry: 13, f: C.gold, s: C.ink, sw: 4.5 },
+      { t: "e", x: -5, y: -5.5, rx: 4.5, ry: 4.5, f: "#ffffff" },
+      { t: "e", x: 6, y: 6, rx: 2, ry: 2, f: "#ffffff", o: 0.9 },
+    ] });
+  }
+
+  // nose + mouth
+  s.push({ t: "e", x: 58, y: -4, rx: 5, ry: 4, f: C.grape, s: C.ink, sw: 2.5 });
+  s.push(p.mouth === "nap"
+    ? { t: "p", d: "M 46 12 Q 54 8 61 13", s: C.ink, sw: 3, cap: "round" }
+    : { t: "p", d: "M 46 13 Q 54 18 62 10", s: C.ink, sw: 3, cap: "round" });
+
+  // arm + blaster + hand
+  if (p.planted) {
+    // blaster planted point-down beside him (nap pose)
+    s.push({ t: "g", x: 80, y: -62, rot: 5.73, kids: [
+      { t: "r", x: -9, y: 0, w: 18, h: 52, r: 8, f: C.blaster, s: C.ink, sw: 4.5 },
+      { t: "r", x: -7, y: 14, w: 14, h: 16, r: 5, f: C.banana, s: C.ink, sw: 4 },
+      { t: "e", x: 0, y: 56, rx: 7, ry: 7, f: C.pinkpop, s: C.ink, sw: 4.5 },
+    ] });
+  } else {
+    const kids = [];
+    if (o.armed) {
+      // arm reaches under the palm — no gap between arm and hand
+      kids.push({ t: "e", x: 26, y: 33, rx: 16, ry: 7.5, rot: 8, f: fur, s: C.ink, sw: 4.5 });
+      kids.push(...blasterShapes(44, 26));
+      kids.push(...handShapes({ x: 48, y: 36, rx: 10.5, ry: 8.5, sw: 4.5 }));
+    } else {
+      kids.push({ t: "e", x: 25, y: 36.5, rx: 15, ry: 7.5, rot: 14, f: fur, s: C.ink, sw: 4.5 });
+      kids.push(...handShapes({ x: 46, y: 41, rx: 10, ry: 8.5, sw: 4.5 }));
+    }
+    s.push({ t: "g", x: 0, y: p.armBob || 0, kids });
+  }
+
+  // near ear (in front)
+  s.push({ t: "g", x: -20, y: -46, rot: p.earN ?? -22, kids: [
+    { t: "e", x: 0, y: 0, rx: 16, ry: 25, f: C.cyan, s: C.ink, sw: 5 },
+    { t: "e", x: -1, y: 0, rx: 9.5, ry: 15.5, f: C.blue },
+    { t: "e", x: -2, y: 1, rx: 5.5, ry: 9, f: C.grape },
+  ] });
+
+  return s;
+}
+
+/* ============================================================
+   CANONICAL HEAD — the single head construction (viewBox 200):
+   dish ears (behind) → melon ball → cream mask (union outline:
+   stroke all, then fill all) → fur wedge → face per mood.
+   Consumed by the mood cards, favicons, logo badge and — via a
+   1.25× group — the website hero mascot.
+   ============================================================ */
+function headShapes(mood, o = {}) {
+  const fur = o.fur || C.melon;
+  const mask = [
+    { t: "e", x: 100, y: 124, rx: 52, ry: 36 },
+    { t: "e", x: 72, y: 100, rx: 27, ry: 30 },
+    { t: "e", x: 128, y: 100, rx: 27, ry: 30 },
+  ];
+  const eye = (cx) => [
+    { t: "e", x: cx, y: 102, rx: 22, ry: 22, f: C.gold, s: C.ink, sw: 5.5 },
+    { t: "e", x: cx - 9, y: 110, rx: 6, ry: 6, f: "#ffffff" },
+    { t: "e", x: cx + 8, y: 94, rx: 3, ry: 3, f: "#ffffff", o: 0.9 },
+  ];
+  const lid = (cx, chord = 96) => ({
+    t: "p", d: `M ${cx - 22} ${chord} A 22 22 0 0 1 ${cx + 22} ${chord} Z`, f: fur, s: C.ink, sw: 4.5,
+  });
+  const s = [
+    ...dishEarShapes(52, 54), ...dishEarShapes(148, 54),
+    { t: "e", x: 100, y: 112, rx: 70, ry: 70, f: fur, s: C.ink, sw: 9 },
+    ...mask.map((m) => ({ ...m, f: "none", s: C.ink, sw: 8 })),
+    ...mask.map((m) => ({ ...m, f: C.face })),
+    { t: "y", pts: [[94, 74], [106, 74], [100, 92]], f: fur },
+  ];
+  const nose = { t: "e", x: 100, y: 130, rx: 7.5, ry: 6, f: C.grape, s: C.ink, sw: 3 };
+  const frown = (y = 152, dip = 10) => ({ t: "p", d: `M 84 ${y} Q 100 ${y - dip} 116 ${y}`, s: C.ink, sw: 5.5, cap: "round" });
+  if (mood === "grumpy") s.push(...eye(72), ...eye(128), lid(72), lid(128), nose, frown());
+  else if (mood === "asleep") s.push(
+    { t: "p", d: "M 52 104 Q 72 116 92 104", s: C.ink, sw: 5.5, cap: "round" },
+    { t: "p", d: "M 108 104 Q 128 116 148 104", s: C.ink, sw: 5.5, cap: "round" },
+    nose, frown(148, 6),
+    { t: "t", x: 158, y: 38, str: "z", size: 24, f: C.grape, s: C.ink, sw: 1, rot: 14 },
+    { t: "t", x: 178, y: 20, str: "z", size: 17, f: C.grape, s: C.ink, sw: 0.8, rot: 22 });
+  else if (mood === "awake") s.push(...eye(72), ...eye(128), nose,
+    { t: "p", d: "M 92 150 L 108 150", s: C.ink, sw: 5, cap: "round" });
+  else if (mood === "squint") s.push(...eye(72), lid(72, 98),
+    { t: "e", x: 128, y: 104, rx: 19, ry: 8.5, f: C.gold, s: C.ink, sw: 4.5 }, nose, frown(154, 7));
+  return s;
+}
+function headSVG(mood, opts = {}) {
+  return `<svg viewBox="0 0 200 200" role="img" aria-label="Tarsius head, ${mood}">${svgShapes(headShapes(mood, opts))}</svg>`;
 }
 document.querySelectorAll("[data-head]").forEach((el) => {
   el.innerHTML = headSVG(el.dataset.head);
@@ -535,104 +758,34 @@ document.getElementById("favicon16").innerHTML = headSVG("grumpy");
    ============================================================ */
 (function () {
   const el = document.getElementById("heroDuo");
-  const M = C.melon, I = C.ink, F = C.face;
+  const I = C.ink;
+  const tarsius = [
+    { t: "e", x: 202, y: 280, rx: 103, ry: 92, f: C.melon, s: I, sw: 9 },
+    ...footShapes(150, 354, 20, { sw: 6 }),
+    ...footShapes(254, 356, 20, { sw: 6 }),
+    // head: the canonical head construction, dropped in at 1.25×
+    { t: "g", x: 77, y: 36, sx: 1.25, sy: 1.25, kids: headShapes("grumpy") },
+    // left arm: shoulder → relaxed mitten
+    { t: "e", x: 160, y: 300, rx: 20, ry: 12, f: C.melon, s: I, sw: 5, rot: 12 },
+    ...handShapes({ x: 138, y: 306, rx: 13, ry: 11.5, sw: 5 }),
+    // right arm: shoulder → gripping the planted blaster
+    { t: "g", rot: 14, cx: 300, cy: 282, kids: [
+      { t: "r", x: 262, y: 266, w: 76, h: 32, r: 14, f: C.blaster, s: I, sw: 6 },
+      { t: "r", x: 272, y: 296, w: 26, h: 30, r: 10, f: C.banana, s: I, sw: 6 },
+      { t: "e", x: 342, y: 282, rx: 12, ry: 12, f: C.pinkpop, s: I, sw: 6 },
+    ] },
+    { t: "e", x: 248, y: 296, rx: 22, ry: 12, f: C.melon, s: I, sw: 5, rot: -14 },
+    ...handShapes({ x: 272, y: 290, rx: 13, ry: 11, sw: 5 }),
+  ];
   el.innerHTML = `
   <svg viewBox="0 0 560 430">
     <ellipse cx="212" cy="396" rx="152" ry="19" fill="${I}" opacity="0.10"/>
     <!-- jalak -->
-    <g transform="translate(438 118) rotate(-6)">
-      <g stroke="${I}" stroke-width="4.5" stroke-linejoin="round">
-        <path d="M 26 26 Q 58 40 66 74 Q 36 66 20 44 Z" fill="${C.cloud}"/>
-        <path d="M 56 62 Q 63 72 66 74 Q 52 70 46 62 Z" fill="#25293f"/>
-        <path d="M -8 -14 Q -46 -58 -90 -58 Q -60 -26 -20 -4 Z" fill="${C.cloud}"/>
-        <path d="M -68 -50 Q -50 -36 -34 -18 L -48 -12 Q -62 -34 -68 -50 Z" fill="#25293f"/>
-        <path d="M 10 -16 Q 46 -60 88 -64 Q 62 -30 22 -6 Z" fill="${C.cloud}"/>
-        <path d="M 66 -54 Q 50 -32 36 -14 L 50 -8 Q 62 -34 66 -54 Z" fill="#25293f"/>
-        <path d="M 12 24 Q 40 40 46 70 Q 24 60 8 40 Z" fill="${C.cloud}"/>
-        <ellipse cx="0" cy="8" rx="30" ry="23" fill="${C.cloud}"/>
-        <path d="M -10 -34 Q -20 -56 -2 -62 Q 0 -48 4 -38 Z" fill="${C.cloud}"/>
-        <path d="M -4 -36 Q 2 -60 20 -58 Q 12 -44 8 -34 Z" fill="${C.cloud}"/>
-        <path d="M 2 -38 Q 16 -54 28 -46 Q 16 -36 12 -30 Z" fill="${C.cloud}"/>
-        <circle cx="-12" cy="-24" r="19" fill="${C.cloud}"/>
-      </g>
-      <ellipse cx="-19" cy="-27" rx="10.5" ry="8" fill="#1e7ff0"/>
-      <circle cx="-19" cy="-27" r="5.2" fill="#ffffff"/>
-      <circle cx="-20" cy="-27" r="2.6" fill="${I}"/>
-      <g fill="${C.beak}" stroke="${I}" stroke-width="3.5" stroke-linejoin="round">
-        <path d="M -30 -30 L -58 -27 L -30 -22 Z"/>
-        <path d="M -30 -20 L -52 -10 L -28 -13 Z"/>
-      </g>
-    </g>
+    <g transform="translate(438 118) rotate(-6)">${svgShapes(jalakHeroShapes())}</g>
     <g transform="translate(452 150) rotate(-8)">
       <path d="M -60 -44 Q -34 -40 -22 -26" fill="none" stroke="${C.pinkpop}" stroke-width="3" stroke-dasharray="1 7" stroke-linecap="round"/>
     </g>
-    <!-- tarsius -->
-    <g>
-      <g stroke="${I}">
-        <circle cx="104" cy="118" r="48" fill="${C.cyan}" stroke-width="9"/>
-        <circle cx="104" cy="118" r="29.5" fill="${C.blue}" stroke-width="7"/>
-        <circle cx="104" cy="118" r="13.5" fill="${C.grape}" stroke-width="5"/>
-        <circle cx="300" cy="112" r="48" fill="${C.cyan}" stroke-width="9"/>
-        <circle cx="300" cy="112" r="29.5" fill="${C.blue}" stroke-width="7"/>
-        <circle cx="300" cy="112" r="13.5" fill="${C.grape}" stroke-width="5"/>
-      </g>
-      <ellipse cx="202" cy="280" rx="103" ry="92" fill="${M}" stroke="${I}" stroke-width="9"/>
-      <g stroke="${I}" stroke-width="6">
-        <circle cx="150" cy="354" r="20" fill="${C.cyan}"/>
-        <circle cx="254" cy="356" r="20" fill="${C.cyan}"/>
-      </g>
-      <g fill="${C.grape}">
-        <circle cx="141" cy="362" r="2.6"/><circle cx="150" cy="365" r="2.6"/><circle cx="159" cy="362" r="2.6"/>
-        <circle cx="245" cy="364" r="2.6"/><circle cx="254" cy="367" r="2.6"/><circle cx="263" cy="364" r="2.6"/>
-      </g>
-      <!-- face mask: one outlined union -->
-      <g fill="none" stroke="${I}" stroke-width="8">
-        <ellipse cx="202" cy="208" rx="76" ry="50"/>
-        <ellipse cx="162" cy="178" rx="34" ry="37"/>
-        <ellipse cx="242" cy="178" rx="34" ry="37"/>
-      </g>
-      <g fill="${F}">
-        <ellipse cx="202" cy="208" rx="76" ry="50"/>
-        <ellipse cx="162" cy="178" rx="34" ry="37"/>
-        <ellipse cx="242" cy="178" rx="34" ry="37"/>
-      </g>
-      <polygon points="194,150 210,150 202,172" fill="${M}"/>
-      <g stroke="${I}">
-        <circle cx="162" cy="180" r="27" fill="${C.gold}" stroke-width="6"/>
-        <circle cx="242" cy="180" r="27" fill="${C.gold}" stroke-width="6"/>
-        <path d="M 135 172 A 27 27 0 0 1 189 172 Z" fill="${M}" stroke-width="5"/>
-        <path d="M 215 172 A 27 27 0 0 1 269 172 Z" fill="${M}" stroke-width="5"/>
-      </g>
-      <circle cx="151" cy="192" r="8" fill="#ffffff"/>
-      <circle cx="231" cy="192" r="8" fill="#ffffff"/>
-      <circle cx="170" cy="171" r="4" fill="#ffffff" opacity="0.9"/>
-      <circle cx="250" cy="171" r="4" fill="#ffffff" opacity="0.9"/>
-      <g stroke="${I}" stroke-width="8" stroke-linecap="round">
-        <line x1="136" y1="142" x2="180" y2="152"/>
-        <line x1="268" y1="142" x2="224" y2="152"/>
-      </g>
-      <ellipse cx="202" cy="214" rx="8.5" ry="6.5" fill="${C.grape}" stroke="${I}" stroke-width="3"/>
-      <path d="M 184 240 Q 202 230 220 240" fill="none" stroke="${I}" stroke-width="6" stroke-linecap="round"/>
-      <!-- left arm: shoulder → relaxed mitten with finger scallops -->
-      <ellipse cx="160" cy="300" rx="20" ry="12" fill="${M}" transform="rotate(12 160 300)"/>
-      <ellipse cx="138" cy="306" rx="14" ry="11.5" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
-      <g fill="${C.cyan}" stroke="${I}" stroke-width="3.5">
-        <circle cx="129" cy="314" r="5"/><circle cx="138" cy="317" r="5.5"/><circle cx="147" cy="314" r="5"/>
-      </g>
-      <!-- right arm: shoulder → gripping the planted blaster -->
-      <g transform="rotate(14 300 282)">
-        <rect x="262" y="266" width="76" height="32" rx="14" fill="${C.blaster}" stroke="${I}" stroke-width="6"/>
-        <rect x="272" y="296" width="26" height="30" rx="10" fill="${C.banana}" stroke="${I}" stroke-width="6"/>
-        <circle cx="342" cy="282" r="12" fill="${C.pinkpop}" stroke="${I}" stroke-width="6"/>
-      </g>
-      <ellipse cx="248" cy="296" rx="22" ry="12" fill="${M}" transform="rotate(-14 248 296)"/>
-      <ellipse cx="272" cy="290" rx="13" ry="11" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
-      <g fill="${C.cyan}" stroke="${I}" stroke-width="3.5">
-        <ellipse cx="284" cy="276" rx="5" ry="6.5"/>
-        <ellipse cx="293" cy="281" rx="5" ry="6.5"/>
-        <ellipse cx="301" cy="288" rx="5" ry="6.5"/>
-      </g>
-    </g>
+    ${svgShapes(tarsius)}
   </svg>`;
 })();
 
@@ -679,121 +832,56 @@ document.getElementById("favicon16").innerHTML = headSVG("grumpy");
 })();
 
 /* ============================================================
-   SIDE-VIEW SPRITE (SVG, static poses) — shared geometry
+   SIDE-VIEW SPRITE — a static rest pose of unitShapes(), the
+   same definition the animation loops render per frame.
    ============================================================ */
 function sideSpriteSVG(opts = {}) {
-  const fur = opts.fur || C.melon;
-  const armed = opts.armed !== false;
-  const boss = opts.fur === C.boss;
-  const I = C.ink;
-  const maskShapes = `
-      <ellipse cx="134" cy="94" rx="27" ry="24"/>
-      <ellipse cx="130" cy="72" rx="21" ry="20"/>`;
-  const blaster = `
-      <g>
-        <rect x="148" y="118" width="38" height="19" rx="8" fill="${C.blaster}" stroke="${I}" stroke-width="4.5"/>
-        <rect x="154" y="134" width="15" height="16" rx="6" fill="${C.banana}" stroke="${I}" stroke-width="4.5"/>
-        <circle cx="190" cy="127" r="6.5" fill="${C.pinkpop}" stroke="${I}" stroke-width="4.5"/>
-      </g>`;
-  const handArmed = `
-      <ellipse cx="150" cy="129" rx="10.5" ry="9" fill="${C.cyan}" stroke="${I}" stroke-width="4.5"/>
-      <g fill="${C.cyan}" stroke="${I}" stroke-width="3">
-        <ellipse cx="159" cy="119" rx="4.2" ry="5.8" transform="rotate(-12 159 119)"/>
-        <ellipse cx="166" cy="121" rx="4.2" ry="5.8" transform="rotate(-2 166 121)"/>
-        <ellipse cx="172" cy="125" rx="4.2" ry="5.8" transform="rotate(10 172 125)"/>
-      </g>`;
-  const handRelaxed = `
-      <ellipse cx="150" cy="131" rx="10" ry="9" fill="${C.cyan}" stroke="${I}" stroke-width="4.5"/>
-      <g fill="${C.cyan}" stroke="${I}" stroke-width="3">
-        <circle cx="145" cy="138" r="3.6"/><circle cx="152" cy="140" r="3.8"/><circle cx="159" cy="137" r="3.6"/>
-      </g>`;
-  const arm = armed
-    ? `<ellipse cx="122" cy="124" rx="12" ry="7.5" fill="${fur}" stroke="${I}" stroke-width="4.5" transform="rotate(18 122 124)"/>${blaster}${handArmed}`
-    : `<ellipse cx="124" cy="126" rx="12" ry="7.5" fill="${fur}" stroke="${I}" stroke-width="4.5" transform="rotate(24 124 126)"/>${handRelaxed}`;
+  const body = svgShapes(unitShapes({ armed: opts.armed !== false, fur: opts.fur || C.melon }));
   return `
   <svg viewBox="0 0 230 170" role="img" aria-label="Tarsius side view sprite">
-    <ellipse cx="118" cy="153" rx="80" ry="9" fill="${I}" opacity="0.10"/>
-    <path d="M 56 112 C 24 124 12 96 30 72" fill="none" stroke="${I}" stroke-width="7" stroke-linecap="round"/>
-    <circle cx="30" cy="72" r="7.5" fill="${C.face}" stroke="${I}" stroke-width="3.5"/>
-    <g transform="rotate(-26 92 40)">
-      <ellipse cx="92" cy="40" rx="9" ry="14" fill="${C.blue}" stroke="${I}" stroke-width="4"/>
-    </g>
-    <ellipse cx="98" cy="138" rx="14" ry="10" fill="${C.cyan}" stroke="${I}" stroke-width="4.5" opacity="0.85"/>
-    <ellipse cx="104" cy="92" rx="56" ry="50" fill="${fur}" stroke="${I}" stroke-width="7"/>
-    <ellipse cx="136" cy="143" rx="16" ry="11" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
-    <g fill="${C.grape}">
-      <circle cx="129" cy="147" r="2.3"/><circle cx="136" cy="149" r="2.3"/><circle cx="143" cy="147" r="2.3"/>
-      <circle cx="91" cy="143" r="2.1"/><circle cx="98" cy="145" r="2.1"/><circle cx="105" cy="143" r="2.1"/>
-    </g>
-    <g fill="none" stroke="${I}" stroke-width="6.5">${maskShapes}</g>
-    <g fill="${C.face}">${maskShapes}</g>
-    <polygon points="107,58 119,56 111,73" fill="${fur}"/>
-    <circle cx="128" cy="77" r="13" fill="${C.gold}" stroke="${I}" stroke-width="4.5"/>
-    <circle cx="123" cy="71" r="4.5" fill="#ffffff"/>
-    <circle cx="134" cy="83" r="2" fill="#ffffff" opacity="0.9"/>
-    <ellipse cx="162" cy="88" rx="5" ry="4" fill="${C.grape}" stroke="${I}" stroke-width="2.5"/>
-    <path d="M 150 105 Q 158 110 166 102" fill="none" stroke="${I}" stroke-width="3" stroke-linecap="round"/>
-    ${arm}
-    <g transform="rotate(-22 84 46)">
-      <ellipse cx="84" cy="46" rx="16" ry="25" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
-      <ellipse cx="83" cy="46" rx="9.5" ry="15.5" fill="${C.blue}"/>
-      <ellipse cx="82" cy="47" rx="5.5" ry="9" fill="${C.grape}"/>
-    </g>
+    <ellipse cx="118" cy="153" rx="80" ry="9" fill="${C.ink}" opacity="0.10"/>
+    <g transform="translate(104 92)">${body}</g>
   </svg>`;
 }
 document.getElementById("spriteArmed").innerHTML = sideSpriteSVG({ armed: true });
 document.getElementById("spritePlain").innerHTML = sideSpriteSVG({ armed: false });
 document.getElementById("spriteBoss").innerHTML = sideSpriteSVG({ armed: true, fur: C.boss });
 
-/* ---------- hands: today vs proposal ---------- */
+/* ---------- hands: fingers rejected ---------- */
 (function () {
   const I = C.ink;
+  const mitten = handShapes({ x: 0, y: 8, rx: 32, ry: 23, sw: 5 });
+  // the rejected exhibit: the bundled finger hand as it appeared in review
+  const rejected = [
+    { t: "e", x: -27.5, y: -9, rx: 5.8, ry: 12.5, rot: 30, f: C.cyan, s: I, sw: 3.5 },
+    { t: "e", x: -16.5, y: -26, rx: 6.2, ry: 15.5, rot: 8, f: C.cyan, s: I, sw: 3.5 },
+    { t: "e", x: -5.5, y: -29.5, rx: 6.4, ry: 19, rot: 2.5, f: C.cyan, s: I, sw: 3.5 },
+    { t: "e", x: 5.5, y: -30.5, rx: 6.4, ry: 20, rot: -3, f: C.cyan, s: I, sw: 3.5 },
+    { t: "e", x: 16.5, y: -26.5, rx: 6, ry: 16, rot: -9, f: C.cyan, s: I, sw: 3.5 },
+    { t: "e", x: 0, y: 7, rx: 27, ry: 22, f: C.cyan, s: I, sw: 5 },
+  ];
+  const side = (tx, label, shapes, dim) => `
+    <g transform="translate(${tx} 62)">
+      <path d="M -34 44 Q 0 58 34 44" fill="none" stroke="${I}" stroke-width="5" opacity="0.35"/>
+      <ellipse cx="0" cy="12" rx="42" ry="30" fill="${C.melon}" stroke="${I}" stroke-width="5" opacity="0.3"/>
+      ${dim ? `<g opacity="0.45">${svgShapes(shapes)}</g>` : svgShapes(shapes)}
+      <text x="0" y="76" text-anchor="middle" font-family="'Baloo 2',sans-serif" font-weight="800" font-size="13.5" fill="${I}"${dim ? ` opacity="0.75"` : ""}>${label}</text>
+    </g>`;
   document.getElementById("handsCompare").innerHTML = `
   <svg viewBox="0 0 440 150">
     <line x1="220" y1="14" x2="220" y2="136" stroke="${I}" stroke-width="2.5" stroke-dasharray="3 8" opacity="0.35"/>
-    <!-- today: units.ts paw -->
-    <g transform="translate(110 62)">
-      <path d="M -34 44 Q 0 58 34 44" fill="none" stroke="${I}" stroke-width="5" opacity="0.35"/>
-      <ellipse cx="0" cy="12" rx="42" ry="30" fill="${C.melon}" stroke="${I}" stroke-width="5" opacity="0.3"/>
-      <g transform="translate(0 -6)">
-        <ellipse cx="0" cy="14" rx="34" ry="24" fill="${C.cyan}" stroke="${I}" stroke-width="5" opacity="0.9"/>
-        <circle cx="-12" cy="-9" r="7" fill="${C.grape}"/>
-        <circle cx="14" cy="-7" r="7" fill="${C.grape}"/>
-      </g>
-      <text x="0" y="76" text-anchor="middle" font-family="'Baloo 2',sans-serif" font-weight="800" font-size="13.5" fill="${I}" opacity="0.75">today — ellipse + 2 dots</text>
-    </g>
-    <!-- proposal: palm + 3 fingers + thumb -->
-    <g transform="translate(330 62)">
-      <path d="M -34 44 Q 0 58 34 44" fill="none" stroke="${I}" stroke-width="5" opacity="0.35"/>
-      <ellipse cx="0" cy="12" rx="42" ry="30" fill="${C.melon}" stroke="${I}" stroke-width="5" opacity="0.3"/>
-      <g transform="translate(0 -6)">
-        <ellipse cx="0" cy="14" rx="34" ry="24" fill="${C.cyan}" stroke="${I}" stroke-width="5"/>
-        <ellipse cx="-16" cy="-8" rx="9" ry="12" fill="${C.cyan}" stroke="${I}" stroke-width="3.5"/>
-        <ellipse cx="1" cy="-12" rx="9.5" ry="13" fill="${C.cyan}" stroke="${I}" stroke-width="3.5"/>
-        <ellipse cx="18" cy="-8" rx="9" ry="12" fill="${C.cyan}" stroke="${I}" stroke-width="3.5"/>
-        <path d="M -30 6 Q -38 2 -36 -6" fill="none" stroke="${I}" stroke-width="3.5" stroke-linecap="round"/>
-      </g>
-      <text x="0" y="76" text-anchor="middle" font-family="'Baloo 2',sans-serif" font-weight="800" font-size="13.5" fill="${I}">proposal — palm + 3 fingers + thumb</text>
-    </g>
+    ${side(110, "fingers — rejected", rejected, true)}
+    ${side(330, "final — mitten everywhere", mitten, false)}
   </svg>`;
 })();
 
 /* ============================================================
-   CANVAS SPRITE — the animated game art
+   CANVAS SPRITE — the animated game art. Each frame computes a
+   pose and renders the SAME unitShapes list the sprite SVG
+   uses, so what the sheet previews is what the game animates.
    ============================================================ */
 function makeTarsiusPainter() {
-  const I = C.ink;
-  // face geometry is body-relative (body center = 0,0), matching the SVG
-  const MASK = [[30, 2, 27, 24], [26, -20, 21, 20]];
-  function maskEllipses(ctx) {
-    MASK.forEach(([x, y, rx, ry]) => {
-      ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
-    });
-  }
-  /**
-   * o: {x, y, scale, flip, t, mode, armed, fur}
-   * mode: walk | idle | nap
-   */
+  const R2D = 180 / Math.PI;
   return function draw(ctx, o) {
     const { x, y, scale = 1, flip = 1, t = 0, mode = "walk", armed = true, fur = C.melon } = o;
     const ph = t * 7.2;
@@ -801,7 +889,7 @@ function makeTarsiusPainter() {
     const planted = armed && mode === "nap";
     let bob = 0, squash = 1, breathe = 0;
     let footN = { dx: 0, lift: 0 }, footF = { dx: 0, lift: 0 };
-    let earTilt = Math.sin(t * 1.4) * 0.04, tailSway = Math.sin(t * 1.7) * 6;
+    let earN = -22, earF = -26, tailSway = Math.sin(t * 1.7) * 6;
     let blink = (t % 3.1) < 0.14 ? 0.1 : 1;
     let eyeShut = false;
 
@@ -809,17 +897,21 @@ function makeTarsiusPainter() {
       bob = Math.abs(Math.cos(ph)) * 3;
       footN = { dx: Math.sin(ph) * 13, lift: Math.max(0, Math.sin(ph)) * 7 };
       footF = { dx: -Math.sin(ph) * 11, lift: Math.max(0, -Math.sin(ph)) * 5 };
-      earTilt = Math.sin(ph) * 0.07;
+      earN += Math.sin(ph) * 0.07 * R2D;
+      earF += Math.sin(ph) * 0.07 * R2D * 0.5;
       tailSway = Math.sin(ph * 0.9 + 0.8) * 9;
     } else if (mode === "nap") {
       squash = 0.8; bob = -2 + Math.sin(t * 1.3) * 1.2;
       eyeShut = true;
       tailSway = Math.sin(t * 0.9) * 2;
-      earTilt = 0.5 + Math.sin(t * 1.9) * 0.05;
+      earN = 28.6 + Math.sin(t * 1.9) * 0.05 * R2D;
+      earF = -14.3 + Math.sin(t * 1.9) * 0.05 * R2D * 0.5;
     } else { // idle
       breathe = Math.sin(t * 2) * 0.015;
       tailSway = Math.sin(t * 1.4) * 4;
-      earTilt = Math.sin(t * 1.1) * 0.045 + ((t % 4.2) < 0.16 ? 0.12 : 0);
+      const w = Math.sin(t * 1.1) * 0.045 + ((t % 4.2) < 0.16 ? 0.12 : 0);
+      earN += w * R2D;
+      earF += w * R2D * 0.5;
     }
 
     ctx.save();
@@ -830,143 +922,22 @@ function makeTarsiusPainter() {
     ctx.beginPath(); ctx.ellipse(14, 56, 62, 8, 0, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(58,44,90,0.14)"; ctx.fill();
 
-    ctx.lineJoin = "round"; ctx.lineCap = "round";
-
-    // tail
-    ctx.strokeStyle = I; ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.moveTo(-46, 16);
-    ctx.quadraticCurveTo(-80, 26 + tailSway * 0.4, -72, -22 + tailSway);
-    ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(-72, -24 + tailSway, 7, 7.5, 0, 0, Math.PI * 2);
-    ctx.fillStyle = C.face; ctx.fill(); ctx.lineWidth = 3.5; ctx.stroke();
-
-    // far ear (behind body)
-    ctx.save(); ctx.translate(-12, -50); ctx.rotate(-0.5 + earTilt * 0.5);
-    ctx.beginPath(); ctx.ellipse(0, 0, 9, 14, 0, 0, Math.PI * 2);
-    ctx.fillStyle = C.blue; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = I; ctx.stroke();
-    ctx.restore();
-
-    // far foot
-    ctx.beginPath();
-    ctx.ellipse(2 + footF.dx, 48 - footF.lift, 14, 10, 0, 0, Math.PI * 2);
-    ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I;
-    ctx.globalAlpha = 0.85; ctx.stroke(); ctx.fill(); ctx.globalAlpha = 1;
-
-    // body
-    ctx.beginPath(); ctx.ellipse(0, 0, 56, 50, 0, 0, Math.PI * 2);
-    ctx.fillStyle = fur; ctx.fill(); ctx.lineWidth = 7; ctx.strokeStyle = I; ctx.stroke();
-
-    // near foot
-    ctx.beginPath();
-    ctx.ellipse(30 + footN.dx, 51 - footN.lift, 16, 11, 0, 0, Math.PI * 2);
-    ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 5; ctx.stroke();
-    ctx.fillStyle = C.grape;
-    for (const [tx, ty] of [[23, 55], [30, 57], [37, 55]]) {
-      ctx.beginPath(); ctx.arc(tx + footN.dx, ty - footN.lift, 2.3, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // face mask (union outline: stroke all → fill all)
-    ctx.lineWidth = 6.5; ctx.strokeStyle = I;
-    maskEllipses(ctx);
-    ctx.fillStyle = C.face;
-    MASK.forEach(([mx, my, rx, ry]) => {
-      ctx.beginPath(); ctx.ellipse(mx, my, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    const shapes = unitShapes({
+      armed, fur,
+      pose: {
+        footN, footF, earN, earF, tailSway, blink, eyeShut,
+        mouth: mode === "nap" ? "nap" : "stroll",
+        armBob: grip ? footN.lift * 0.3 : 0,
+        planted,
+      },
     });
-
-    // fur wedge
-    ctx.beginPath(); ctx.moveTo(3, -34); ctx.lineTo(15, -36); ctx.lineTo(7, -19);
-    ctx.closePath(); ctx.fillStyle = fur; ctx.fill();
-
-    // eye
-    if (eyeShut) {
-      ctx.strokeStyle = I; ctx.lineWidth = 4.5;
-      ctx.beginPath(); ctx.moveTo(12, -14); ctx.quadraticCurveTo(24, -6, 36, -14); ctx.stroke();
-    } else {
-      ctx.save(); ctx.translate(24, -15); ctx.scale(1, blink);
-      ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2);
-      ctx.fillStyle = C.gold; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I; ctx.stroke();
-      ctx.beginPath(); ctx.arc(-5, -5.5, 4.5, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
-      ctx.beginPath(); ctx.arc(6, 6, 2, 0, Math.PI * 2); ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
-      ctx.restore();
-    }
-
-    // nose + mouth
-    ctx.beginPath(); ctx.ellipse(58, -4, 5, 4, 0, 0, Math.PI * 2);
-    ctx.fillStyle = C.grape; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = I; ctx.stroke();
-    ctx.lineWidth = 3;
-    if (mode === "nap") {
-      ctx.beginPath(); ctx.moveTo(46, 12); ctx.quadraticCurveTo(54, 8, 61, 13); ctx.stroke();
-    } else {
-      ctx.beginPath(); ctx.moveTo(46, 13); ctx.quadraticCurveTo(54, 18, 62, 10); ctx.stroke();
-    }
-
-    // arm + blaster
-    if (planted) {
-      // blaster planted point-down beside him
-      ctx.save(); ctx.translate(80, -62); ctx.rotate(0.1);
-      ctx.beginPath(); ctx.roundRect(-9, 0, 18, 52, 8);
-      ctx.fillStyle = C.blaster; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I; ctx.stroke();
-      ctx.beginPath(); ctx.roundRect(-7, 14, 14, 16, 5);
-      ctx.fillStyle = C.banana; ctx.fill(); ctx.lineWidth = 4; ctx.stroke();
-      ctx.beginPath(); ctx.arc(0, 56, 7, 0, Math.PI * 2);
-      ctx.fillStyle = C.pinkpop; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
-      ctx.restore();
-    } else if (grip) {
-      ctx.save();
-      ctx.translate(0, footN.lift * 0.3);
-      ctx.beginPath(); ctx.ellipse(18, 32, 12, 7.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = fur; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I; ctx.stroke();
-      ctx.beginPath(); ctx.roundRect(44, 26, 38, 19, 8);
-      ctx.fillStyle = C.blaster; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
-      ctx.beginPath(); ctx.roundRect(50, 42, 15, 16, 6);
-      ctx.fillStyle = C.banana; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
-      ctx.beginPath(); ctx.arc(86, 35, 6.5, 0, Math.PI * 2);
-      ctx.fillStyle = C.pinkpop; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(46, 37, 10.5, 9, 0, 0, Math.PI * 2);
-      ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
-      ctx.fillStyle = C.cyan; ctx.strokeStyle = I; ctx.lineWidth = 3;
-      [[55, 27, -0.21], [62, 29, -0.04], [68, 33, 0.17]].forEach(([fx, fy, r]) => {
-        ctx.save(); ctx.translate(fx, fy); ctx.rotate(r);
-        ctx.beginPath(); ctx.ellipse(0, 0, 4.2, 5.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        ctx.restore();
-      });
-      ctx.restore();
-    } else {
-      ctx.beginPath(); ctx.ellipse(20, 34, 12, 7.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = fur; ctx.fill(); ctx.lineWidth = 4.5; ctx.strokeStyle = I; ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(46, 39, 10, 9, 0, 0, Math.PI * 2);
-      ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 4.5; ctx.stroke();
-      ctx.fillStyle = C.cyan; ctx.strokeStyle = I; ctx.lineWidth = 3;
-      [[41, 46], [48, 48], [55, 45]].forEach(([fx, fy]) => {
-        ctx.beginPath(); ctx.arc(fx, fy, 3.7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      });
-    }
-
-    // near ear (in front)
-    ctx.save(); ctx.translate(-20, -46); ctx.rotate(earTilt);
-    ctx.beginPath(); ctx.ellipse(0, 0, 16, 25, 0, 0, Math.PI * 2);
-    ctx.fillStyle = C.cyan; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = I; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(-1, 0, 9.5, 15.5, 0, 0, Math.PI * 2);
-    ctx.fillStyle = C.blue; ctx.fill();
-    ctx.beginPath(); ctx.ellipse(-2, 1, 5.5, 9, 0, 0, Math.PI * 2);
-    ctx.fillStyle = C.grape; ctx.fill();
-    ctx.restore();
-
-    // nap extras: zzz
     if (mode === "nap") {
       for (let i = 0; i < 3; i++) {
-        const zp = ((t * 0.5 + i * 0.33) % 1);
-        ctx.save();
-        ctx.globalAlpha = zp < 0.15 ? zp / 0.15 : 1 - Math.max(0, (zp - 0.6) / 0.4);
-        ctx.translate(46 + zp * 34, -62 - zp * 44);
-        ctx.rotate(0.3);
-        ctx.fillStyle = C.grape;
-        ctx.font = `800 ${13 + i * 4}px 'Baloo 2','Trebuchet MS',sans-serif`;
-        ctx.fillText("z", 0, 0);
-        ctx.restore();
+        const zp = (t * 0.5 + i * 0.33) % 1;
+        shapes.push({ t: "t", x: 46 + zp * 34, y: -62 - zp * 44, str: "z", size: 13 + i * 4, f: C.grape, rot: 17.2, o: zp < 0.15 ? zp / 0.15 : 1 - Math.max(0, (zp - 0.6) / 0.4) });
       }
     }
+    paintShapes(ctx, shapes);
     ctx.restore();
   };
 }
@@ -1024,84 +995,123 @@ loopCanvas("menuCanvas", (ctx, t) => {
 });
 
 /* ============================================================
-   JALAK — perched / flying / sprite
+   JALAK — the Bali myna scout. Same shape model as the tarsius:
+   each pose is a factory (perched, in flight, hero hover) and
+   the shared bits — the cobalt eye, the horn beak, and the
+   jay-black that only ever appears as wing/tail TIPS — are
+   helpers, so a model fix lands in every pose at once.
    ============================================================ */
+function jalakEyeShapes(x, y, patchRx, patchRy, whiteR, pupilR) {
+  return [
+    { t: "e", x, y, rx: patchRx, ry: patchRy, f: C.jayEye },
+    { t: "e", x, y, rx: whiteR, ry: whiteR, f: "#ffffff" },
+    { t: "e", x: x - 1, y, rx: pupilR, ry: pupilR, f: C.ink },
+  ];
+}
+function jalakBeakShapes(top, bottom) {
+  return [
+    { t: "p", d: top, f: C.beak, s: C.ink, sw: 3.5 },
+    { t: "p", d: bottom, f: C.beak, s: C.ink, sw: 3.5 },
+  ];
+}
+function jalakPerchShapes() {
+  const s = [
+    // tail fan, black on the tips only
+    { t: "p", d: "M 146 172 Q 188 180 202 210 Q 164 208 136 186 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 186 196 Q 196 206 202 210 Q 186 209 176 202 Z", f: C.jayBlack },
+    { t: "p", d: "M 148 188 Q 196 200 208 230 Q 166 226 138 200 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 192 216 Q 202 226 208 230 Q 190 229 180 222 Z", f: C.jayBlack },
+  ];
+  // legs
+  s.push(
+    { t: "p", d: "M 98 192 L 94 216", s: C.leg, sw: 6, cap: "round" },
+    { t: "p", d: "M 122 192 L 124 216", s: C.leg, sw: 6, cap: "round" },
+    { t: "p", d: "M 94 216 L 84 220", s: C.leg, sw: 4.5, cap: "round" },
+    { t: "p", d: "M 94 216 L 98 222", s: C.leg, sw: 4.5, cap: "round" },
+    { t: "p", d: "M 124 216 L 114 221", s: C.leg, sw: 4.5, cap: "round" },
+    { t: "p", d: "M 124 216 L 130 221", s: C.leg, sw: 4.5, cap: "round" },
+  );
+  // body
+  s.push({ t: "e", x: 112, y: 152, rx: 42, ry: 48, f: C.cloud, s: C.ink, sw: 6 });
+  // folded wing, black tip only
+  s.push({ t: "p", d: "M 128 120 Q 160 138 158 176 Q 132 168 116 142 Z", f: C.cloud, s: C.ink, sw: 5 });
+  s.push({ t: "p", d: "M 146 160 Q 156 170 158 176 Q 142 172 134 164 Z", f: C.jayBlack });
+  // crest
+  s.push(
+    { t: "p", d: "M 92 56 Q 78 24 96 14 Q 102 36 108 50 Z", f: C.cloud, s: C.ink, sw: 5 },
+    { t: "p", d: "M 104 52 Q 104 18 124 14 Q 118 38 118 52 Z", f: C.cloud, s: C.ink, sw: 5 },
+    { t: "p", d: "M 116 56 Q 128 30 146 32 Q 132 48 126 62 Z", f: C.cloud, s: C.ink, sw: 5 },
+  );
+  // head
+  s.push({ t: "e", x: 98, y: 82, rx: 30, ry: 30, f: C.cloud, s: C.ink, sw: 6 });
+  s.push(...jalakEyeShapes(86, 78, 11.5, 8.5, 5.5, 2.8));
+  s.push(...jalakBeakShapes("M 66 74 L 34 64 L 66 84 Z", "M 66 90 L 42 104 L 68 96 Z"));
+  return s;
+}
+function jalakFlyShapes() {
+  const s = [
+    // wings, black on the tips only
+    { t: "p", d: "M 128 96 Q 162 108 170 140 Q 138 132 118 112 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 158 126 Q 165 136 170 140 Q 154 136 148 128 Z", f: C.jayBlack },
+    { t: "p", d: "M 104 100 Q 70 56 30 52 Q 56 82 94 106 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 53 58 Q 42 53 30 52 Q 38 61 47 69 Q 51 64 53 58 Z", f: C.jayBlack },
+    { t: "p", d: "M 116 98 Q 148 54 188 50 Q 162 82 126 104 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 165 56 Q 176 51 188 50 Q 180 60 171 68 Q 167 62 165 56 Z", f: C.jayBlack },
+    // body
+    { t: "e", x: 114, y: 112, rx: 30, ry: 23, f: C.cloud, s: C.ink, sw: 4.5 },
+    // crest
+    { t: "p", d: "M 106 66 Q 94 38 110 30 Q 114 50 118 62 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 112 64 Q 118 36 138 34 Q 128 54 124 66 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 122 68 Q 138 48 152 52 Q 140 66 134 76 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    // head
+    { t: "e", x: 100, y: 84, rx: 19, ry: 19, f: C.cloud, s: C.ink, sw: 4.5 },
+  ];
+  s.push(...jalakEyeShapes(93, 81, 9.5, 7.5, 4.5, 2.3));
+  s.push(...jalakBeakShapes("M 84 78 L 60 76 L 84 86 Z", "M 84 90 L 66 100 L 86 94 Z"));
+  return s;
+}
+function jalakHeroShapes() {
+  const s = [
+    // wings + tail feathers, black on the tips only
+    { t: "p", d: "M 26 26 Q 58 40 66 74 Q 36 66 20 44 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 56 62 Q 63 72 66 74 Q 52 70 46 62 Z", f: C.jayBlack },
+    { t: "p", d: "M -8 -14 Q -46 -58 -90 -58 Q -60 -26 -20 -4 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M -68 -55 Q -80 -58 -90 -58 Q -83 -51 -74 -43 Q -70 -49 -68 -55 Z", f: C.jayBlack },
+    { t: "p", d: "M 10 -16 Q 46 -60 88 -64 Q 62 -30 22 -6 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 67 -59 Q 78 -63 88 -64 Q 82 -56 74 -48 Q 69 -53 67 -59 Z", f: C.jayBlack },
+    { t: "p", d: "M 12 24 Q 40 40 46 70 Q 24 60 8 40 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    // body
+    { t: "e", x: 0, y: 8, rx: 30, ry: 23, f: C.cloud, s: C.ink, sw: 4.5 },
+    // crest
+    { t: "p", d: "M -10 -34 Q -20 -56 -2 -62 Q 0 -48 4 -38 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M -4 -36 Q 2 -60 20 -58 Q 12 -44 8 -34 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    { t: "p", d: "M 2 -38 Q 16 -54 28 -46 Q 16 -36 12 -30 Z", f: C.cloud, s: C.ink, sw: 4.5 },
+    // head
+    { t: "e", x: -12, y: -24, rx: 19, ry: 19, f: C.cloud, s: C.ink, sw: 4.5 },
+  ];
+  s.push(...jalakEyeShapes(-19, -27, 10.5, 8, 5.2, 2.6));
+  s.push(...jalakBeakShapes("M -30 -30 L -58 -27 L -30 -22 Z", "M -30 -20 L -52 -10 L -28 -13 Z"));
+  return s;
+}
 function jalakPerchSVG() {
-  const I = C.ink, W = C.cloud;
   return `
   <svg viewBox="0 0 220 240" role="img" aria-label="Jalak perched, shouting">
-    <ellipse cx="110" cy="222" rx="70" ry="8" fill="${I}" opacity="0.10"/>
-    <line x1="330" y1="10" x2="330" y2="10" stroke="none"/>
-    <!-- tail fan -->
-    <g stroke="${I}" stroke-width="4.5" stroke-linejoin="round">
-      <path d="M 146 172 Q 188 180 202 210 Q 164 208 136 186 Z" fill="${W}"/>
-      <path d="M 186 196 Q 196 206 202 210 Q 186 209 176 202 Z" fill="#25293f"/>
-      <path d="M 148 188 Q 196 200 208 230 Q 166 226 138 200 Z" fill="${W}"/>
-      <path d="M 192 216 Q 202 226 208 230 Q 190 229 180 222 Z" fill="#25293f"/>
-    </g>
-    <!-- legs -->
-    <g stroke="${C.leg}" stroke-width="6" stroke-linecap="round">
-      <line x1="98" y1="192" x2="94" y2="216"/><line x1="122" y1="192" x2="124" y2="216"/>
-    </g>
-    <g stroke="${C.leg}" stroke-width="4.5" stroke-linecap="round">
-      <line x1="94" y1="216" x2="84" y2="220"/><line x1="94" y1="216" x2="98" y2="222"/>
-      <line x1="124" y1="216" x2="114" y2="221"/><line x1="124" y1="216" x2="130" y2="221"/>
-    </g>
-    <!-- body -->
-    <ellipse cx="112" cy="152" rx="42" ry="48" fill="${W}" stroke="${I}" stroke-width="6"/>
-    <!-- folded wing with black tip -->
-    <path d="M 128 120 Q 160 138 158 176 Q 132 168 116 142 Z" fill="${W}" stroke="${I}" stroke-width="5" stroke-linejoin="round"/>
-    <path d="M 146 160 Q 156 170 158 176 Q 142 172 134 164 Z" fill="#25293f"/>
-    <!-- crest -->
-    <g fill="${W}" stroke="${I}" stroke-width="5" stroke-linejoin="round">
-      <path d="M 92 56 Q 78 24 96 14 Q 102 36 108 50 Z"/>
-      <path d="M 104 52 Q 104 18 124 14 Q 118 38 118 52 Z"/>
-      <path d="M 116 56 Q 128 30 146 32 Q 132 48 126 62 Z"/>
-    </g>
-    <!-- head -->
-    <circle cx="98" cy="82" r="30" fill="${W}" stroke="${I}" stroke-width="6"/>
-    <ellipse cx="86" cy="78" rx="11.5" ry="8.5" fill="#1e7ff0"/>
-    <circle cx="86" cy="78" r="5.5" fill="#ffffff"/>
-    <circle cx="85" cy="78" r="2.8" fill="${I}"/>
-    <!-- shouting beak -->
-    <g fill="${C.beak}" stroke="${I}" stroke-width="3.5" stroke-linejoin="round">
-      <path d="M 66 74 L 34 64 L 66 84 Z"/>
-      <path d="M 66 90 L 42 104 L 68 96 Z"/>
-    </g>
+    <ellipse cx="110" cy="222" rx="70" ry="8" fill="${C.ink}" opacity="0.10"/>
+    ${svgShapes(jalakPerchShapes())}
     <!-- bubble -->
     <g transform="translate(160 34) rotate(6)">
-      <rect x="-52" y="-20" width="104" height="38" rx="14" fill="#ffffff" stroke="${I}" stroke-width="4.5"/>
-      <path d="M -20 16 L -30 32 L -4 17 Z" fill="#ffffff" stroke="${I}" stroke-width="4.5" stroke-linejoin="round"/>
+      <rect x="-52" y="-20" width="104" height="38" rx="14" fill="#ffffff" stroke="${C.ink}" stroke-width="4.5"/>
+      <path d="M -20 16 L -30 32 L -4 17 Z" fill="#ffffff" stroke="${C.ink}" stroke-width="4.5" stroke-linejoin="round"/>
       <rect x="-52" y="-20" width="104" height="38" rx="14" fill="#ffffff"/>
       <text x="0" y="6" text-anchor="middle" font-family="'Baloo 2','Trebuchet MS',sans-serif" font-weight="800" font-size="17" fill="${C.pinkpop}">GUNBATTE!!</text>
     </g>
   </svg>`;
 }
 function jalakFlySVG() {
-  const I = C.ink, W = C.cloud;
   return `
   <svg viewBox="0 0 220 200" role="img" aria-label="Jalak in flight">
-    <ellipse cx="110" cy="184" rx="56" ry="7" fill="${I}" opacity="0.08"/>
-    <g stroke="${I}" stroke-width="4.5" stroke-linejoin="round">
-      <path d="M 128 96 Q 162 108 170 140 Q 138 132 118 112 Z" fill="${W}"/>
-      <path d="M 158 126 Q 165 136 170 140 Q 154 136 148 128 Z" fill="#25293f"/>
-      <path d="M 104 100 Q 70 56 30 52 Q 56 82 94 106 Z" fill="${W}"/>
-      <path d="M 48 60 Q 68 78 86 100 L 70 106 Q 52 84 48 60 Z" fill="#25293f"/>
-      <path d="M 116 98 Q 148 54 188 50 Q 162 82 126 104 Z" fill="${W}"/>
-      <path d="M 166 58 Q 148 78 132 98 L 148 104 Q 162 82 166 58 Z" fill="#25293f"/>
-      <ellipse cx="114" cy="112" rx="30" ry="23" fill="${W}"/>
-      <path d="M 106 66 Q 94 38 110 30 Q 114 50 118 62 Z" fill="${W}"/>
-      <path d="M 112 64 Q 118 36 138 34 Q 128 54 124 66 Z" fill="${W}"/>
-      <path d="M 122 68 Q 138 48 152 52 Q 140 66 134 76 Z" fill="${W}"/>
-      <circle cx="100" cy="84" r="19" fill="${W}"/>
-    </g>
-    <ellipse cx="93" cy="81" rx="9.5" ry="7.5" fill="#1e7ff0"/>
-    <circle cx="93" cy="81" r="4.5" fill="#ffffff"/>
-    <circle cx="92" cy="81" r="2.3" fill="${I}"/>
-    <g fill="${C.beak}" stroke="${I}" stroke-width="3.5" stroke-linejoin="round">
-      <path d="M 84 78 L 60 76 L 84 86 Z"/>
-      <path d="M 84 90 L 66 100 L 86 94 Z"/>
-    </g>
+    <ellipse cx="110" cy="184" rx="56" ry="7" fill="${C.ink}" opacity="0.08"/>
+    ${svgShapes(jalakFlyShapes())}
   </svg>`;
 }
 document.getElementById("jalakPerch").innerHTML = jalakPerchSVG();
@@ -1118,12 +1128,14 @@ document.getElementById("jalakSmall").innerHTML = jalakFlySVG();
     ["face cream", C.face, "face mask + tail tip"],
     ["ear cyan", C.cyan, "ears, paws, feet"],
     ["ear blue", C.blue, "ear mid ring"],
-    ["grape", C.grape, "ear core, nose, claws"],
+    ["grape", C.grape, "ear core, nose"],
     ["eye gold", C.gold, "the big tarsier eyes"],
     ["banana", C.banana, "blaster grip, stars"],
     ["pinkpop", C.pinkpop, "GUNBATTE!, blaster tip"],
     ["blaster", C.blaster, "blaster body"],
     ["cloud", C.cloud, "jalak plumage"],
+    ["jay black", C.jayBlack, "jalak wing & tail tips"],
+    ["jay eye", C.jayEye, "cobalt cheek patch"],
     ["ink", C.ink, "every outline"],
   ];
   document.getElementById("paletteRow").innerHTML = rows.map(([name, hex, use]) => `
