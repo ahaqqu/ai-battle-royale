@@ -145,18 +145,20 @@ else
         echo "  Finish setup once with: ./provision/vps/deploy.sh --bootstrap"
     fi
 
-    # Post-deploy doctor (the shared-box gate): the read-only sweep from the
-    # homepage repo verifies nginx, sites-enabled hygiene, failed units, every
-    # app's listeners and certs — so whichever deploy breaks the box turns its
-    # own run red, with no cross-repo review needed. Runs as the deploy
+    # Post-deploy doctor (the shared-box gate): the read-only sweep verifies
+    # nginx, sites-enabled hygiene, failed units, every app's listeners and
+    # certs — so whichever deploy breaks the box turns its own run red. The
+    # script is NOT shipped by this repo: homepage (the box's owner) updates
+    # $OPS_DIR/doctor.sh on every one of its deploys, and both apps run that
+    # single copy — no vendored duplicate, no fetch, no credential. Until
+    # homepage has deployed once since the ops-dir bootstrap, the file may not
+    # exist yet; that is a warning, not a failed deploy. Runs as the deploy
     # identity; the sudoers drop-in above carries the two read-only
-    # diagnostics it needs. Until apply.sh has been re-run to install that
-    # widened grant, the sweep's nginx check degrades to a warning rather than
-    # failing every deploy. URL overridable via GUNBATTE_DOCTOR_URL.
+    # diagnostics it needs (until apply.sh is re-run to install that widened
+    # grant, the sweep's nginx check degrades to a warning).
     if ssh "$GUNBATTE_SSH" "systemctl list-unit-files gunbatte.service --no-legend" | grep -q gunbatte; then
         echo "▶ post-deploy doctor (cross-app health gate)…"
-        doctor_url="${GUNBATTE_DOCTOR_URL:-https://raw.githubusercontent.com/ahaqqu/homepage/main/provision/vps/doctor.sh}"
-        ssh "$GUNBATTE_SSH" 'f="$(mktemp)" && curl -fsSL --retry 2 "'"$doctor_url"'" -o "$f" && bash "$f"; r=$?; rm -f "$f"; exit $r'
+        ssh "$GUNBATTE_SSH" 'if [ -x /srv/vps-ops/doctor.sh ]; then bash /srv/vps-ops/doctor.sh; else echo "⚠ /srv/vps-ops/doctor.sh not present yet — has homepage deployed since the ops-dir bootstrap?" >&2; fi'
     fi
 fi
 
