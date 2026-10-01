@@ -82,7 +82,7 @@ sudoers_tmp="$(mktemp)"
 cat > "$sudoers_tmp" <<EOF
 $GUNBATTE_DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/systemctl restart gunbatte.service, /usr/bin/systemctl status gunbatte.service
 $GUNBATTE_DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/rsync -a --delete $GUNBATTE_DIR/website/ $GUNBATTE_WEB_ROOT/
-$GUNBATTE_DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/nginx -t, /usr/bin/certbot certificates
+$GUNBATTE_DEPLOY_USER ALL=(root) NOPASSWD: /usr/sbin/nginx -t, /usr/bin/certbot certificates
 EOF
 if sudo visudo -c -q -f "$sudoers_tmp"; then
     sudo install -m 0440 "$sudoers_tmp" /etc/sudoers.d/gunbatte-deploy
