@@ -85,11 +85,11 @@ needs the service to exist.
 
 | File | Runs on | Purpose |
 |---|---|---|
-| `deploy.sh` | local | build + upload + (bootstrap or restart) |
+| `deploy.sh` | local | build + upload + (bootstrap or restart) + post-deploy doctor gate |
 | `apply.sh` | VPS | install unit / sudoers / nginx / certs, reconcile limits, start service |
 | `gunbatte.service` | — | systemd unit template (`__GUNBATTE_*__` placeholders) |
 | `nginx/gunbatte.conf` | — | nginx site template (HTTP-only; certbot adds TLS in place) |
-| `nginx/reconcile-limits.sh` | VPS | add-only reconcile of the #37 abuse limits into an installed site file (`DRY_RUN=1` previews) |
+| `nginx/reconcile-limits.sh` | VPS | add-only reconcile of the #37 abuse limits into an installed site file (`--dry-run` previews) |
 
 ## Abuse limits (issue #37)
 
@@ -126,6 +126,17 @@ already in place. Preview first with
 a `DRY_RUN=1` prefix would silently not survive it).
 Normal deploys deliberately cannot do this step: the deploy identity's sudo
 grant is scoped to the app service, so CI can never edit nginx.
+
+**The post-deploy gate:** every non-bootstrap deploy ends with the shared-box
+doctor sweep (the manifest lives in ahaqqu/homepage's `provision/vps/`) —
+nginx config test, `sites-enabled/` hygiene, failed units, every app's
+listeners and certs. A gunbatte deploy that leaves the box unhealthy turns
+its own run red, with no cross-repo review needed. The sweep runs as the
+deploy identity, whose sudoers drop-in carries two read-only diagnostics for
+it (`nginx -t`, `certbot certificates` — neither changes state); re-run
+`apply.sh` once after merging to install that widened grant. Until then the
+sweep degrades to warnings. The box-wide view of what doctor checks lives in
+homepage's `provision/vps/MACHINE.md`.
 
 When one of these fires in production, [LIMITS.md](../../LIMITS.md) maps the
 symptom the client sees to the knob that caused it.

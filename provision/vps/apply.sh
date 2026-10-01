@@ -73,16 +73,20 @@ sudo systemctl enable gunbatte.service
 echo "✓ systemd: gunbatte.service installed + enabled"
 
 # --- 2. sudoers drop-in: scoped grants for THIS identity only -----------------
-# Two commands only: restart/status this unit, and publish the website from
-# the deploy tree to the world-readable web root nginx serves.
+# Two privileged operations (restart/status this unit, publish the website
+# from the deploy tree to the world-readable web root nginx serves) plus two
+# READ-ONLY diagnostics for the post-deploy doctor gate (see deploy.sh):
+# `nginx -t` validates the shared config and `certbot certificates` lists
+# lineages — neither changes state.
 sudoers_tmp="$(mktemp)"
 cat > "$sudoers_tmp" <<EOF
 $GUNBATTE_DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/systemctl restart gunbatte.service, /usr/bin/systemctl status gunbatte.service
 $GUNBATTE_DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/rsync -a --delete $GUNBATTE_DIR/website/ $GUNBATTE_WEB_ROOT/
+$GUNBATTE_DEPLOY_USER ALL=(root) NOPASSWD: /usr/bin/nginx -t, /usr/bin/certbot certificates
 EOF
 if sudo visudo -c -q -f "$sudoers_tmp"; then
     sudo install -m 0440 "$sudoers_tmp" /etc/sudoers.d/gunbatte-deploy
-    echo "✓ sudoers: $GUNBATTE_DEPLOY_USER may restart gunbatte.service + publish the site (no password)"
+    echo "✓ sudoers: $GUNBATTE_DEPLOY_USER may restart gunbatte.service + publish the site + read-only diagnostics (no password)"
 else
     echo "!! visudo rejected the drop-in — skipping (deploys will need the sudo password)" >&2
 fi
