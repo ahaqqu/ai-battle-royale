@@ -20,6 +20,18 @@ assume the user knows the codebase; if a question only makes sense after
 reading the code, the fact-finding isn't done — go find the facts yourself,
 then ask the decision.
 
+## ARCHITECTURE.md is the map — update it in the same PR
+
+ARCHITECTURE.md is how the next agent orients; a drifted map lies
+confidently, which is worse than none. Any change that makes a sentence
+there false — crates and their roles, the seam, the wire protocol,
+identity and tiers, determinism guarantees, security boundaries, the
+scale-out contract, the known debts — updates ARCHITECTURE.md in the same
+PR, exactly like the box-manifest rule below works for VPS changes. If you
+built something a future agent must understand to work here, it gets a
+paragraph there; if you removed something, its paragraph goes too. Review
+question for every PR: *does anything in ARCHITECTURE.md now read stale?*
+
 ## VPS changes start at the box manifest
 
 The box behind `*.ahaqqu.com` is shared, and its single manifest — every app,
