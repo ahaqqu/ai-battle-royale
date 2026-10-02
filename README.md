@@ -115,8 +115,10 @@ Optional register fields:
 | `token: "<secret>"` | your issued secret, presented on every connection after enrollment |
 
 Identities are two-tier. **Casual** — register with just a name: nothing to
-manage, but the identity is off the ladder and disposable (anyone can connect
-under it; there is no standing to steal). **Ladder** — register with
+manage, and the identity stays off the ladder — but it is not protected:
+anyone can connect under the name and enroll it, inheriting whatever the
+name has banked by then (rating and record travel with the row).
+**Ladder** — register with
 `rated: true`: the server issues an unguessable secret in the `registered`
 ack and the name becomes yours — only connections presenting it are admitted,
 and a second concurrent connection with the same name is refused until the

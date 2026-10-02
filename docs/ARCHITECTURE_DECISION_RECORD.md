@@ -238,6 +238,15 @@ Refactoring stays bounded to the seam only if these hold:
   processes need collision-safe, host-aware replay paths.
 - The dead files under `crates/gunbatte-server/src/` (`db.rs`, `house.rs`,
   `page.rs`) predate the role split and are not in the module tree.
+- A casual row still accrues rating and record in rated matches
+  (`record_match` writes every entrant; the match-level `ctx.rated` sets
+  K, not the row's tier) — the standings filter hides the row, nothing
+  protects what it banks, and whoever enrolls the name inherits it. The
+  per-row fix and its semantics questions live in issue #66.
+- Auto-heel has no hand-back: the engine substitutes `Heel` for the
+  companion every tick while the flag is on, and `companion_cmds` —
+  counted for exactly this opt-out — is never read. Doc'd as "commands
+  are ignored" in AI-BOTS.md; the behavioral fix lives in issue #67.
 
 ## Where to change what
 

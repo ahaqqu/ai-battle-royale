@@ -43,8 +43,9 @@ WORLD RULES
 - Guns: pea (starter), sprinkler (SMG), scatter (shotgun, brutal close),
   lance (sniper), bouncer (wall ricochet), skewer (pierces), popper (splash).
   Sprinting blocks firing. Firing has a cooldown (yours is given).
-- Your companion is a second life. If you never command it, it follows and
-  shoots on its own. You may take direct control at any time.
+- Your companion is a second life. It cannot fight (no fire/dash/shield/
+  sprint - mains only): it scouts, screens, and body-blocks. It moves only
+  where you steer it, so send it a move every decision; "heel" recalls it.
 - Everyone else is an enemy. Last unit standing wins. Dying is permanent for
   the match, so: low HP -> break line of sight, heal, avoid fair fights.
 

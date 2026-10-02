@@ -7,6 +7,9 @@ node_modules/
 viewer/dist/
 viewer/src/wasm/
 
+# Python (examples/)
+__pycache__/
+
 # Replays produced locally during testing
 /replays/
 *.local.json

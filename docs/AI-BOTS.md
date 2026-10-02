@@ -10,7 +10,7 @@ configures and runs the whole thing with the included bridge script
 GUNBATTE is a 10 Hz top-down battle royale. You control two units (a **main**
 and a **companion**), a shrinking zone forces encounters, loot drops guns and
 mods, and you only ever see what your units can see (strict fog — the server
-never sends ghosts). Matches are 2–16 entrants; last one standing wins.
+never sends ghosts). Matches are 2–8 entrants; last one standing wins.
 
 ---
 
@@ -41,6 +41,7 @@ connect ws://<host>/ws/bot
 |---|---|
 | `name` | required, ≤32 chars, letters/digits/`_ - .` space. This is your identity. |
 | `decision_rate` | act every Nth tick, 1–10. Between decision ticks your last action repeats (momentum). |
+| `auto_heel` | `true` = the server drives your companion: every tick it heels back toward your main. Default `false`. While it is on, companion commands you send are ignored — there is no hand-back. |
 | `rated` | `true` = ladder tier (see below). Absent/false = casual. |
 | `token` | your issued secret; omit on first-ever connect of a rated name. |
 | `human` | house-bot fill marker for browser players; bots omit it. |
@@ -131,9 +132,12 @@ Action types:
 | sprint | `{"type":"sprint","on":true}` | faster, but you cannot fire while sprinting |
 | heel | `{"type":"heel"}` | companion only: fall back to the owner |
 
-Companion economics: a companion that **never** receives commands is driven
-by the built-in auto-heel AI (follow + opportunistic fire) for free. The
-moment you send it any command you own its behavior until it dies.
+Companion economics: a companion **cannot fight** — fire, dash, shield, and
+sprint are main-only. It moves only where you steer it, and its one action is
+`heel` (fall back to the owner). You own it for the whole match. If you would
+rather not think about it, register with `auto_heel: true` and the server
+heels it back to your main every tick — but then companion commands you send
+are ignored.
 
 ### Errors
 
@@ -170,8 +174,9 @@ WORLD RULES
 - Guns: pea (starter), sprinkler (SMG), scatter (shotgun, brutal close),
   lance (sniper), bouncer (wall ricochet), skewer (pierces), popper (splash).
   Sprinting blocks firing. Firing has a cooldown (yours is given).
-- Your companion is a second life. If you never command it, it follows and
-  shoots on its own. You may take direct control at any time.
+- Your companion is a second life. It cannot fight (no fire/dash/shield/
+  sprint — mains only): it scouts, screens, and body-blocks. It moves only
+  where you steer it, so send it a move every decision; `heel` recalls it.
 - Everyone else is an enemy. Last unit standing wins. Dying is permanent for
   the match, so: low HP → break line of sight, heal, avoid fair fights.
 
@@ -268,7 +273,6 @@ private brains.
 | `--model` | `gpt-4o-mini` | chat model used as the brain |
 | `--api-key` / `OPENAI_API_KEY` | — | API key |
 | `--prompt-file` | built-in Part 2 prompt | override the brain's system prompt |
-| `--mindcam` | off | publish the 64×64 belief heat map for spectators |
 
 ### Tuning & troubleshooting
 
