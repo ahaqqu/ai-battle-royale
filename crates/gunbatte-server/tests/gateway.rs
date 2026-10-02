@@ -1308,16 +1308,50 @@ async fn oversized_frame_closes_socket_and_mindcam_passes() {
     let _ = reply_of_type(&mut flooder_rx, Duration::from_secs(10), &["match_start"]).await;
 
     // The largest legal message: a full 4096-byte mind-cam belief — roughly
-    // 17 KiB as a JSON number array. Accepted, socket stays open.
+    // 17 KiB as a JSON number array — carrying a full-throttle north move.
+    // Wire throttle is Q16.16 i64, so it must be an integer (65536 = 1.0):
+    // a fractional number fails parsing and the reader drops the WHOLE
+    // message silently (docs/AI-BOTS.md).
     let belief: Vec<u8> = (0..4096u32).map(|i| (i % 251) as u8).collect();
     survivor_tx
         .send(Message::Text(
             json!({"tick": 0, "belief": belief,
-                   "main": {"move": {"dir": 0, "throttle": 0.0}}})
+                   "main": {"move": {"dir": 0, "throttle": 65536}}})
                 .to_string(),
         ))
         .await
         .unwrap();
+
+    // The message must be consumed, not just tolerated: full throttle north
+    // shows up as motion in the survivor's own observation within a few
+    // ticks (a dropped message would leave the main standing — no momentum
+    // source exists yet at tick 0).
+    let moved = {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+        let mut moved = false;
+        while tokio::time::Instant::now() < deadline {
+            match tokio::time::timeout(Duration::from_millis(500), survivor_rx.next()).await {
+                Ok(Some(Ok(Message::Text(t)))) => {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&t) {
+                        if v.get("you").is_some() {
+                            let vel = &v["you"]["main"]["vel"];
+                            if vel[0] != 0 || vel[1] != 0 {
+                                moved = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                Ok(Some(Ok(_))) => continue,
+                _ => break,
+            }
+        }
+        moved
+    };
+    assert!(
+        moved,
+        "the 17 KiB mind-cam + action message must be consumed: the main must move"
+    );
 
     // 70 KiB in one frame: over the cap. The server errors the stream and
     // closes; the entrant falls into the normal disconnect path.
@@ -1325,16 +1359,36 @@ async fn oversized_frame_closes_socket_and_mindcam_passes() {
         .send(Message::Text("x".repeat(70 * 1024)))
         .await
         .unwrap();
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
-    loop {
-        match tokio::time::timeout_at(deadline, flooder_rx.next()).await {
-            // Drain trailing frames; any Close, transport error, or EOF ends
-            // the socket — that is the expected outcome.
-            Ok(Some(Ok(Message::Text(_)))) => continue,
-            Ok(Some(Ok(_))) => continue,
-            _ => break,
+    let closed = {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+        let mut closed = false;
+        loop {
+            match tokio::time::timeout_at(deadline, flooder_rx.next()).await {
+                // The cap must END the socket: a Close frame, a transport
+                // error, or EOF all count. A timeout (socket still alive,
+                // observations streaming) does not — it fails the assert.
+                Ok(Some(Ok(Message::Close(_)))) => {
+                    closed = true;
+                    break;
+                }
+                Ok(Some(Ok(_))) => continue,
+                Ok(Some(Err(_))) => {
+                    closed = true;
+                    break;
+                }
+                Ok(None) => {
+                    closed = true;
+                    break;
+                }
+                Err(_) => break,
+            }
         }
-    }
+        closed
+    };
+    assert!(
+        closed,
+        "the oversized frame must close the flooder's socket (cap removed?)"
+    );
 
     // The survivor is unaffected: the server keeps streaming to it after
     // the flood (observations at the tick rate).
