@@ -941,6 +941,13 @@ fn origin_allowed(allowed: &[String], headers: &HeaderMap) -> bool {
         .any(|a| a.eq_ignore_ascii_case(origin.trim_matches('/')))
 }
 
+/// Per-message inbound cap on both upgrades (issue #41): the largest legal
+/// message is a mind-cam submission (~4 KiB belief, ~17 KiB as JSON), so 64
+/// KiB leaves headroom without letting a bot stream 64 MiB frames at axum's
+/// default. An oversize frame errors the stream → the reader breaks → the
+/// normal disconnect path (momentum, then forfeit) takes over.
+const WS_MAX_MESSAGE_BYTES: usize = 64 * 1024;
+
 async fn ws_bot_handler(
     State(server): State<Arc<Server>>,
     headers: HeaderMap,
@@ -960,7 +967,9 @@ async fn ws_bot_handler(
         )
             .into_response();
     };
-    ws.on_upgrade(move |socket| on_bot_socket(server, socket, permit))
+    ws.max_message_size(WS_MAX_MESSAGE_BYTES)
+        .max_frame_size(WS_MAX_MESSAGE_BYTES)
+        .on_upgrade(move |socket| on_bot_socket(server, socket, permit))
 }
 
 async fn ws_spectate_handler(
@@ -979,7 +988,9 @@ async fn ws_spectate_handler(
         )
             .into_response();
     };
-    ws.on_upgrade(move |socket| on_spectate_socket(server, socket, permit))
+    ws.max_message_size(WS_MAX_MESSAGE_BYTES)
+        .max_frame_size(WS_MAX_MESSAGE_BYTES)
+        .on_upgrade(move |socket| on_spectate_socket(server, socket, permit))
 }
 
 async fn on_bot_socket(
@@ -1115,10 +1126,20 @@ async fn on_bot_socket(
             };
             match msg {
                 Message::Text(t) => {
-                    // Control messages are identified by their `type`.
-                    let v: Option<serde_json::Value> = serde_json::from_str(&t).ok();
-                    if let Some(ty) = v.as_ref().and_then(|v| v["type"].as_str()) {
-                        if ty == "lobby_start" {
+                    // One parse per ordinary action (issue #41): the byte
+                    // probe skips the control check for everything that
+                    // can't be a lobby command. Only texts whose parsed
+                    // `type` really is lobby_start route to the lobby —
+                    // trying ClientAction first is not an option, every
+                    // BotInput field defaults, so a control message would
+                    // also parse as a legal all-zero action.
+                    if t.contains("\"lobby_start\"") {
+                        let is_control = serde_json::from_str::<serde_json::Value>(&t)
+                            .ok()
+                            .and_then(|v| v["type"].as_str().map(str::to_string))
+                            .as_deref()
+                            == Some("lobby_start");
+                        if is_control {
                             if let Ok(cmd) = serde_json::from_str::<LobbyCmd>(&t) {
                                 if lobby_tx.send(cmd).await.is_err() {
                                     break;

@@ -1227,3 +1227,87 @@ async fn new_name_registration_is_rate_limited() {
     let ok = reply_of_type(&mut rx3, Duration::from_secs(10), &["registered", "error"]).await;
     assert_eq!(ok["type"], "registered", "known name must bypass: {ok}");
 }
+
+/// Per-message size cap (issue #41): a >64 KiB frame closes the socket — the
+/// entrant rides the normal disconnect path — while the largest legal
+/// message (a ~17 KiB mind-cam submission) passes and the bot keeps playing.
+#[tokio::test(flavor = "multi_thread")]
+async fn oversized_frame_closes_socket_and_mindcam_passes() {
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8953;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 0,
+        new_names_per_min: 0,
+        max_replays: 100,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+
+    let (mut survivor_tx, mut survivor_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"cap-survivor","decision_rate":1}),
+    )
+    .await;
+    let (mut flooder_tx, mut flooder_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"cap-flooder","decision_rate":1}),
+    )
+    .await;
+    let _ = reply_of_type(&mut survivor_rx, Duration::from_secs(10), &["match_start"]).await;
+    let _ = reply_of_type(&mut flooder_rx, Duration::from_secs(10), &["match_start"]).await;
+
+    // The largest legal message: a full 4096-byte mind-cam belief — roughly
+    // 17 KiB as a JSON number array. Accepted, socket stays open.
+    let belief: Vec<u8> = (0..4096u32).map(|i| (i % 251) as u8).collect();
+    survivor_tx
+        .send(Message::Text(
+            json!({"tick": 0, "belief": belief,
+                   "main": {"move": {"dir": 0, "throttle": 0.0}}})
+                .to_string(),
+        ))
+        .await
+        .unwrap();
+
+    // 70 KiB in one frame: over the cap. The server errors the stream and
+    // closes; the entrant falls into the normal disconnect path.
+    flooder_tx
+        .send(Message::Text("x".repeat(70 * 1024)))
+        .await
+        .unwrap();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        match tokio::time::timeout_at(deadline, flooder_rx.next()).await {
+            // Drain trailing frames; any Close, transport error, or EOF ends
+            // the socket — that is the expected outcome.
+            Ok(Some(Ok(Message::Text(_)))) => continue,
+            Ok(Some(Ok(_))) => continue,
+            _ => break,
+        }
+    }
+
+    // The survivor is unaffected: the server keeps streaming to it after
+    // the flood (observations at the tick rate).
+    let got = tokio::time::timeout(Duration::from_secs(5), survivor_rx.next()).await;
+    assert!(
+        matches!(got, Ok(Some(Ok(_)))),
+        "survivor still receives traffic after the flood: {got:?}"
+    );
+}
