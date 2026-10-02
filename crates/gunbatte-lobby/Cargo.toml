@@ -20,3 +20,5 @@ tower-http = { version = "0.6", features = ["fs", "timeout"] }
 
 [dev-dependencies]
 tempfile = "3"
+# Issue #38: garbage-input property tests over the action wire.
+proptest = "1"

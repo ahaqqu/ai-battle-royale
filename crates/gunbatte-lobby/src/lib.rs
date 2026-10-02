@@ -1223,6 +1223,122 @@ async fn on_spectate_socket(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gunbatte_core::config::MatchConfig;
+    use gunbatte_core::engine::MatchEngine;
+    use proptest::prelude::*;
+
+    /// Arbitrary JSON: scalars with extreme values, multibyte strings and
+    /// keys, arrays and objects nested to a bounded depth — wrong types,
+    /// missing fields and junk shapes all fall out naturally.
+    fn json_garbage() -> impl Strategy<Value = serde_json::Value> {
+        let leaf = prop_oneof![
+            any::<i64>().prop_map(serde_json::Value::from),
+            any::<u64>().prop_map(serde_json::Value::from),
+            ".*".prop_map(serde_json::Value::from),
+            any::<bool>().prop_map(serde_json::Value::from),
+        ];
+        leaf.prop_recursive(
+            5,   // nesting depth
+            64,  // total nodes
+            10,  // elements per collection
+            |inner| {
+                prop_oneof![
+                    proptest::collection::vec(inner.clone(), 0..10)
+                        .prop_map(serde_json::Value::Array),
+                    proptest::collection::vec((proptest::string::string_regex(".{0,24}").unwrap(), inner), 0..10).prop_map(
+                        |pairs| serde_json::Value::Object(pairs.into_iter().collect())
+                    ),
+                ]
+            },
+        )
+    }
+
+    /// BotInput-shaped but extreme: full-range `dir` (u16), full-range
+    /// `throttle` (Fix = i64), multi-byte strings, missing fields, junk
+    /// action objects. Mirrors what a buggy or hostile bot might send.
+    fn shaped_action() -> impl Strategy<Value = String> {
+        (
+            proptest::option::of(any::<u64>()),  // tick
+            proptest::option::of(any::<u16>()),  // main.dir
+            proptest::option::of(any::<i64>()),  // main throttle (Fix)
+            proptest::option::of(json_garbage()), // main.action
+            proptest::option::of(".{0,64}"),     // intent shout, any chars
+            proptest::option::of(proptest::collection::vec(any::<u8>(), 0..300)), // belief
+            any::<bool>(),                       // add a companion too
+        )
+            .prop_map(|(tick, dir, throttle, action, intent, belief, companion)| {
+                let mut mv = serde_json::Map::new();
+                if let Some(d) = dir {
+                    mv.insert("dir".into(), serde_json::json!(d));
+                }
+                if let Some(t) = throttle {
+                    mv.insert("throttle".into(), serde_json::json!(t));
+                }
+                let mut main = serde_json::Map::new();
+                main.insert("move".into(), serde_json::Value::Object(mv));
+                if let Some(a) = action {
+                    main.insert("action".into(), a);
+                }
+                let mut root = serde_json::Map::new();
+                if let Some(t) = tick {
+                    root.insert("tick".into(), serde_json::json!(t));
+                }
+                root.insert("main".into(), serde_json::Value::Object(main));
+                if let Some(s) = intent {
+                    root.insert("intent".into(), serde_json::json!(s));
+                }
+                if let Some(b) = belief {
+                    root.insert("belief".into(), serde_json::json!(b));
+                }
+                if companion {
+                    root.insert(
+                        "companion".into(),
+                        serde_json::json!({"move": {"dir": u16::MAX, "throttle": i64::MIN}}),
+                    );
+                }
+                serde_json::Value::Object(root).to_string()
+            })
+    }
+
+    // Issue #38: the P0 truncate panic (#36) was findable by throwing
+    // arbitrary input at the gateway — nothing did that systematically.
+    // This property keeps that class closed: garbage on the action wire may
+    // be dropped at parse or clamped by the engine, but it may never panic
+    // and never push a unit outside the world.
+    proptest! {
+        #![proptest_config(proptest::test_runner::Config::with_cases(256))]
+        #[test]
+        fn garbage_action_never_panics_or_escapes_the_world(
+            payload in prop_oneof![3 => shaped_action(), 7 => json_garbage().prop_map(|v| v.to_string())],
+            seed in 0u64..8,
+            bot in 0u32..2,
+        ) {
+            let names = vec!["alpha".to_string(), "beta".to_string()];
+            let mut engine = MatchEngine::new(MatchConfig::standard(), seed, &names);
+            engine.configure_bot(0, 1, false);
+            engine.configure_bot(1, 1, false);
+            // Exactly the socket's path (on_bot_socket): parse → submit → tick.
+            if let Ok(action) = serde_json::from_str::<ClientAction>(&payload) {
+                engine.submit(bot, action.input, 0);
+            }
+            engine.step_tick();
+            for u in &engine.state.units {
+                prop_assert!(u.pos.x >= 0 && u.pos.x <= engine.map.size);
+                prop_assert!(u.pos.y >= 0 && u.pos.y <= engine.map.size);
+            }
+        }
+    }
+
+    /// Deep nesting must come back as a parse error, never a stack overflow:
+    /// serde_json's parser caps recursion at 128 levels.
+    #[test]
+    fn deeply_nested_action_json_is_rejected_not_crashed() {
+        for depth in [127usize, 128, 129, 400] {
+            let payload = format!("{}0{}", "{".repeat(depth), "}".repeat(depth));
+            // Either parses or errors — it must not abort the process.
+            let _ = serde_json::from_str::<ClientAction>(&payload);
+        }
+    }
 
     #[test]
     fn names_reject_markup_and_junk() {
