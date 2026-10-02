@@ -5,6 +5,13 @@ use crate::config::MatchConfig;
 use crate::fixed::{self, Fix, ONE};
 use crate::types::Vec2;
 
+/// Fire targets are aim hints, not positions: clamped far outside any arena
+/// so the i64 delta at the shot site can never overflow, in any build
+/// (issue #40). A clamped extreme still normalizes to a legal direction.
+/// The wide i128 delta at the shot site narrows to this same magnitude —
+/// `i64::MIN` itself would panic `abs()` in `atan2_deg` (debug builds).
+pub const AIM_LIMIT: Fix = 1 << 40;
+
 #[derive(Clone, Debug)]
 pub struct SimParams {
     pub tick_rate: u64,

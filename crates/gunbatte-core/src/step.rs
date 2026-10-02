@@ -22,10 +22,13 @@ const MAX_PROJECTILES: usize = 900;
 /// stale damage never steals a zone kill.
 const KILL_CREDIT_WINDOW_TICKS: u64 = 50;
 
-/// Narrow an i128 intermediate to i64 without wrapping: values past the
-/// i64 range clamp to it (only reachable from extreme bot-supplied aims).
+/// Narrow an i128 intermediate to i64 without wrapping: values past the aim
+/// magnitude clamp to it (only reachable from extreme bot-supplied aims).
+/// The bound is AIM_LIMIT, not the i64 range on purpose: `i64::MIN` itself
+/// would panic `abs()` one call later in `atan2_deg` (debug builds).
 fn narrow_i64(v: i128) -> Fix {
-    v.clamp(Fix::MIN as i128, Fix::MAX as i128) as Fix
+    const BOUND: i128 = crate::params::AIM_LIMIT as i128;
+    v.clamp(-BOUND, BOUND) as Fix
 }
 
 pub fn step(

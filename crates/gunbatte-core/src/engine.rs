@@ -7,16 +7,11 @@ use crate::config::MatchConfig;
 use crate::events::Event;
 use crate::map::GameMap;
 use crate::observe::{self, Observation, SpectatorFrame};
-use crate::params::SimParams;
+use crate::params::{AIM_LIMIT, SimParams};
 use crate::state::WorldState;
 use crate::timeout::TimeoutTracker;
 use crate::types::{BotInput, UnitAction, UnitInput};
 use std::collections::BTreeMap;
-
-/// Fire targets are aim hints, not positions: clamped far outside any arena
-/// so the i64 delta at the shot site can never overflow, in any build
-/// (issue #40). A clamped extreme still normalizes to a legal direction.
-const AIM_LIMIT: crate::fixed::Fix = 1 << 40;
 
 pub struct MatchEngine {
     pub state: WorldState,
@@ -85,10 +80,12 @@ impl MatchEngine {
             return;
         }
         // Validate: clamp what we can, keep it legal-but-bad otherwise
-        // (PLAN §4.3: be permissive at the edges of legality).
+        // (PLAN §4.3: be permissive at the edges of legality). Both units
+        // get the same treatment: throttle is a speed multiplier (a crafted
+        // 4.0 companion throttle used to run 4×), aim is clamped to ±2^40.
         let mut input = input;
-        input.main.r#move.throttle = input.main.r#move.throttle.clamp(0, crate::fixed::ONE);
         for unit in [&mut input.main, &mut input.companion] {
+            unit.r#move.throttle = unit.r#move.throttle.clamp(0, crate::fixed::ONE);
             if let Some(UnitAction::Fire { target }) = unit.action.as_mut() {
                 target.x = target.x.clamp(-AIM_LIMIT, AIM_LIMIT);
                 target.y = target.y.clamp(-AIM_LIMIT, AIM_LIMIT);
@@ -375,5 +372,72 @@ mod tests {
             ticks: rec.ticks.clone(),
         };
         crate::replay::verify_replay(&replay).expect("crafted replay re-verifies in debug");
+    }
+
+    /// PR review on #65: the companion's throttle is a direct speed
+    /// multiplier too — it must clamp exactly like the main's.
+    #[test]
+    fn companion_throttle_is_clamped_like_mains() {
+        let mut engine = MatchEngine::new(MatchConfig::standard(), 7, &["a".into(), "b".into()]);
+        let crafted = BotInput {
+            main: UnitInput {
+                r#move: crate::types::MoveInput {
+                    dir: 0,
+                    throttle: 4 * crate::fixed::ONE,
+                },
+                action: None,
+            },
+            companion: UnitInput {
+                r#move: crate::types::MoveInput {
+                    dir: 180,
+                    throttle: -crate::fixed::ONE, // below zero also clamps
+                },
+                action: None,
+            },
+            ..BotInput::default()
+        };
+        engine.submit(0, crafted, 0);
+        let stored = engine.pending[0].as_ref().expect("input stored");
+        assert_eq!(stored.main.r#move.throttle, crate::fixed::ONE);
+        assert_eq!(stored.companion.r#move.throttle, 0);
+        engine.step_tick(); // must not panic
+    }
+
+    /// The shot site's own guard must be load-bearing on its own, without
+    /// submit's clamp in front of it: an extreme target injected straight
+    /// into the pending slot (as any future caller of `step` could) must
+    /// not panic the i128→i64 narrow or `atan2_deg`'s `abs()` in debug.
+    #[test]
+    fn shot_site_narrowing_holds_without_the_submit_clamp() {
+        let mut engine = MatchEngine::new(MatchConfig::standard(), 7, &["a".into(), "b".into()]);
+        let aim = |x: i64, y: i64| UnitInput {
+            r#move: crate::types::MoveInput::stop(),
+            action: Some(UnitAction::Fire {
+                target: crate::types::Vec2::new(x, y),
+            }),
+        };
+        // Both axes land exactly on the narrow's old clamp bounds — the
+        // values that used to reach `atan2_deg` as i64::MIN and panic abs().
+        // Six idle ticks between shots let the fire cooldown expire, so
+        // every combo actually reaches the delta computation.
+        for (x, y) in [
+            (i64::MIN, i64::MIN),
+            (i64::MAX, i64::MAX),
+            (i64::MIN, i64::MAX),
+            (i64::MAX, 0),
+        ] {
+            engine.pending[0] = Some(BotInput {
+                main: aim(x, y),
+                companion: aim(y, x),
+                ..BotInput::default()
+            });
+            engine.step_tick(); // must not panic
+            for _ in 0..6 {
+                engine.step_tick();
+            }
+            for unit in engine.state.units.iter() {
+                assert!(unit.facing <= 359, "facing normalized: {}", unit.facing);
+            }
+        }
     }
 }
