@@ -1,89 +1,21 @@
-# GUNBATTE ROYALE — Architecture
+# GUNBATTE — Architecture Decision Record (for coding agents)
 
-Two documents in one. **Part I** is the public overview: how your AI bot,
-your browser, and the GUNBATTE server talk to each other — and why every
-match is fair and hard to cheat. **Part II** is for coding agents (and any
-contributor): how the system is built inside, and *why* each load-bearing
-decision is the way it is. Getting started: [README.md](README.md). AI bot
-authoring: [docs/AI-BOTS.md](docs/AI-BOTS.md).
+How the system is built inside, and **why** each load-bearing decision is
+the way it is. This is the doc an agent reads before changing anything:
+every section states the decision, the reason it exists, and what it buys —
+so a change that violates a "why" knows it is renegotiating, not just
+editing. The public-facing overview lives in
+[ARCHITECTURE.md](ARCHITECTURE.md); the working rules live in
+[AGENTS.md](../AGENTS.md); the operational limit map is
+[LIMITS.md](../LIMITS.md).
 
-**This map must stay true.** Any change that makes a sentence here false —
-crates and roles, the seam, the wire protocol, identity, determinism
-guarantees, security boundaries, the scale-out contract — updates this
-document in the same PR (AGENTS.md makes this a rule, not a hope).
-
-## The three participants
-
-```mermaid
-flowchart LR
-    bot["Your AI bot<br/>(any language)"]
-    browser["Your browser<br/>(watch · play)"]
-    server["GUNBATTE server"]
-
-    bot <-->|"WebSocket — every tick:<br/>observation ↓ · action ↑"| server
-    browser <-->|"play: the same bot protocol<br/>watch: replays + live frames"| server
-```
-
-**Bots and browsers never talk to each other directly.** The server is the
-only meeting point: everything either side learns about the other passes
-through it, is filtered by the game rules, and is recorded.
-
-## How the communication works
-
-- **Your AI bot ↔ server.** One WebSocket, one loop, 10 times per second:
-  the server sends your *observation* — strictly what your own units can see
-  and hear — and you reply with your *action* within 50 ms. That is the
-  entire protocol. You never send a position or a state, only intent:
-  "walk this direction", "fire", "shield".
-- **Your browser ↔ server.** *Playing:* the browser opens the same WebSocket
-  and speaks the exact same bot protocol — the server cannot tell a human
-  from a bot, and that symmetry is deliberate. *Watching:* your browser
-  downloads a tiny replay file (the hidden seed plus every action taken) and
-  re-simulates the match itself, bit for bit, at 60 fps.
-- **Bot ↔ bot, bot ↔ browser.** Never direct, ever. In a match you can
-  address only your own entrant; a bot can appear on a spectator's screen
-  only through state the server already broadcasts, plus an optional,
-  rate-limited "mind-cam" overlay it chooses to publish.
-
-## Why the match is fair
-
-- **One protocol, no favorites.** Humans and bots drive the identical wire
-  protocol under identical fog of war; the rules resolve them identically.
-- **Fog of war is enforced server-side.** Your observation is computed on
-  the server from your own units' senses. There is no "extra peek" channel,
-  and the hidden seed (loot spawns, RNG) never crosses the wire during a
-  live match.
-- **No initiative order.** All actions received in the tick window resolve
-  simultaneously with deterministic tie-breaks — a fast connection buys
-  nothing.
-- **Slow is not dead.** Miss the 50 ms deadline and your last action simply
-  repeats: a slow or distant bot plays visibly worse instead of being
-  ejected.
-- **Anyone can verify a match.** Every match is a shareable replay — the
-  seed, the recorded actions, and a digest of the world state per tick. Your
-  browser re-simulates it and checks the digests: a result that doesn't
-  re-verify isn't a result.
-
-## Why the client can't cheat
-
-- **Clients submit intents, never state.** There is no message that can
-  teleport you — movement is a direction and a throttle. There is no way to
-  fire without the server-side cooldown, or to shield without the
-  server-side energy cost. Positions, damage, pickups, and the zone all
-  live in the server's simulation.
-- **Hostile input degrades, never crashes.** Out-of-range values are
-  clamped into "legal but bad" moves; malformed messages are dropped. A bot
-  cannot crash its match or another client by sending garbage.
-- **All spectacle is client-side.** Particles, camera shakes, slow-mo kill
-  cams, and sound exist only in the viewer — no client can inject anything
-  into the match itself.
-- **Built in the open.** The engine, server, and viewer are MIT-licensed
-  open source, and security findings are tracked and fixed in public
-  ([issue tracker](https://github.com/ahaqqu/gunbatte/issues)).
-
----
-
-# Part II — Internal architecture (for coding agents)
+**This record must stay true.** Any change that makes a sentence here false
+— crates and roles, the seam, the wire protocol, identity and tiers,
+determinism guarantees, security boundaries, the scale-out contract, the
+known debts — updates this document in the same PR (AGENTS.md makes this a
+rule, not a hope). When a decision here is *reversed*, the section is
+rewritten to record the new decision and the reason the old one gave way —
+the whys are the point, not the prose.
 
 ## The design pillars, and why each exists
 
@@ -120,7 +52,7 @@ through it, is filtered by the game rules, and is recorded.
    is a deliberate ceiling (connection pool, lobby cap, new-name and
    wrong-code buckets, per-message size caps, name rules) so one client
    cannot farm the ladder or exhaust a small VPS. *Why and what to do when
-   one bites:* [LIMITS.md](LIMITS.md).
+   one bites:* [LIMITS.md](../LIMITS.md).
 7. **Humans and bots are the same client.** The browser plays over the
    identical wire protocol under identical fog. *Why:* one code path to
    test, and no "human channel" to cheat through.
@@ -185,7 +117,7 @@ flowchart TD
 - **`viewer/`** — the TypeScript client: live play (the bot protocol from a
   browser), spectating, replay playback, HUD and mind-cam rendering.
 
-The hard rules and their enforcement live in [AGENTS.md](AGENTS.md): no
+The hard rules and their enforcement live in [AGENTS.md](../AGENTS.md): no
 lobby ↔ gameserver dependency anywhere (not even dev-dependencies), one
 match owned by one process for its whole life, the match loop never
 touching lobby/queue state mid-match, identity claims under database
@@ -316,4 +248,4 @@ Refactoring stays bounded to the seam only if these hold:
 | the tick loop, deadline/forfeit handling, results write-back | `gunbatte-gameserver` |
 | anything crossing roles | the seam in `gunbatte-node` — widen it deliberately, never bridge it |
 | deployment, nginx, systemd, TLS | the box manifest first (AGENTS.md), then `provision/` |
-| bot-facing protocol | `docs/AI-BOTS.md` + this file's Part I, in the same PR |
+| bot-facing protocol | [AI-BOTS.md](AI-BOTS.md) + [ARCHITECTURE.md](ARCHITECTURE.md), in the same PR |

@@ -1,0 +1,81 @@
+# GUNBATTE ROYALE — Architecture
+
+The public overview: how your AI bot, your browser, and the GUNBATTE server
+talk to each other — and why every match is fair and hard to cheat.
+Getting started: [README.md](../README.md). AI bot authoring:
+[AI-BOTS.md](AI-BOTS.md). Building on the code itself? How the system is
+built inside — and why each load-bearing decision is the way it is — lives
+in the [architecture decision record](ARCHITECTURE_DECISION_RECORD.md).
+
+**This map must stay true.** Any change that makes a sentence here false
+updates this document in the same PR (AGENTS.md makes this a rule, not a
+hope).
+
+## The three participants
+
+```mermaid
+flowchart LR
+    bot["Your AI bot<br/>(any language)"]
+    browser["Your browser<br/>(watch · play)"]
+    server["GUNBATTE server"]
+
+    bot <-->|"WebSocket — every tick:<br/>observation ↓ · action ↑"| server
+    browser <-->|"play: the same bot protocol<br/>watch: replays + live frames"| server
+```
+
+**Bots and browsers never talk to each other directly.** The server is the
+only meeting point: everything either side learns about the other passes
+through it, is filtered by the game rules, and is recorded.
+
+## How the communication works
+
+- **Your AI bot ↔ server.** One WebSocket, one loop, 10 times per second:
+  the server sends your *observation* — strictly what your own units can see
+  and hear — and you reply with your *action* within 50 ms. That is the
+  entire protocol. You never send a position or a state, only intent:
+  "walk this direction", "fire", "shield".
+- **Your browser ↔ server.** *Playing:* the browser opens the same WebSocket
+  and speaks the exact same bot protocol — the server cannot tell a human
+  from a bot, and that symmetry is deliberate. *Watching:* your browser
+  downloads a tiny replay file (the hidden seed plus every action taken) and
+  re-simulates the match itself, bit for bit, at 60 fps.
+- **Bot ↔ bot, bot ↔ browser.** Never direct, ever. In a match you can
+  address only your own entrant; a bot can appear on a spectator's screen
+  only through state the server already broadcasts, plus an optional,
+  rate-limited "mind-cam" overlay it chooses to publish.
+
+## Why the match is fair
+
+- **One protocol, no favorites.** Humans and bots drive the identical wire
+  protocol under identical fog of war; the rules resolve them identically.
+- **Fog of war is enforced server-side.** Your observation is computed on
+  the server from your own units' senses. There is no "extra peek" channel,
+  and the hidden seed (loot spawns, RNG) never crosses the wire during a
+  live match.
+- **No initiative order.** All actions received in the tick window resolve
+  simultaneously with deterministic tie-breaks — a fast connection buys
+  nothing.
+- **Slow is not dead.** Miss the 50 ms deadline and your last action simply
+  repeats: a slow or distant bot plays visibly worse instead of being
+  ejected.
+- **Anyone can verify a match.** Every match is a shareable replay — the
+  seed, the recorded actions, and a digest of the world state per tick. Your
+  browser re-simulates it and checks the digests: a result that doesn't
+  re-verify isn't a result.
+
+## Why the client can't cheat
+
+- **Clients submit intents, never state.** There is no message that can
+  teleport you — movement is a direction and a throttle. There is no way to
+  fire without the server-side cooldown, or to shield without the
+  server-side energy cost. Positions, damage, pickups, and the zone all
+  live in the server's simulation.
+- **Hostile input degrades, never crashes.** Out-of-range values are
+  clamped into "legal but bad" moves; malformed messages are dropped. A bot
+  cannot crash its match or another client by sending garbage.
+- **All spectacle is client-side.** Particles, camera shakes, slow-mo kill
+  cams, and sound exist only in the viewer — no client can inject anything
+  into the match itself.
+- **Built in the open.** The engine, server, and viewer are MIT-licensed
+  open source, and security findings are tracked and fixed in public
+  ([issue tracker](https://github.com/ahaqqu/gunbatte/issues)).

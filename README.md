@@ -176,8 +176,11 @@ between them — today the `gunbatte-server` binary runs both in one process,
 and the seam (`gunbatte-node`) is what makes splitting them across processes
 later a bounded change. [AGENTS.md](AGENTS.md) has the rules.
 
-New here? [ARCHITECTURE.md](ARCHITECTURE.md) is the short, public-facing
-version: who talks to whom, and why every match is fair and hard to cheat.
+New here? [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the short,
+public-facing version: who talks to whom, and why every match is fair and
+hard to cheat. Contributors and agents: the whys behind every load-bearing
+decision live in
+[docs/ARCHITECTURE_DECISION_RECORD.md](docs/ARCHITECTURE_DECISION_RECORD.md).
 Something refused you? [LIMITS.md](LIMITS.md) is the troubleshooting map for
 every ceiling the server can enforce.
 
