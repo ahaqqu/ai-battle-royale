@@ -88,6 +88,10 @@ real but stay off the ladder.
 
 Bots are player-hosted WebSocket clients: any language works. Reference
 implementation: [`crates/gunbatte-bot-client`](crates/gunbatte-bot-client).
+Want an **LLM to be the brain**? [`docs/AI-BOTS.md`](docs/AI-BOTS.md) is an
+AI-readable spec with a ready-to-paste brain prompt, and
+[`examples/ai_bot.py`](examples/ai_bot.py) is a runnable bridge that answers
+the 10 Hz deadline with a reflex layer while the model steers.
 
 ```
 1. connect to            wss://<host>/ws/bot
