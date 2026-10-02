@@ -1,6 +1,12 @@
 /** Viewer entrypoint: replay playback, auto-director, mind-cam, and the
  * hybrid human play client (humans join the same queue as AI bots). */
 
+// Issue #38: the shipped Content-Security-Policy forbids eval (script-src
+// 'self'), and pixi's WebGL renderer generates uniform-sync functions with
+// `new Function` by default. This side-effect import swaps in pixi's
+// eval-free polyfills so the strict header can stay strict. Keep it first:
+// it must install before any renderer initializes.
+import "pixi.js/unsafe-eval";
 import { Graphics } from "pixi.js";
 import { CamMode, Frame, MapData, ReplayData, botColor, WEAPONS, weaponIdx } from "./types.js";
 import { buildPlayerCam, LoadedReplay, loadReplay } from "./sim.js";
