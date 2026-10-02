@@ -89,7 +89,7 @@ needs the service to exist.
 | `apply.sh` | VPS | install unit / sudoers / nginx / certs, reconcile limits, start service |
 | `gunbatte.service` | — | systemd unit template (`__GUNBATTE_*__` placeholders) |
 | `nginx/gunbatte.conf` | — | nginx site template (HTTP-only; certbot adds TLS in place) |
-| `nginx/reconcile-limits.sh` | VPS | add-only reconcile of the #37 abuse limits into an installed site file (`--dry-run` previews) |
+| `nginx/reconcile-limits.sh` | VPS | add-only reconcile of the #37 abuse limits + the #38 CSP header into an installed site file (`--dry-run` previews) |
 
 ## Abuse limits (issue #37)
 
@@ -118,9 +118,9 @@ but only `apply.sh` may touch nginx — and it never re-installs an installed
 site file, because certbot owns its TLS edits. To land a template change on
 the VPS, re-run `apply.sh` (as root, as in the bootstrap); its limits
 reconcile (`nginx/reconcile-limits.sh`) is add-only — it inserts the zones,
-the `/ws/*` location blocks, and the 1m body cap if missing, never touching
-hostnames, TLS, or redirects — and is a verified no-op when everything is
-already in place. Preview first with
+the `/ws/*` location blocks, the 1m body cap, and the #38 CSP header if
+missing, never touching hostnames, TLS, or redirects — and is a verified
+no-op when everything is already in place. Preview first with
 `sudo bash $GUNBATTE_DIR/provision/vps/nginx/reconcile-limits.sh --dry-run`
 (the `--dry-run` flag is deliberate: `sudo` strips environment variables, so
 a `DRY_RUN=1` prefix would silently not survive it).
@@ -144,6 +144,48 @@ warnings. The box-wide view of what doctor checks lives in homepage's private
 
 When one of these fires in production, [LIMITS.md](../../LIMITS.md) maps the
 symptom the client sees to the knob that caused it.
+
+## Defense in depth (issue #38)
+
+Blast-radius armor rather than closed holes. The CI pieces (RustSec audit,
+garbage-input property tests) need no VPS work; the nginx header and the
+process cage land with one `apply.sh` re-run — the same path as the #37
+limits ("Applying the nginx half" above).
+
+| Piece | Lives | What it buys |
+|---|---|---|
+| Content-Security-Policy | nginx template + reconcile | the browser refuses to run any script that did not ship with the viewer — a future name/replay escaping slip cannot execute; the viewer itself is eval-free (`pixi.js/unsafe-eval`) so `script-src 'self'` stays strict, with only the WebAssembly-only `'wasm-unsafe-eval'` grant for the sim |
+| systemd cage | `gunbatte.service` | filesystem read-only except the state dir (`ProtectSystem=strict` + `ReadWritePaths`), syscall + address-family allowlists, `MemoryMax=1G` + `CPUQuota=150%` — a runaway match costs live matches one 3s restart instead of starving the shared box |
+| RustSec audit | CI (`ci.yml`) | known dependency vulnerabilities fail CI and block the merge; hygiene advisories annotate |
+| Garbage-input tests | CI (`gunbatte-lobby`) | random malformed wire input through parse → submit → tick may never panic and never push a unit outside the world |
+| WS origin check | app + unit env | browsers claiming a foreign page cannot open bot/spectate sockets; header-less homemade bots and scripts are unaffected; empty allowlist (dev) disables it |
+
+**Landing it on the VPS** — one `apply.sh` re-run as root (admin login, like
+the bootstrap; CI deliberately cannot do this), previewing the nginx change
+first:
+
+```sh
+sudo bash $GUNBATTE_DIR/provision/vps/nginx/reconcile-limits.sh --dry-run
+GUNBATTE_GAME_HOST=… GUNBATTE_SITE_HOST=… GUNBATTE_EMAIL=… \
+  ./provision/vps/deploy.sh --bootstrap
+```
+
+The re-run re-renders the unit (cage + `GUNBATTE_ALLOWED_ORIGINS`), inserts
+the CSP header into the certbot-owned site file (add-only, timestamped
+backup beside the resolved target, automatic rollback if `nginx -t`
+objects), and restarts the service. Afterwards verify:
+
+- `systemctl status gunbatte` is active, the ladder page loads, a match runs.
+- `curl -sI https://$GUNBATTE_GAME_HOST/ | grep -i content-security-policy`.
+- The viewer's browser console shows no CSP violation reports (the shipped
+  policy was verified against Google Fonts, wasm, and the Pixi renderer).
+- `ladder.db-wal` still grows beside `ladder.db` — writes live in the single
+  `ReadWritePaths` pocket.
+
+Rollback: the reconcile leaves a `.bak-<timestamp>` beside the resolved
+target in `sites-available/` to restore nginx; the unit always re-renders
+from the template, so reverting this branch and re-running `apply.sh`
+removes the cage.
 
 ## Why this can't disturb the other apps
 
