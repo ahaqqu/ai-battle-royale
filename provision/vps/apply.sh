@@ -63,11 +63,27 @@ sudo chmod 0600 "$ak"
 sudo chown -R "$GUNBATTE_DEPLOY_USER:$GUNBATTE_DEPLOY_USER" "$GUNBATTE_DIR"
 rm -f "$pubkey_tmp"
 
+# A rendered template must carry no placeholders: a surviving __GUNBATTE_*
+# marker means this script and the template have drifted (the #38 review
+# caught the origin allowlist shipping verbatim, which 403-ed every browser).
+require_rendered() { # <file> <what>
+    if grep -nE '__GUNBATTE_[A-Z0-9_]+__' "$1" >&2; then
+        echo "!! $2: unrendered __GUNBATTE_* placeholder(s) — refusing to install" >&2
+        rm -f "$1"
+        exit 1
+    fi
+}
+
 # --- 1. systemd unit (runs as the deploy identity) -----------------------------
+unit_tmp="$(mktemp)"
 sed -e "s|__GUNBATTE_USER__|$GUNBATTE_DEPLOY_USER|g" \
     -e "s|__GUNBATTE_DIR__|$GUNBATTE_DIR|g" \
     -e "s|__GUNBATTE_PORT__|$GUNBATTE_PORT|g" \
-    "$here/gunbatte.service" | sudo tee /etc/systemd/system/gunbatte.service >/dev/null
+    -e "s|__GUNBATTE_GAME_HOST__|$GUNBATTE_GAME_HOST|g" \
+    "$here/gunbatte.service" > "$unit_tmp"
+require_rendered "$unit_tmp" "gunbatte.service"
+sudo install -m 0644 "$unit_tmp" /etc/systemd/system/gunbatte.service
+rm -f "$unit_tmp"
 sudo systemctl daemon-reload
 sudo systemctl enable gunbatte.service
 echo "✓ systemd: gunbatte.service installed + enabled"
@@ -118,22 +134,28 @@ if sudo test -f /etc/nginx/sites-enabled/gunbatte.conf; then
         echo "✓ nginx: gunbatte.conf already installed — leaving certbot's TLS edits alone"
     fi
 else
+    nginx_tmp="$(mktemp)"
     sed -e "s|__GUNBATTE_GAME_HOST__|$GUNBATTE_GAME_HOST|g" \
         -e "s|__GUNBATTE_SITE_HOST__|$GUNBATTE_SITE_HOST|g" \
         -e "s|__GUNBATTE_WEB_ROOT__|$GUNBATTE_WEB_ROOT|g" \
         -e "s|__GUNBATTE_PORT__|$GUNBATTE_PORT|g" \
-        "$here/nginx/gunbatte.conf" | sudo tee /etc/nginx/sites-available/gunbatte.conf >/dev/null
+        "$here/nginx/gunbatte.conf" > "$nginx_tmp"
+    require_rendered "$nginx_tmp" "nginx/gunbatte.conf"
+    sudo install -m 0644 "$nginx_tmp" /etc/nginx/sites-available/gunbatte.conf
+    rm -f "$nginx_tmp"
     sudo ln -sf /etc/nginx/sites-available/gunbatte.conf /etc/nginx/sites-enabled/gunbatte.conf
     sudo nginx -t
     sudo systemctl reload nginx
     echo "✓ nginx: gunbatte site installed (HTTP only; certbot adds TLS next)"
 fi
 
-# The limits reconcile is add-only (zones, WS locations, body cap — never
-# TLS), so it is safe to run on every apply.sh: a no-op on a fresh install of
-# the current template, an insertion into any older one. Preview by hand with
-# DRY_RUN=1. deploy.sh ships the script on every deploy but cannot run it —
-# the deploy identity's sudo grant is scoped to the app service on purpose.
+# The limits reconcile is add-only (zones, WS locations, body cap, the #38
+# CSP header — never TLS), so it is safe to run on every apply.sh: a no-op on
+# a fresh install of the current template, an insertion into any older one.
+# Preview by hand with --dry-run (why a flag, not DRY_RUN=1: see the
+# reconcile script's header). deploy.sh ships the script on every deploy
+# but cannot run it — the deploy identity's sudo grant is scoped to the app
+# service on purpose.
 bash "$here/nginx/reconcile-limits.sh" /etc/nginx/sites-enabled/gunbatte.conf
 
 # --- 5. TLS via certbot (needs both hostnames resolving to THIS machine) --------

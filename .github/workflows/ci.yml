@@ -8,7 +8,26 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Issue #38: dependency audit against the RustSec advisory DB. Runs beside
+# (not inside) the test jobs — it needs no toolchain. Fails the run on known
+# vulnerabilities; advisory-level hygiene notes (unmaintained crates and the
+# like) show in the log without blocking. The permissions block is what keeps
+# that contract: without `checks: write` the action cannot publish its check
+# run on push-to-main (pull_request runs fall back to stdout), and the job
+# then fails on the API permission error — hygiene notes included — instead
+# of on the advisories themselves.
 jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   rust:
     runs-on: ubuntu-latest
     steps:
