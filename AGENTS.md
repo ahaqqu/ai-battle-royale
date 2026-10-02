@@ -4,6 +4,25 @@ Engineering conventions for anyone (human or agent) changing this repo. The
 public-facing overview lives in [ARCHITECTURE.md](ARCHITECTURE.md); this file
 covers the internal boundary that keeps the project able to scale out.
 
+## Ask the user through the harness question tool
+
+Decisions belong to the user. Whenever a question needs their answer — a
+clarification, a design choice, a grill-style round — ask it via the harness
+question tool (AskUserQuestion) with concrete options and your recommendation
+first, not as free-text prose. Facts findable in the repo or environment are
+never questions for the user.
+
+## VPS changes start at the box manifest
+
+The box behind `*.ahaqqu.com` is shared, and its single manifest — every app,
+identity, port, nginx file, TLS lineage, plus the shared rules — lives in
+[ahaqqu/homepage](https://github.com/ahaqqu/homepage) →
+`provision/vps/MACHINE.md`. Before writing any script or template that changes
+VPS configuration (nginx, systemd, sudoers, TLS), read that manifest first and
+let it decide where the change belongs: each app repo provisions itself,
+box-level facts and shared rules belong to the manifest, and the manifest is
+updated in the same PR as the change that touches them.
+
 ## Commands
 
 - `make test` — full workspace tests, then again in release (the gateway
