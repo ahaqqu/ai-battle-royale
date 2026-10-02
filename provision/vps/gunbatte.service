@@ -21,10 +21,26 @@ ExecStart=__GUNBATTE_DIR__/gunbatte-server serve --port __GUNBATTE_PORT__ --bind
 Restart=always
 RestartSec=3
 
-# Light hardening: the unit never needs privileges, and its only writable
-# paths are the working directory (ladder.db, replays/) and /tmp.
+# Hardening (issue #38): the unit never needs privileges; the directives
+# below bound what a compromised or runaway process can reach, and cap what
+# it can drain from the shared box (kajianq + Postgres share this machine).
+# The only things the server ever writes are ladder.db (+ WAL/shm) and
+# replays/ inside the working directory — ProtectSystem=strict makes the
+# rest of the filesystem read-only, ProtectHome=read-only keeps the rest of
+# the deploy identity's home out of reach, and ReadWritePaths punches the
+# working directory back open. When the memory ceiling is hit, the kernel
+# kills the process and systemd restarts it in 3s: live matches drop once,
+# the box stays healthy.
 NoNewPrivileges=true
 PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=__GUNBATTE_DIR__
+ProtectHome=read-only
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+MemoryMax=1G
+CPUQuota=150%
+LimitNOFILE=8192
 
 [Install]
 WantedBy=multi-user.target
