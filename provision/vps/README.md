@@ -160,6 +160,11 @@ limits ("Applying the nginx half" above).
 | Garbage-input tests | CI (`gunbatte-lobby`) | random malformed wire input through parse → submit → tick may never panic and never push a unit outside the world |
 | WS origin check | app + unit env | browsers claiming a foreign page cannot open bot/spectate sockets; header-less homemade bots and scripts are unaffected; empty allowlist (dev) disables it |
 
+Browser floor for the header: `'wasm-unsafe-eval'` — the grant the sim's
+instantiate needs — landed in Chrome 95, Firefox 102, and Safari 16.4. Older
+browsers (notably Safari ≤ 16.3) load the page but cannot start the sim
+under the header; everything else still renders. That is the accepted floor.
+
 **Landing it on the VPS** — one `apply.sh` re-run as root (admin login, like
 the bootstrap; CI deliberately cannot do this), previewing the nginx change
 first:
@@ -167,10 +172,13 @@ first:
 ```sh
 sudo bash $GUNBATTE_DIR/provision/vps/nginx/reconcile-limits.sh --dry-run
 GUNBATTE_GAME_HOST=… GUNBATTE_SITE_HOST=… GUNBATTE_EMAIL=… \
+  GUNBATTE_ADMIN_SSH=ahaqqu@62.83.35.220 \
   ./provision/vps/deploy.sh --bootstrap
 ```
 
-The re-run re-renders the unit (cage + `GUNBATTE_ALLOWED_ORIGINS`), inserts
+`--bootstrap` hard-requires `GUNBATTE_ADMIN_SSH` (the admin login CI never
+holds) and will prompt for the sudo password once, over ssh. The re-run
+re-renders the unit (cage + `GUNBATTE_ALLOWED_ORIGINS`), inserts
 the CSP header into the certbot-owned site file (add-only, timestamped
 backup beside the resolved target, automatic rollback if `nginx -t`
 objects), and restarts the service. Afterwards verify:

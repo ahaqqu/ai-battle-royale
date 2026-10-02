@@ -144,20 +144,26 @@ fi
 # The anchor is the ws/bot location line itself: nginx does not care where in
 # a server block add_header sits, and every game block is guaranteed to have
 # that line. The per-block marker check keeps a partially-reconciled file
-# safe (a previous run leaves the header before the same anchor).
-if ! grep -q 'Content-Security-Policy' "$work"; then
+# safe (a previous run leaves the header before the same anchor). Both
+# markers match the DIRECTIVE, not any mention of the name — an operator
+# note or a commented-out header must not read as done.
+if ! grep -Eq '^[[:space:]]*add_header[[:space:]]+Content-Security-Policy' "$work"; then
     cat > "$work.csp" <<'EOF'
     # Issue #38: the browser refuses to run any script that did not ship
     # with the viewer — a name/replay escaping slip cannot execute. The
     # viewer needs only its own files, Google Fonts, and same-origin
-    # sockets; img-src data: is the inline SVG favicon.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com; connect-src 'self' wss:; img-src 'self' data:" always;
+    # sockets ('self' covers wss:// to this host; a scheme source like bare
+    # wss: would allow sockets to ANY host); img-src data: is the inline
+    # SVG favicon.
+    # KEEP IN SYNC with the template copy in gunbatte.conf: certbot owns the
+    # live file, so this reconcile is the only way the header reaches it.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' fonts.googleapis.com 'unsafe-inline'; font-src fonts.gstatic.com; connect-src 'self'; img-src 'self' data:" always;
 
 EOF
     awk -v cspfile="$work.csp" '
         {
             if ($0 ~ /^[[:space:]]*server[[:space:]]*\{/) inhdr = 0
-            if (index($0, "Content-Security-Policy") > 0) inhdr = 1
+            if ($0 ~ /^[[:space:]]*add_header[[:space:]]+Content-Security-Policy/) inhdr = 1
             if (!inhdr && index($0, "location = /ws/bot") > 0) {
                 while ((getline l < cspfile) > 0) print l
                 close(cspfile)
