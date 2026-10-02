@@ -22,6 +22,12 @@ const MAX_PROJECTILES: usize = 900;
 /// stale damage never steals a zone kill.
 const KILL_CREDIT_WINDOW_TICKS: u64 = 50;
 
+/// Narrow an i128 intermediate to i64 without wrapping: values past the
+/// i64 range clamp to it (only reachable from extreme bot-supplied aims).
+fn narrow_i64(v: i128) -> Fix {
+    v.clamp(Fix::MIN as i128, Fix::MAX as i128) as Fix
+}
+
 pub fn step(
     state: &mut WorldState,
     p: &SimParams,
@@ -211,7 +217,13 @@ pub fn step(
             }
             let spec = crate::weapons::spec(p, unit.weapon);
             unit.fire_cd = effective_fire_cooldown(p, unit);
-            let d = target.sub(unit.pos);
+            // Belt and suspenders (issue #40): submit clamps targets, but the
+            // delta itself is computed wide — an extreme target can never
+            // overflow the i64 subtraction, in any build.
+            let d = Vec2::new(
+                narrow_i64(target.x as i128 - unit.pos.x as i128),
+                narrow_i64(target.y as i128 - unit.pos.y as i128),
+            );
             let dir_deg = if d.x == 0 && d.y == 0 {
                 unit.facing as i32
             } else {

@@ -13,6 +13,11 @@ use crate::timeout::TimeoutTracker;
 use crate::types::{BotInput, UnitAction, UnitInput};
 use std::collections::BTreeMap;
 
+/// Fire targets are aim hints, not positions: clamped far outside any arena
+/// so the i64 delta at the shot site can never overflow, in any build
+/// (issue #40). A clamped extreme still normalizes to a legal direction.
+const AIM_LIMIT: crate::fixed::Fix = 1 << 40;
+
 pub struct MatchEngine {
     pub state: WorldState,
     pub params: SimParams,
@@ -83,6 +88,12 @@ impl MatchEngine {
         // (PLAN §4.3: be permissive at the edges of legality).
         let mut input = input;
         input.main.r#move.throttle = input.main.r#move.throttle.clamp(0, crate::fixed::ONE);
+        for unit in [&mut input.main, &mut input.companion] {
+            if let Some(UnitAction::Fire { target }) = unit.action.as_mut() {
+                target.x = target.x.clamp(-AIM_LIMIT, AIM_LIMIT);
+                target.y = target.y.clamp(-AIM_LIMIT, AIM_LIMIT);
+            }
+        }
         if let Some(i) = input.intent.as_mut() {
             truncate_shout(i);
         }
@@ -286,5 +297,83 @@ mod tests {
             .and_then(|(intent, _)| intent.as_ref())
             .expect("mind stored after rate window");
         assert_eq!(stored.chars().count(), 64);
+    }
+
+    /// Issue #40: extreme bot-supplied Fire targets must not overflow the
+    /// i64 delta at the shot site — the submit clamp plus the wide delta
+    /// keep debug builds panic-free with a legal normalized direction.
+    #[test]
+    fn fire_target_extremes_stay_legal() {
+        let mut engine = MatchEngine::new(MatchConfig::standard(), 7, &["a".into(), "b".into()]);
+        let aim = |x: i64, y: i64| UnitInput {
+            r#move: crate::types::MoveInput::stop(),
+            action: Some(UnitAction::Fire {
+                target: crate::types::Vec2::new(x, y),
+            }),
+        };
+        // Both units fire at opposite extremes every tick for a while.
+        for tick in 0..30 {
+            if tick % 3 == 0 {
+                engine.submit(
+                    0,
+                    BotInput {
+                        main: aim(i64::MIN, i64::MAX),
+                        companion: aim(i64::MAX, i64::MIN),
+                        ..BotInput::default()
+                    },
+                    0,
+                );
+                engine.submit(
+                    1,
+                    BotInput {
+                        main: aim(-1, 1),
+                        ..BotInput::default()
+                    },
+                    0,
+                );
+            }
+            engine.step_tick();
+        }
+        // The engine never panicked (this test is the debug-build guard) and
+        // every firing unit keeps a normalized 0..=359 facing.
+        for unit in engine.state.units.iter() {
+            assert!(unit.facing <= 359, "facing normalized: {}", unit.facing);
+        }
+    }
+
+    /// Issue #40 acceptance: replay verification in a debug build survives a
+    /// crafted extreme target — re-simulation goes through submit, so the
+    /// clamp applies identically and digests match.
+    #[test]
+    fn replay_with_extreme_target_verifies() {
+        let mut engine = MatchEngine::new(MatchConfig::standard(), 42, &["a".into(), "b".into()]);
+        let names = vec!["a".to_string(), "b".to_string()];
+        let mut rec = crate::replay::ReplayRecorder::new(&engine, &names);
+        let crafted = BotInput {
+            main: UnitInput {
+                r#move: crate::types::MoveInput::stop(),
+                action: Some(UnitAction::Fire {
+                    target: crate::types::Vec2::new(i64::MIN, i64::MAX),
+                }),
+            },
+            ..BotInput::default()
+        };
+        for _ in 0..10 {
+            // The recorder logs the raw input, exactly like the gateway does;
+            // bot 1 idles (recorded misses below the grace window aren't
+            // reproducible by re-simulation, which never calls submit_miss).
+            rec.record_submit(0, crafted.clone());
+            rec.record_submit(1, BotInput::default());
+            engine.submit(0, crafted.clone(), 0);
+            engine.submit(1, BotInput::default(), 0);
+            engine.step_tick();
+            rec.record_tick(engine.state.digest());
+        }
+        rec.finish(&engine);
+        let replay = crate::replay::Replay {
+            header: rec.header.clone(),
+            ticks: rec.ticks.clone(),
+        };
+        crate::replay::verify_replay(&replay).expect("crafted replay re-verifies in debug");
     }
 }
