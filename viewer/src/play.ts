@@ -125,6 +125,11 @@ export class PlayClient {
     return `gb.token.${this.name}`;
   }
 
+  /** The secret held in memory when storage is unwritable: it covers this
+   * session's reconnects, but once the page is gone the name can no longer
+   * be proven ours (the server never re-issues a secret). */
+  private sessionToken: string | null = null;
+
   private storedToken(): string | null {
     try {
       return localStorage.getItem(this.tokenKey());
@@ -153,7 +158,7 @@ export class PlayClient {
         mode: this.mode,
         rated: true,
       };
-      const saved = this.storedToken();
+      const saved = this.storedToken() ?? this.sessionToken;
       if (saved) reg.token = saved;
       if (this.lobbyIntent?.action === "create") {
         reg.lobby_action = "create";
@@ -172,11 +177,15 @@ export class PlayClient {
       }
       if (v.type === "registered") {
         if (typeof v.token === "string" && v.token) {
+          this.sessionToken = v.token;
           try {
             localStorage.setItem(this.tokenKey(), v.token);
           } catch {
-            // Storage unavailable (private mode): play continues; the next
-            // session enrolls again and receives a fresh secret.
+            // Storage unwritable (private mode): the secret lives in memory
+            // for this session only. The server has ALREADY claimed the name
+            // and never re-issues a secret — once this page is gone, this
+            // browser cannot prove ownership and the name must be replaced
+            // (a "bad token" error points the player at that).
           }
         }
         this.setStatus("queued");

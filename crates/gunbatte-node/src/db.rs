@@ -65,13 +65,19 @@ impl Db {
         // and disposable by design. The column defaults to rated so every
         // pre-existing row keeps its ladder standing: nobody falls off at
         // the upgrade, and their next reconnect claims + protects the row.
-        if let Err(e) =
-            conn.execute("ALTER TABLE bots ADD COLUMN rated INTEGER NOT NULL DEFAULT 1", [])
-        {
-            // Fresh databases already created the column above.
-            if !e.to_string().contains("duplicate column") {
-                return Err(e);
-            }
+        // Fresh databases need the ALTER too — the CREATE TABLE above does
+        // not carry the column (it predates #42) — so check structurally
+        // instead of sniffing the "duplicate column" error text.
+        let has_rated: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('bots') WHERE name='rated'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .map(|n| n > 0)
+            .unwrap_or(false);
+        if !has_rated {
+            conn.execute("ALTER TABLE bots ADD COLUMN rated INTEGER NOT NULL DEFAULT 1", [])?;
         }
         Ok(Db {
             conn: Mutex::new(conn),

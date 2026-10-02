@@ -217,9 +217,13 @@ async fn main() {
             Some("error") => {
                 eprintln!("server error: {}", v["error"]);
                 if v["error"] == "bad token" {
+                    // Don't point at `--rated` re-enrollment on this name: a
+                    // re-run replays the same stale token file and loops the
+                    // same refusal. A claimed name's secret is never
+                    // re-issued — a lost secret means a new name.
                     eprintln!(
-                        "hint: enroll once with --rated (the secret is saved to {token_file}), \
-                         or pass --token with your issued secret"
+                        "hint: pass --token with this name's issued secret. If the secret is \
+                         lost, remove {token_file} and re-run with --rated under a new name"
                     );
                 }
                 break;
