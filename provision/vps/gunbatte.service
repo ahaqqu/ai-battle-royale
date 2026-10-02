@@ -17,6 +17,9 @@ Type=simple
 User=__GUNBATTE_USER__
 Group=__GUNBATTE_USER__
 WorkingDirectory=__GUNBATTE_DIR__
+# Issue #38: browsers must announce this page to open bot/spectate sockets;
+# homemade bots send no Origin header and are unaffected (see lobby origin_allowed).
+Environment=GUNBATTE_ALLOWED_ORIGINS=https://__GUNBATTE_GAME_HOST__
 ExecStart=__GUNBATTE_DIR__/gunbatte-server serve --port __GUNBATTE_PORT__ --bind 127.0.0.1
 Restart=always
 RestartSec=3
