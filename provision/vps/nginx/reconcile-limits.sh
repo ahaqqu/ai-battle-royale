@@ -38,6 +38,8 @@ target="${target:-/etc/nginx/sites-enabled/gunbatte.conf}"
 # symlinks into sites-available, and nginx includes every file in
 # sites-enabled/ — a backup dropped next to the link would be parsed as a
 # second copy of the config and fail `nginx -t` with duplicate listeners.
+# (Certbot can also rewrite the entry into a REGULAR file, in which case
+# nothing resolves — the backup logic below handles that explicitly.)
 target="$(readlink -f "$target")"
 [ -f "$target" ] || { echo "!! $target not found" >&2; exit 1; }
 
@@ -189,9 +191,20 @@ if [ "$dry" = 1 ]; then
     diff -u "$target" "$work" || true
     exit 0
 fi
-# Backup beside the RESOLVED target (sites-available/, never sites-enabled/).
-backup="${target}.bak-$(date +%Y%m%d-%H%M%S)"
+# The backup must NEVER land under sites-enabled/ — nginx include-globs that
+# directory wholesale, so even a correctly-restored situation leaves a second
+# copy of the config behind and `nginx -t` fails box-wide (seen live
+# 2026-10-01, and again 2026-10-02 when certbot had turned the site-enabled
+# entry into a REGULAR file: readlink -f then resolves to sites-enabled
+# itself, and "beside the target" would mean inside the glob). Backups go
+# beside the target only when that is outside sites-enabled; otherwise /root.
+case "$target" in
+    /etc/nginx/sites-enabled/*) backup_dir="/root" ;;
+    *) backup_dir="$(dirname "$target")" ;;
+esac
+backup="$backup_dir/$(basename "$target").bak-$(date +%Y%m%d-%H%M%S)"
 cp "$target" "$backup"
+echo "▶ backup: $backup"
 tee "$target" < "$work" >/dev/null
 echo "✓ nginx: limits reconciled (backup: ${backup})"
 if ! nginx -t; then
