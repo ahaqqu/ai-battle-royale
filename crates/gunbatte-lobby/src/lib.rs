@@ -1379,13 +1379,33 @@ mod tests {
     }
 
     /// Deep nesting must come back as a parse error, never a stack overflow:
-    /// serde_json's parser caps recursion at 128 levels.
+    /// serde_json's parser caps recursion at 128 levels. The shape that
+    /// reaches the cap is a deep value inside the `#[serde(flatten)]` buffer
+    /// — unknown fields are fully parsed before being discarded — or inside
+    /// a known field. A bare `{"{" × depth}0{...}` stack errors shallowly
+    /// ("key must be a string") and would pass even with no cap at all.
     #[test]
     fn deeply_nested_action_json_is_rejected_not_crashed() {
-        for depth in [127usize, 128, 129, 400] {
-            let payload = format!("{}0{}", "{".repeat(depth), "}".repeat(depth));
-            // Either parses or errors — it must not abort the process.
-            let _ = serde_json::from_str::<ClientAction>(&payload);
+        for depth in [1usize, 126, 127, 128, 129, 400] {
+            let payload = format!(
+                r#"{{"tick":0,"junk":{}0{}}}"#,
+                "[".repeat(depth),
+                "]".repeat(depth)
+            );
+            if depth < 127 {
+                // Under the cap: buffered, then ignored. Either outcome is
+                // fine — the contract is just no stack overflow.
+                let _ = serde_json::from_str::<ClientAction>(&payload);
+            } else {
+                let err = match serde_json::from_str::<ClientAction>(&payload) {
+                    Ok(_) => panic!("deep nesting must not parse (depth {depth})"),
+                    Err(err) => err,
+                };
+                assert!(
+                    err.to_string().contains("recursion limit"),
+                    "depth {depth} errored some other way: {err}"
+                );
+            }
         }
     }
 
