@@ -12,6 +12,14 @@ question tool (AskUserQuestion) with concrete options and your recommendation
 first, not as free-text prose. Facts findable in the repo or environment are
 never questions for the user.
 
+Every question must be answerable from behavior, not from the source: frame
+the stakes in user flows, gameplay, and architecture — what changes about who
+can do what, what breaks, what it costs — and keep code references (files,
+functions, line numbers) to the minimum the decision actually needs. Do not
+assume the user knows the codebase; if a question only makes sense after
+reading the code, the fact-finding isn't done — go find the facts yourself,
+then ask the decision.
+
 ## VPS changes start at the box manifest
 
 The box behind `*.ahaqqu.com` is shared, and its single manifest — every app,
