@@ -17,6 +17,7 @@ use tokio_tungstenite::tungstenite::Message;
 async fn play_matches(
     url: &str,
     name: &str,
+    rated: bool,
     // given the observation JSON, produce the action JSON
     act: fn(&serde_json::Value) -> Option<serde_json::Value>,
     wanted: usize,
@@ -27,7 +28,8 @@ async fn play_matches(
         .expect("bot connects");
     let (mut tx, mut rx) = ws.split();
     tx.send(Message::Text(
-        json!({"type": "register", "name": name, "decision_rate": 1}).to_string(),
+        json!({"type": "register", "name": name, "decision_rate": 1, "rated": rated})
+            .to_string(),
     ))
     .await
     .unwrap();
@@ -66,10 +68,11 @@ async fn play_matches(
 async fn play_as_bot(
     url: &str,
     name: &str,
+    rated: bool,
     act: fn(&serde_json::Value) -> Option<serde_json::Value>,
     max_wait: Duration,
 ) -> serde_json::Value {
-    play_matches(url, name, act, 1, max_wait)
+    play_matches(url, name, rated, act, 1, max_wait)
         .await
         .pop()
         .unwrap()
@@ -134,8 +137,8 @@ async fn m3_gateway_end_to_end() {
 
     let url = format!("ws://127.0.0.1:{port}/ws/bot");
     let (a, b) = tokio::join!(
-        play_as_bot(&url, "test-alpha", active_action, Duration::from_secs(240)),
-        play_as_bot(&url, "test-beta", idle_action, Duration::from_secs(240)),
+        play_as_bot(&url, "test-alpha", true, active_action, Duration::from_secs(240)),
+        play_as_bot(&url, "test-beta", true, idle_action, Duration::from_secs(240)),
     );
 
     // Match must have completed and reported placements + a replay link.
@@ -251,7 +254,10 @@ async fn solo_human_gets_house_fill() {
         .expect("human connects");
     let (mut tx, mut rx) = ws.split();
     tx.send(Message::Text(
-        json!({"type": "register", "name": "solo-human", "decision_rate": 1, "human": true})
+        // The viewer auto-enrolls humans on the ladder (issue #42); this
+        // raw socket does the same by hand.
+        json!({"type": "register", "name": "solo-human", "decision_rate": 1, "human": true,
+               "rated": true})
             .to_string(),
     ))
     .await
@@ -840,7 +846,7 @@ async fn non_reading_bot_cannot_stall_the_match() {
     });
 
     // The healthy bot must still get a full match.
-    let over = play_as_bot(&url, "healthy-bot", idle_action, Duration::from_secs(90)).await;
+    let over = play_as_bot(&url, "healthy-bot", false, idle_action, Duration::from_secs(90)).await;
     assert!(
         over["place"].as_i64().is_some(),
         "healthy bot finished despite the stalled reader: {over}"
@@ -888,8 +894,8 @@ async fn bots_requeue_after_a_match_and_get_drafted_again() {
     // Both sockets stay open across the first match_over; a second match_over
     // on each is only possible if matchmaking requeued and re-drafted them.
     let (a, b) = tokio::join!(
-        play_matches(&url, "requeue-alpha", idle_action, 2, Duration::from_secs(180)),
-        play_matches(&url, "requeue-beta", active_action, 2, Duration::from_secs(180)),
+        play_matches(&url, "requeue-alpha", true, idle_action, 2, Duration::from_secs(180)),
+        play_matches(&url, "requeue-beta", true, active_action, 2, Duration::from_secs(180)),
     );
     assert_eq!(a.len(), 2, "alpha matches: {a:?}");
     assert_eq!(b.len(), 2, "beta matches: {b:?}");
@@ -1042,9 +1048,11 @@ async fn lobby_cap_rejects_creation_beyond_max() {
     );
 }
 
-/// Host authorization is handle identity, not a name string (issue #37): a
-/// second socket registering the same name can join a room it knows the code
-/// for, but starting it stays the creator's — and the room survives.
+/// One live connection per name (issue #42): a second concurrent socket
+/// with an already-connected name is refused at registration — a name can
+/// no longer sit in someone's room or double-draft into a match. Host
+/// authorization stays handle identity (issue #37): an ordinary member can
+/// join and is refused at start, and the room survives both.
 #[tokio::test(flavor = "multi_thread")]
 async fn same_name_socket_cannot_start_anothers_lobby() {
     let dir = tempfile::tempdir().unwrap();
@@ -1075,7 +1083,7 @@ async fn same_name_socket_cannot_start_anothers_lobby() {
     wait_until_bound(port).await;
     let url = format!("ws://127.0.0.1:{port}/ws/bot");
 
-    let (mut _host_tx, mut host_rx) = connect_and_register(
+    let (mut host_tx, mut host_rx) = connect_and_register(
         &url,
         json!({"type":"register","name":"spoof-host","decision_rate":1,"lobby_action":"create"}),
     )
@@ -1083,27 +1091,20 @@ async fn same_name_socket_cannot_start_anothers_lobby() {
     let joined = reply_of_type(&mut host_rx, Duration::from_secs(10), &["lobby_joined"]).await;
     let code = joined["lobby"].as_str().unwrap().to_string();
 
-    // The spoofer: same name, knows the code, joins as an ordinary member.
-    let (mut spoofer_tx, mut spoofer_rx) = connect_and_register(
+    // The spoofer: same name, knows the code — refused at the door because
+    // the name already holds a live connection.
+    let (_, mut spoofer_rx) = connect_and_register(
         &url,
         json!({"type":"register","name":"spoof-host","decision_rate":1,
                "lobby_action":"join","lobby":code}),
     )
     .await;
-    let joined = reply_of_type(&mut spoofer_rx, Duration::from_secs(10), &["lobby_joined"]).await;
-    assert_eq!(joined["lobby"], code, "spoofer joined the room");
-
-    // …and tries to start it. Name-based authorization would let this
-    // through; handle identity must refuse and keep the room.
-    spoofer_tx
-        .send(Message::Text(json!({"type":"lobby_start","action":"start"}).to_string()))
-        .await
-        .unwrap();
     let err = reply_of_type(&mut spoofer_rx, Duration::from_secs(10), &["error"]).await;
-    assert_eq!(err["error"], "only the host can start", "spoofer: {err}");
+    assert_eq!(err["error"], "already connected", "spoofer: {err}");
 
-    // The room was put back: an innocent guest can still join it.
-    let (_, mut guest_rx) = connect_and_register(
+    // An ordinary member joins and tries to start it: handle identity must
+    // refuse and keep the room.
+    let (mut guest_tx, mut guest_rx) = connect_and_register(
         &url,
         json!({"type":"register","name":"innocent-guest","decision_rate":1,
                "lobby_action":"join","lobby":code}),
@@ -1111,6 +1112,20 @@ async fn same_name_socket_cannot_start_anothers_lobby() {
     .await;
     let rejoined = reply_of_type(&mut guest_rx, Duration::from_secs(10), &["lobby_joined"]).await;
     assert_eq!(rejoined["lobby"], code, "room must survive the spoof attempt");
+    guest_tx
+        .send(Message::Text(json!({"type":"lobby_start","action":"start"}).to_string()))
+        .await
+        .unwrap();
+    let err = reply_of_type(&mut guest_rx, Duration::from_secs(10), &["error"]).await;
+    assert_eq!(err["error"], "only the host can start", "guest: {err}");
+
+    // The room is healthy: the host starts it and both are drafted.
+    host_tx
+        .send(Message::Text(json!({"type":"lobby_start","action":"start"}).to_string()))
+        .await
+        .unwrap();
+    let _ = reply_of_type(&mut host_rx, Duration::from_secs(20), &["match_start"]).await;
+    let _ = reply_of_type(&mut guest_rx, Duration::from_secs(20), &["match_start"]).await;
 }
 
 /// Join throttle (issue #37): wrong codes draw from a global bucket, so
@@ -1218,14 +1233,32 @@ async fn new_name_registration_is_rate_limited() {
         "fresh name must hit the bucket: {err}"
     );
 
-    // A known name reconnecting bypasses the bucket entirely.
-    let (_, mut rx3) = connect_and_register(
-        &url,
-        json!({"type":"register","name":"fresh-a","decision_rate":1}),
-    )
-    .await;
-    let ok = reply_of_type(&mut rx3, Duration::from_secs(10), &["registered", "error"]).await;
-    assert_eq!(ok["type"], "registered", "known name must bypass: {ok}");
+    // A known name reconnecting bypasses the bucket entirely. Its first
+    // socket must be gone first: a name holds one live connection
+    // (issue #42), so the old sockets are closed and teardown polled.
+    drop(rx1);
+    drop(rx2);
+    let mut ok = None;
+    for _ in 0..40 {
+        let (tx3, mut rx3) = connect_and_register(
+            &url,
+            json!({"type":"register","name":"fresh-a","decision_rate":1}),
+        )
+        .await;
+        let msg =
+            reply_of_type(&mut rx3, Duration::from_secs(5), &["registered", "error"]).await;
+        if msg["type"] == "registered" {
+            ok = Some(msg);
+            break;
+        }
+        drop(tx3);
+        drop(rx3);
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    assert_eq!(
+        ok.expect("known name must bypass the bucket")["type"],
+        "registered"
+    );
 }
 
 /// Per-message size cap (issue #41): a >64 KiB frame closes the socket — the
@@ -1310,4 +1343,233 @@ async fn oversized_frame_closes_socket_and_mindcam_passes() {
         matches!(got, Ok(Some(Ok(_)))),
         "survivor still receives traffic after the flood: {got:?}"
     );
+}
+
+/// Ladder enrollment (issue #42): a rated first registration receives a
+/// server-issued secret in the ack; a third party presenting any token for
+/// the now-claimed name is refused; the owner reconnects with the issued
+/// secret once the old socket is gone.
+#[tokio::test(flavor = "multi_thread")]
+async fn issued_token_protects_ladder_identity() {
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8955;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 0,
+        new_names_per_min: 0,
+        max_replays: 100,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+
+    // First tokenless registration of a rated name: the ack carries the
+    // server-issued secret.
+    let (mut owner_tx, mut owner_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"tok-owner","decision_rate":1,"rated":true}),
+    )
+    .await;
+    let ack = reply_of_type(&mut owner_rx, Duration::from_secs(10), &["registered"]).await;
+    assert_eq!(ack["rated"], true, "{ack}");
+    let secret = ack["token"].as_str().expect("issued token in ack").to_string();
+    assert!(!secret.is_empty());
+
+    // An attacker presenting a self-chosen token for the claimed name is
+    // refused — the window from issue #42 is closed.
+    let (_, mut atk_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"tok-owner","decision_rate":1,"token":"x"}),
+    )
+    .await;
+    let err = reply_of_type(&mut atk_rx, Duration::from_secs(10), &["error"]).await;
+    assert_eq!(err["error"], "bad token", "attacker: {err}");
+
+    // The owner's own secret frees the name after the old socket closes.
+    drop(owner_tx);
+    drop(owner_rx);
+    let mut reowned = None;
+    for _ in 0..40 {
+        let (tx, mut rx) = connect_and_register(
+            &url,
+            json!({"type":"register","name":"tok-owner","decision_rate":1,"token":secret}),
+        )
+        .await;
+        let msg = reply_of_type(&mut rx, Duration::from_secs(5), &["registered", "error"]).await;
+        if msg["type"] == "registered" {
+            reowned = Some(msg);
+            break;
+        }
+        drop(tx);
+        drop(rx);
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    assert_eq!(
+        reowned.expect("owner reconnects with the issued secret")["type"],
+        "registered"
+    );
+}
+
+/// Casual tier (issue #42): a tokenless registration of a brand-new name is
+/// off-ladder and gets no secret; enrolling later puts the same identity on
+/// the ladder with a server-issued secret.
+#[tokio::test(flavor = "multi_thread")]
+async fn casual_name_is_hidden_until_enrolled() {
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8957;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 0,
+        new_names_per_min: 0,
+        max_replays: 100,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+    let http = format!("http://127.0.0.1:{port}");
+
+    // Casual: no secret in the ack, and nothing on the ladder.
+    let (mut cas_tx, mut cas_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"cas-bot","decision_rate":1}),
+    )
+    .await;
+    let ack = reply_of_type(&mut cas_rx, Duration::from_secs(10), &["registered"]).await;
+    assert_eq!(ack["rated"], false, "{ack}");
+    assert!(ack["token"].is_null(), "casual gets no secret: {ack}");
+    let body = reqwest_get(&format!("{http}/api/standings")).await;
+    assert!(!body.contains("cas-bot"), "casual hidden: {body}");
+
+    // Enroll: the same identity lands on the ladder with a secret.
+    drop(cas_tx);
+    drop(cas_rx);
+    let mut secret = None;
+    for _ in 0..40 {
+        let (tx, mut rx) = connect_and_register(
+            &url,
+            json!({"type":"register","name":"cas-bot","decision_rate":1,"rated":true}),
+        )
+        .await;
+        let msg = reply_of_type(&mut rx, Duration::from_secs(5), &["registered", "error"]).await;
+        if msg["type"] == "registered" {
+            secret = Some(msg["token"].as_str().unwrap_or("").to_string());
+            break;
+        }
+        drop(tx);
+        drop(rx);
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    let secret = secret.expect("enrolled ack carries the issued secret");
+    assert!(!secret.is_empty());
+    let body = reqwest_get(&format!("{http}/api/standings")).await;
+    assert!(body.contains("cas-bot"), "enrolled on ladder: {body}");
+}
+
+/// A name holds one live connection (issue #42): a second concurrent
+/// socket with the same name is refused while the first keeps playing, and
+/// the name frees once that socket closes.
+#[tokio::test(flavor = "multi_thread")]
+async fn second_concurrent_socket_with_same_name_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let port = 8959;
+    let cfg = ServerConfig {
+        port,
+        bind: "127.0.0.1".to_string(),
+        db_path: dir.path().join("ladder.db"),
+        replay_dir: dir.path().join("replays"),
+        viewer_dir: None,
+        lanes: 1,
+        min_bots: 2,
+        house_bots: 0,
+        spectate_delay_s: 0,
+        ws_ping_every_s: 10,
+        ws_idle_timeout_s: 45,
+        max_connections: 256,
+        max_lobbies: 64,
+        join_attempts_per_min: 0,
+        new_names_per_min: 0,
+        max_replays: 100,
+    };
+    tokio::spawn(async move {
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+            .await
+            .expect("server");
+    });
+    wait_until_bound(port).await;
+    let url = format!("ws://127.0.0.1:{port}/ws/bot");
+
+    let (mut first_tx, mut first_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"dup-bot","decision_rate":1}),
+    )
+    .await;
+    let _ = reply_of_type(&mut first_rx, Duration::from_secs(10), &["registered"]).await;
+
+    let (_, mut second_rx) = connect_and_register(
+        &url,
+        json!({"type":"register","name":"dup-bot","decision_rate":1}),
+    )
+    .await;
+    let err = reply_of_type(&mut second_rx, Duration::from_secs(10), &["error"]).await;
+    assert_eq!(err["error"], "already connected", "second socket: {err}");
+
+    // The first socket is unaffected: the server still streams to it.
+    let got = tokio::time::timeout(Duration::from_secs(5), first_rx.next()).await;
+    assert!(
+        matches!(got, Ok(Some(Ok(_)))),
+        "first socket still connected: {got:?}"
+    );
+
+    // Closing it frees the name for the next registration.
+    drop(first_tx);
+    drop(first_rx);
+    let mut freed = false;
+    for _ in 0..40 {
+        let (tx, mut rx) = connect_and_register(
+            &url,
+            json!({"type":"register","name":"dup-bot","decision_rate":1}),
+        )
+        .await;
+        let msg = reply_of_type(&mut rx, Duration::from_secs(5), &["registered", "error"]).await;
+        if msg["type"] == "registered" {
+            freed = true;
+            break;
+        }
+        drop(tx);
+        drop(rx);
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    assert!(freed, "name frees after the socket closes");
 }

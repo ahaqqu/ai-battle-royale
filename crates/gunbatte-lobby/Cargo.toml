@@ -15,6 +15,7 @@ futures-util = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
+getrandom = "0.2"
 tower = { version = "0.5", features = ["limit"] }
 tower-http = { version = "0.6", features = ["fs", "timeout"] }
 

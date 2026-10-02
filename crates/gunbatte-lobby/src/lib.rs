@@ -275,6 +275,11 @@ pub struct Server {
     /// proxy would trust spoofable headers.
     join_bucket: std::sync::Mutex<TokenBucket>,
     new_name_bucket: std::sync::Mutex<TokenBucket>,
+    /// Names with a live connection (issue #42): a second concurrent
+    /// registration with an already-connected name is refused, closing the
+    /// duplicate-draft ELO double-attribution and the same-name room
+    /// confusion. Inserted after the door checks, removed at teardown.
+    live_names: std::sync::Mutex<std::collections::HashSet<String>>,
 }
 
 #[derive(Deserialize)]
@@ -303,6 +308,12 @@ struct RegisterMsg {
     /// Room code for `lobby_action: "join"`.
     #[serde(default)]
     lobby: String,
+    /// Ladder enrollment (issue #42): rated identities stand on the ladder
+    /// protected by a server-issued secret; without the flag a brand-new
+    /// name plays casual — off-ladder, tokenless, disposable. Known names
+    /// keep whatever tier their row already has.
+    #[serde(default)]
+    rated: bool,
 }
 
 /// A message from a lobby host (or the viewer UI) on an established socket.
@@ -349,6 +360,16 @@ fn valid_name(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ' '))
 }
 
+/// 128 bits of OS randomness, hex — the secret issued to an enrolling
+/// ladder identity (issue #42). Unguessable credentials are the point, so
+/// this is a real CSPRNG: the lobby-code trick (counter + clock) would not
+/// do. Clients present it on every later connection.
+fn new_token() -> String {
+    let mut bytes = [0u8; 16];
+    getrandom::getrandom(&mut bytes).expect("OS RNG is available");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
 #[derive(Deserialize)]
 struct ClientAction {
     #[serde(default)]
@@ -393,6 +414,7 @@ impl Server {
             conn_permits: Arc::new(tokio::sync::Semaphore::new(permits)),
             join_bucket: std::sync::Mutex::new(TokenBucket::new(cfg.join_attempts_per_min)),
             new_name_bucket: std::sync::Mutex::new(TokenBucket::new(cfg.new_names_per_min)),
+            live_names: std::sync::Mutex::new(std::collections::HashSet::new()),
             cfg,
             db,
             config,
@@ -1016,6 +1038,7 @@ async fn on_bot_socket(
         boss: false,
         lobby_action: String::new(),
         lobby: String::new(),
+        rated: false,
     });
     if !valid_name(&reg.name) {
         let _ = ws_tx
@@ -1046,7 +1069,32 @@ async fn on_bot_socket(
             .await;
         return;
     }
-    let db_id = server.db.register_bot(&reg.name, &reg.token).unwrap_or(0);
+    // One live connection per name (issue #42): a second concurrent socket
+    // with the same name is refused — two same-name entrants in one match
+    // would double-count the name's result. The atomic insert is the check;
+    // the name frees when this socket tears down.
+    if !server.live_names.lock().unwrap().insert(reg.name.clone()) {
+        let _ = ws_tx
+            .send(tmsg(
+                json!({"type":"error","error":"already connected"}).to_string(),
+            ))
+            .await;
+        return;
+    }
+    // Tier and secret (issue #42): known names keep their row's tier — a
+    // rated row enrolls even on a tokenless reconnect, which is how every
+    // pre-existing ladder identity gets claimed and protected. Brand-new
+    // names are casual unless the register asked for the ladder; rated
+    // enrollment gets a server-issued secret in the ack, never a
+    // client-chosen one.
+    let rated = reg.rated || server.db.is_rated(&reg.name);
+    let issued = if rated && reg.token.is_empty() {
+        Some(new_token())
+    } else {
+        None
+    };
+    let eff_token = issued.as_deref().unwrap_or(&reg.token);
+    let db_id = server.db.register_bot(&reg.name, eff_token, rated).unwrap_or(0);
 
     let (out_tx, mut out_rx) = mpsc::channel::<String>(64);
     let (in_tx, in_rx) = mpsc::channel::<BotMsg>(64);
@@ -1085,12 +1133,16 @@ async fn on_bot_socket(
         in_rx: Arc::new(Mutex::new(in_rx)),
     });
 
-    let _ = ws_tx
-        .send(tmsg(
-            json!({"type":"registered","you": reg.name, "deadline_ms": server.config.deadline_ms})
-                .to_string(),
-        ))
-        .await;
+    let mut ack = json!({
+        "type":"registered",
+        "you": reg.name,
+        "deadline_ms": server.config.deadline_ms,
+        "rated": rated,
+    });
+    if let Some(t) = issued {
+        ack["token"] = json!(t);
+    }
+    let _ = ws_tx.send(tmsg(ack.to_string())).await;
     if let Err(e) = server.admit(handle.clone(), intent, &mut ws_tx).await {
         println!("⚠ admit failed for {}: {e}", reg.name);
     }
@@ -1216,6 +1268,7 @@ async fn on_bot_socket(
     }
     connected.store(false, Ordering::Relaxed);
     reader.abort();
+    server.live_names.lock().unwrap().remove(&handle.name);
     let code = handle.lobby_code();
     server.lobby.lock().await.retain(|h| !Arc::ptr_eq(h, &handle));
     // A disconnecting member leaves the room; an empty room (or the host
