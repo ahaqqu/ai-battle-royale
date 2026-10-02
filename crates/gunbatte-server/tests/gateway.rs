@@ -1381,7 +1381,7 @@ async fn issued_token_protects_ladder_identity() {
 
     // First tokenless registration of a rated name: the ack carries the
     // server-issued secret.
-    let (mut owner_tx, mut owner_rx) = connect_and_register(
+    let (owner_tx, mut owner_rx) = connect_and_register(
         &url,
         json!({"type":"register","name":"tok-owner","decision_rate":1,"rated":true}),
     )
@@ -1461,7 +1461,7 @@ async fn casual_name_is_hidden_until_enrolled() {
     let http = format!("http://127.0.0.1:{port}");
 
     // Casual: no secret in the ack, and nothing on the ladder.
-    let (mut cas_tx, mut cas_rx) = connect_and_register(
+    let (cas_tx, mut cas_rx) = connect_and_register(
         &url,
         json!({"type":"register","name":"cas-bot","decision_rate":1}),
     )
@@ -1530,7 +1530,7 @@ async fn second_concurrent_socket_with_same_name_is_refused() {
     wait_until_bound(port).await;
     let url = format!("ws://127.0.0.1:{port}/ws/bot");
 
-    let (mut first_tx, mut first_rx) = connect_and_register(
+    let (first_tx, mut first_rx) = connect_and_register(
         &url,
         json!({"type":"register","name":"dup-bot","decision_rate":1}),
     )

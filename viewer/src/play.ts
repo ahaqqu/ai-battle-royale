@@ -120,6 +120,19 @@ export class PlayClient {
     this.mode = mode;
   }
 
+  /** This player's identity secret, persisted per name (issue #42). */
+  private tokenKey(): string {
+    return `gb.token.${this.name}`;
+  }
+
+  private storedToken(): string | null {
+    try {
+      return localStorage.getItem(this.tokenKey());
+    } catch {
+      return null;
+    }
+  }
+
   connect(url: string): void {
     this.setStatus("connecting");
     const ws = new WebSocket(url);
@@ -127,6 +140,10 @@ export class PlayClient {
     ws.onopen = () => {
       // `human` marks this entrant for house-bot fill: the server tops the
       // match up to the full size with reference brains so nobody waits.
+      // Humans auto-enroll on the ladder (issue #42): `rated` asks the
+      // server for an identity secret, which the ack carries and we store
+      // per-name — replayed on every later connect, invisible to the
+      // player. Without it the identity would be casual (off-ladder).
       const reg: Record<string, unknown> = {
         type: "register",
         name: this.name,
@@ -134,7 +151,10 @@ export class PlayClient {
         auto_heel: false,
         human: true,
         mode: this.mode,
+        rated: true,
       };
+      const saved = this.storedToken();
+      if (saved) reg.token = saved;
       if (this.lobbyIntent?.action === "create") {
         reg.lobby_action = "create";
       } else if (this.lobbyIntent?.action === "join") {
@@ -151,6 +171,14 @@ export class PlayClient {
         return;
       }
       if (v.type === "registered") {
+        if (typeof v.token === "string" && v.token) {
+          try {
+            localStorage.setItem(this.tokenKey(), v.token);
+          } catch {
+            // Storage unavailable (private mode): play continues; the next
+            // session enrolls again and receives a fresh secret.
+          }
+        }
         this.setStatus("queued");
       } else if (v.type === "lobby_joined" || v.type === "lobby_roster") {
         const info: LobbyInfo = {

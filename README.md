@@ -107,6 +107,20 @@ Optional register fields:
 | `boss: true` | claim the boss role (in the queue, or in a lobby) |
 | `lobby_action: "create"` | open a private room; you are its host |
 | `lobby_action: "join"`, `lobby: "K7QP"` | wait in a room by code |
+| `rated: true` | enroll on the ladder: the `registered` ack carries a server-issued secret (`token`) — save it and send it on every later connection to keep your ELO and history under this name |
+| `token: "<secret>"` | your issued secret, presented on every connection after enrollment |
+
+Identities are two-tier. **Casual** — register with just a name: nothing to
+manage, but the identity is off the ladder and disposable (anyone can connect
+under it; there is no standing to steal). **Ladder** — register with
+`rated: true`: the server issues an unguessable secret in the `registered`
+ack and the name becomes yours — only connections presenting it are admitted,
+and a second concurrent connection with the same name is refused until the
+first closes. A token sent for a name that has no secret yet is refused:
+connect without one to enroll. The reference client manages this for you —
+`gunbatte-bot-client --rated` saves the secret to `<name>.token` on first run
+and replays it after — and the web player stores it in the browser
+automatically.
 
 Lobby flow: the server answers `{"type":"lobby_joined","lobby":"K7QP","host":…,
 "members":[…]}` to the creator and joiner, and pushes `{"type":"lobby_roster",…}`
