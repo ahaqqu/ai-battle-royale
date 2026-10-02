@@ -1,8 +1,11 @@
 # AGENTS.md — working rules for coding agents
 
 Engineering conventions for anyone (human or agent) changing this repo. The
-public-facing overview lives in [ARCHITECTURE.md](ARCHITECTURE.md); this file
-covers the internal boundary that keeps the project able to scale out.
+public-facing overview lives in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md);
+the internal architecture and its decision record live in
+[docs/ARCHITECTURE_DECISION_RECORD.md](docs/ARCHITECTURE_DECISION_RECORD.md);
+this file covers the working rules and the internal boundary that keeps the
+project able to scale out.
 
 ## Ask the user through the harness question tool
 
@@ -11,6 +14,30 @@ clarification, a design choice, a grill-style round — ask it via the harness
 question tool (AskUserQuestion) with concrete options and your recommendation
 first, not as free-text prose. Facts findable in the repo or environment are
 never questions for the user.
+
+Every question must be answerable from behavior, not from the source: frame
+the stakes in user flows, gameplay, and architecture — what changes about who
+can do what, what breaks, what it costs — and keep code references (files,
+functions, line numbers) to the minimum the decision actually needs. Do not
+assume the user knows the codebase; if a question only makes sense after
+reading the code, the fact-finding isn't done — go find the facts yourself,
+then ask the decision.
+
+## The architecture docs are the map — update them in the same PR
+
+`docs/ARCHITECTURE.md` (public claims) and
+`docs/ARCHITECTURE_DECISION_RECORD.md` (internal truths and their whys) are
+how the next agent orients; a drifted map lies confidently, which is worse
+than none. Any change that makes a sentence in either false — crates and
+their roles, the seam, the wire protocol, identity and tiers, determinism
+guarantees, security boundaries, the scale-out contract, the known debts —
+updates the affected doc in the same PR, exactly like the box-manifest rule
+below works for VPS changes. If you built something a future agent must
+understand to work here, it gets a paragraph in the decision record; if you
+removed something, its paragraph goes too; if you reversed a recorded
+decision, the section is rewritten to say why the old one gave way. Review
+question for every PR: *does anything in either architecture doc now read
+stale?*
 
 ## VPS changes start at the box manifest
 

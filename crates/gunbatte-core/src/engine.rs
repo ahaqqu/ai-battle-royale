@@ -7,7 +7,7 @@ use crate::config::MatchConfig;
 use crate::events::Event;
 use crate::map::GameMap;
 use crate::observe::{self, Observation, SpectatorFrame};
-use crate::params::SimParams;
+use crate::params::{AIM_LIMIT, SimParams};
 use crate::state::WorldState;
 use crate::timeout::TimeoutTracker;
 use crate::types::{BotInput, UnitAction, UnitInput};
@@ -80,9 +80,17 @@ impl MatchEngine {
             return;
         }
         // Validate: clamp what we can, keep it legal-but-bad otherwise
-        // (PLAN §4.3: be permissive at the edges of legality).
+        // (PLAN §4.3: be permissive at the edges of legality). Both units
+        // get the same treatment: throttle is a speed multiplier (a crafted
+        // 4.0 companion throttle used to run 4×), aim is clamped to ±2^40.
         let mut input = input;
-        input.main.r#move.throttle = input.main.r#move.throttle.clamp(0, crate::fixed::ONE);
+        for unit in [&mut input.main, &mut input.companion] {
+            unit.r#move.throttle = unit.r#move.throttle.clamp(0, crate::fixed::ONE);
+            if let Some(UnitAction::Fire { target }) = unit.action.as_mut() {
+                target.x = target.x.clamp(-AIM_LIMIT, AIM_LIMIT);
+                target.y = target.y.clamp(-AIM_LIMIT, AIM_LIMIT);
+            }
+        }
         if let Some(i) = input.intent.as_mut() {
             truncate_shout(i);
         }
@@ -286,5 +294,150 @@ mod tests {
             .and_then(|(intent, _)| intent.as_ref())
             .expect("mind stored after rate window");
         assert_eq!(stored.chars().count(), 64);
+    }
+
+    /// Issue #40: extreme bot-supplied Fire targets must not overflow the
+    /// i64 delta at the shot site — the submit clamp plus the wide delta
+    /// keep debug builds panic-free with a legal normalized direction.
+    #[test]
+    fn fire_target_extremes_stay_legal() {
+        let mut engine = MatchEngine::new(MatchConfig::standard(), 7, &["a".into(), "b".into()]);
+        let aim = |x: i64, y: i64| UnitInput {
+            r#move: crate::types::MoveInput::stop(),
+            action: Some(UnitAction::Fire {
+                target: crate::types::Vec2::new(x, y),
+            }),
+        };
+        // Both units fire at opposite extremes every tick for a while.
+        for tick in 0..30 {
+            if tick % 3 == 0 {
+                engine.submit(
+                    0,
+                    BotInput {
+                        main: aim(i64::MIN, i64::MAX),
+                        companion: aim(i64::MAX, i64::MIN),
+                        ..BotInput::default()
+                    },
+                    0,
+                );
+                engine.submit(
+                    1,
+                    BotInput {
+                        main: aim(-1, 1),
+                        ..BotInput::default()
+                    },
+                    0,
+                );
+            }
+            engine.step_tick();
+        }
+        // The engine never panicked (this test is the debug-build guard) and
+        // every firing unit keeps a normalized 0..=359 facing.
+        for unit in engine.state.units.iter() {
+            assert!(unit.facing <= 359, "facing normalized: {}", unit.facing);
+        }
+    }
+
+    /// Issue #40 acceptance: replay verification in a debug build survives a
+    /// crafted extreme target — re-simulation goes through submit, so the
+    /// clamp applies identically and digests match.
+    #[test]
+    fn replay_with_extreme_target_verifies() {
+        let mut engine = MatchEngine::new(MatchConfig::standard(), 42, &["a".into(), "b".into()]);
+        let names = vec!["a".to_string(), "b".to_string()];
+        let mut rec = crate::replay::ReplayRecorder::new(&engine, &names);
+        let crafted = BotInput {
+            main: UnitInput {
+                r#move: crate::types::MoveInput::stop(),
+                action: Some(UnitAction::Fire {
+                    target: crate::types::Vec2::new(i64::MIN, i64::MAX),
+                }),
+            },
+            ..BotInput::default()
+        };
+        for _ in 0..10 {
+            // The recorder logs the raw input, exactly like the gateway does;
+            // bot 1 idles (recorded misses below the grace window aren't
+            // reproducible by re-simulation, which never calls submit_miss).
+            rec.record_submit(0, crafted.clone());
+            rec.record_submit(1, BotInput::default());
+            engine.submit(0, crafted.clone(), 0);
+            engine.submit(1, BotInput::default(), 0);
+            engine.step_tick();
+            rec.record_tick(engine.state.digest());
+        }
+        rec.finish(&engine);
+        let replay = crate::replay::Replay {
+            header: rec.header.clone(),
+            ticks: rec.ticks.clone(),
+        };
+        crate::replay::verify_replay(&replay).expect("crafted replay re-verifies in debug");
+    }
+
+    /// PR review on #65: the companion's throttle is a direct speed
+    /// multiplier too — it must clamp exactly like the main's.
+    #[test]
+    fn companion_throttle_is_clamped_like_mains() {
+        let mut engine = MatchEngine::new(MatchConfig::standard(), 7, &["a".into(), "b".into()]);
+        let crafted = BotInput {
+            main: UnitInput {
+                r#move: crate::types::MoveInput {
+                    dir: 0,
+                    throttle: 4 * crate::fixed::ONE,
+                },
+                action: None,
+            },
+            companion: UnitInput {
+                r#move: crate::types::MoveInput {
+                    dir: 180,
+                    throttle: -crate::fixed::ONE, // below zero also clamps
+                },
+                action: None,
+            },
+            ..BotInput::default()
+        };
+        engine.submit(0, crafted, 0);
+        let stored = engine.pending[0].as_ref().expect("input stored");
+        assert_eq!(stored.main.r#move.throttle, crate::fixed::ONE);
+        assert_eq!(stored.companion.r#move.throttle, 0);
+        engine.step_tick(); // must not panic
+    }
+
+    /// The shot site's own guard must be load-bearing on its own, without
+    /// submit's clamp in front of it: an extreme target injected straight
+    /// into the pending slot (as any future caller of `step` could) must
+    /// not panic the i128→i64 narrow or `atan2_deg`'s `abs()` in debug.
+    #[test]
+    fn shot_site_narrowing_holds_without_the_submit_clamp() {
+        let mut engine = MatchEngine::new(MatchConfig::standard(), 7, &["a".into(), "b".into()]);
+        let aim = |x: i64, y: i64| UnitInput {
+            r#move: crate::types::MoveInput::stop(),
+            action: Some(UnitAction::Fire {
+                target: crate::types::Vec2::new(x, y),
+            }),
+        };
+        // Both axes land exactly on the narrow's old clamp bounds — the
+        // values that used to reach `atan2_deg` as i64::MIN and panic abs().
+        // Six idle ticks between shots let the fire cooldown expire, so
+        // every combo actually reaches the delta computation.
+        for (x, y) in [
+            (i64::MIN, i64::MIN),
+            (i64::MAX, i64::MAX),
+            (i64::MIN, i64::MAX),
+            (i64::MAX, 0),
+        ] {
+            engine.pending[0] = Some(BotInput {
+                main: aim(x, y),
+                companion: aim(y, x),
+                ..BotInput::default()
+            });
+            engine.step_tick(); // must not panic
+            for _ in 0..6 {
+                engine.step_tick();
+            }
+            for unit in engine.state.units.iter() {
+                assert!(unit.facing <= 359, "facing normalized: {}", unit.facing);
+            }
+        }
     }
 }

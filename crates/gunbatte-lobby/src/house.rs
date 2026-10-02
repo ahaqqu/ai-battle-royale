@@ -24,7 +24,7 @@ static HOUSE_SEQ: AtomicU64 = AtomicU64::new(1);
 pub fn spawn(db: &gunbatte_node::db::Db, brain_name: &str) -> Arc<BotHandle> {
     let seq = HOUSE_SEQ.fetch_add(1, Ordering::Relaxed);
     let name = format!("house·{}·{:04}", brain_name, seq % 10000);
-    let db_id = db.register_bot(&name, "").unwrap_or(0);
+    let db_id = db.register_bot(&name, "", false).unwrap_or(0);
     let mut brain = bots::create(brain_name, (seq % 16) as u32).expect("known reference brain");
     let uses_companion = brain.uses_companion();
 
@@ -88,7 +88,7 @@ pub fn spawn(db: &gunbatte_node::db::Db, brain_name: &str) -> Arc<BotHandle> {
 pub fn spawn_boss(db: &gunbatte_node::db::Db) -> Arc<BotHandle> {
     let seq = HOUSE_SEQ.fetch_add(1, Ordering::Relaxed);
     let name = format!("house·boss·{:04}", seq % 10000);
-    let db_id = db.register_bot(&name, "").unwrap_or(0);
+    let db_id = db.register_bot(&name, "", false).unwrap_or(0);
     let mut brain = bots::create("boss", (seq % 16) as u32).expect("boss brain");
     let uses_companion = brain.uses_companion();
 

@@ -120,6 +120,24 @@ export class PlayClient {
     this.mode = mode;
   }
 
+  /** This player's identity secret, persisted per name (issue #42). */
+  private tokenKey(): string {
+    return `gb.token.${this.name}`;
+  }
+
+  /** The secret held in memory when storage is unwritable: it covers this
+   * session's reconnects, but once the page is gone the name can no longer
+   * be proven ours (the server never re-issues a secret). */
+  private sessionToken: string | null = null;
+
+  private storedToken(): string | null {
+    try {
+      return localStorage.getItem(this.tokenKey());
+    } catch {
+      return null;
+    }
+  }
+
   connect(url: string): void {
     this.setStatus("connecting");
     const ws = new WebSocket(url);
@@ -127,6 +145,10 @@ export class PlayClient {
     ws.onopen = () => {
       // `human` marks this entrant for house-bot fill: the server tops the
       // match up to the full size with reference brains so nobody waits.
+      // Humans auto-enroll on the ladder (issue #42): `rated` asks the
+      // server for an identity secret, which the ack carries and we store
+      // per-name — replayed on every later connect, invisible to the
+      // player. Without it the identity would be casual (off-ladder).
       const reg: Record<string, unknown> = {
         type: "register",
         name: this.name,
@@ -134,7 +156,10 @@ export class PlayClient {
         auto_heel: false,
         human: true,
         mode: this.mode,
+        rated: true,
       };
+      const saved = this.storedToken() ?? this.sessionToken;
+      if (saved) reg.token = saved;
       if (this.lobbyIntent?.action === "create") {
         reg.lobby_action = "create";
       } else if (this.lobbyIntent?.action === "join") {
@@ -151,6 +176,18 @@ export class PlayClient {
         return;
       }
       if (v.type === "registered") {
+        if (typeof v.token === "string" && v.token) {
+          this.sessionToken = v.token;
+          try {
+            localStorage.setItem(this.tokenKey(), v.token);
+          } catch {
+            // Storage unwritable (private mode): the secret lives in memory
+            // for this session only. The server has ALREADY claimed the name
+            // and never re-issues a secret — once this page is gone, this
+            // browser cannot prove ownership and the name must be replaced
+            // (a "bad token" error points the player at that).
+          }
+        }
         this.setStatus("queued");
       } else if (v.type === "lobby_joined" || v.type === "lobby_roster") {
         const info: LobbyInfo = {

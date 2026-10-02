@@ -28,6 +28,15 @@ struct Cli {
     decision_rate: u64,
     #[arg(long, default_value = "")]
     token: String,
+    /// Enroll this identity on the ladder (issue #42): the server issues a
+    /// secret on first connect, saved to the token file and replayed
+    /// automatically afterwards. Without it the bot plays casual —
+    /// off-ladder, no secret to manage.
+    #[arg(long)]
+    rated: bool,
+    /// Where the issued secret is persisted for `--rated` runs.
+    #[arg(long)]
+    token_file: Option<String>,
     /// Publish the belief heat map on the mind-cam channel.
     #[arg(long, default_value_t = true)]
     mindcam: bool,
@@ -122,10 +131,29 @@ async fn main() {
     let uses_companion = bots::create(&cli.bot, 0)
         .map(|b| b.uses_companion())
         .unwrap_or(false);
+    // Identity secret (issue #42): an explicit --token wins; a --rated run
+    // replays the saved secret, or registers tokenless so the server issues
+    // a fresh one (saved to the token file when the ack arrives).
+    let token_file = cli
+        .token_file
+        .clone()
+        .unwrap_or_else(|| format!("{}.token", cli.name));
+    let token = if !cli.token.is_empty() {
+        cli.token.clone()
+    } else if cli.rated {
+        std::fs::read_to_string(&token_file)
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
     let reg = json!({
         "type": "register",
         "name": cli.name,
-        "token": cli.token,
+        "token": token,
+        "rated": cli.rated,
         "decision_rate": cli.decision_rate,
         "auto_heel": !uses_companion,
     });
@@ -154,7 +182,19 @@ async fn main() {
         };
         match v["type"].as_str() {
             Some("registered") => {
-                println!("registered as {}", v["you"].as_str().unwrap_or("?"));
+                let tier = if v["rated"] == true { "ladder" } else { "casual" };
+                println!(
+                    "registered as {} ({tier})",
+                    v["you"].as_str().unwrap_or("?")
+                );
+                if let Some(t) = v["token"].as_str() {
+                    match std::fs::write(&token_file, t) {
+                        Ok(_) => println!("identity secret saved to {token_file}"),
+                        Err(e) => {
+                            eprintln!("could not save identity secret to {token_file}: {e}")
+                        }
+                    }
+                }
             }
             Some("match_start") => {
                 let map_id = v["map_id"].as_str().unwrap_or("arena-1").to_string();
@@ -176,6 +216,16 @@ async fn main() {
             }
             Some("error") => {
                 eprintln!("server error: {}", v["error"]);
+                if v["error"] == "bad token" {
+                    // Don't point at `--rated` re-enrollment on this name: a
+                    // re-run replays the same stale token file and loops the
+                    // same refusal. A claimed name's secret is never
+                    // re-issued — a lost secret means a new name.
+                    eprintln!(
+                        "hint: pass --token with this name's issued secret. If the secret is \
+                         lost, remove {token_file} and re-run with --rated under a new name"
+                    );
+                }
                 break;
             }
             None | Some(_) => {

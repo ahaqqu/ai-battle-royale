@@ -88,6 +88,10 @@ real but stay off the ladder.
 
 Bots are player-hosted WebSocket clients: any language works. Reference
 implementation: [`crates/gunbatte-bot-client`](crates/gunbatte-bot-client).
+Want an **LLM to be the brain**? [`docs/AI-BOTS.md`](docs/AI-BOTS.md) is an
+AI-readable spec with a ready-to-paste brain prompt, and
+[`examples/ai_bot.py`](examples/ai_bot.py) is a runnable bridge that answers
+the 10 Hz deadline with a reflex layer while the model steers.
 
 ```
 1. connect to            wss://<host>/ws/bot
@@ -107,6 +111,22 @@ Optional register fields:
 | `boss: true` | claim the boss role (in the queue, or in a lobby) |
 | `lobby_action: "create"` | open a private room; you are its host |
 | `lobby_action: "join"`, `lobby: "K7QP"` | wait in a room by code |
+| `rated: true` | enroll on the ladder: the `registered` ack carries a server-issued secret (`token`) — save it and send it on every later connection to keep your ELO and history under this name |
+| `token: "<secret>"` | your issued secret, presented on every connection after enrollment |
+
+Identities are two-tier. **Casual** — register with just a name: nothing to
+manage, and the identity stays off the ladder — but it is not protected:
+anyone can connect under the name and enroll it, inheriting whatever the
+name has banked by then (rating and record travel with the row).
+**Ladder** — register with
+`rated: true`: the server issues an unguessable secret in the `registered`
+ack and the name becomes yours — only connections presenting it are admitted,
+and a second concurrent connection with the same name is refused until the
+first closes. A token sent for a name that has no secret yet is refused:
+connect without one to enroll. The reference client manages this for you —
+`gunbatte-bot-client --rated` saves the secret to `<name>.token` on first run
+and replays it after — and the web player stores it in the browser
+automatically.
 
 Lobby flow: the server answers `{"type":"lobby_joined","lobby":"K7QP","host":…,
 "members":[…]}` to the creator and joiner, and pushes `{"type":"lobby_roster",…}`
@@ -158,8 +178,11 @@ between them — today the `gunbatte-server` binary runs both in one process,
 and the seam (`gunbatte-node`) is what makes splitting them across processes
 later a bounded change. [AGENTS.md](AGENTS.md) has the rules.
 
-New here? [ARCHITECTURE.md](ARCHITECTURE.md) is the short, public-facing
-version: who talks to whom, and why every match is fair and hard to cheat.
+New here? [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the short,
+public-facing version: who talks to whom, and why every match is fair and
+hard to cheat. Contributors and agents: the whys behind every load-bearing
+decision live in
+[docs/ARCHITECTURE_DECISION_RECORD.md](docs/ARCHITECTURE_DECISION_RECORD.md).
 Something refused you? [LIMITS.md](LIMITS.md) is the troubleshooting map for
 every ceiling the server can enforce.
 

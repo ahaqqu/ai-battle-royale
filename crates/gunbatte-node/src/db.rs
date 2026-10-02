@@ -60,6 +60,25 @@ impl Db {
                 kills INTEGER NOT NULL DEFAULT 0
              );",
         )?;
+        // Two-tier identities (issue #42): rated rows are ladder identities
+        // protected by their token; tokenless rows are casual — off-ladder
+        // and disposable by design. The column defaults to rated so every
+        // pre-existing row keeps its ladder standing: nobody falls off at
+        // the upgrade, and their next reconnect claims + protects the row.
+        // Fresh databases need the ALTER too — the CREATE TABLE above does
+        // not carry the column (it predates #42) — so check structurally
+        // instead of sniffing the "duplicate column" error text.
+        let has_rated: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('bots') WHERE name='rated'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .map(|n| n > 0)
+            .unwrap_or(false);
+        if !has_rated {
+            conn.execute("ALTER TABLE bots ADD COLUMN rated INTEGER NOT NULL DEFAULT 1", [])?;
+        }
         Ok(Db {
             conn: Mutex::new(conn),
         })
@@ -68,26 +87,46 @@ impl Db {
     /// Register or re-register a bot; returns the db id. A name's token is
     /// claimable only while it is empty (first come): re-registration may
     /// never rotate an existing token, or anyone who knew a bot's name —
-    /// and nothing else — could take over its ladder identity.
-    pub fn register_bot(&self, name: &str, token: &str) -> rusqlite::Result<i64> {
+    /// and nothing else — could take over its ladder identity. The secret
+    /// itself is chosen by the server (issued at enrollment), never by the
+    /// client; `rated` enrolls the row on the ladder (issue #42).
+    pub fn register_bot(&self, name: &str, token: &str, rated: bool) -> rusqlite::Result<i64> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO bots(name, token) VALUES(?1, ?2)
-             ON CONFLICT(name) DO UPDATE SET token=excluded.token
+            "INSERT INTO bots(name, token, rated) VALUES(?1, ?2, ?3)
+             ON CONFLICT(name) DO UPDATE SET token=excluded.token, rated=excluded.rated
              WHERE bots.token=''",
-            [name, token],
+            rusqlite::params![name, token, rated as i64],
         )?;
         conn.query_row("SELECT id FROM bots WHERE name=?1", [name], |r| r.get(0))
     }
 
+    /// Door rule (issue #42): a claimed name accepts only its token; an
+    /// unclaimed (tokenless) row accepts only a tokenless presentation —
+    /// the server then issues the secret in the registration ack. Unknown
+    /// names likewise pass only tokenless: the first registration creates
+    /// the row and receives the issued secret.
     pub fn verify_token(&self, name: &str, token: &str) -> bool {
         let conn = self.conn.lock().unwrap();
         match conn.query_row("SELECT token FROM bots WHERE name=?1", [name], |r| {
             r.get::<_, String>(0)
         }) {
-            Ok(stored) => stored.is_empty() || stored == token,
-            Err(_) => true, // unknown bot: first connection registers it
+            Ok(stored) => stored == token,
+            Err(_) => token.is_empty(), // unknown bot: first connection registers it
         }
+    }
+
+    /// Ladder tier of a name (issue #42): false = casual — off-ladder,
+    /// tokenless, disposable by design. Unknown names read as unrated; the
+    /// tier is chosen at first registration via the `rated` flag, and a
+    /// casual row upgrades by re-registering with it.
+    pub fn is_rated(&self, name: &str) -> bool {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row("SELECT rated FROM bots WHERE name=?1", [name], |r| {
+            r.get::<_, i64>(0)
+        })
+        .map(|v| v != 0)
+        .unwrap_or(false)
     }
 
     /// Is this name in the registry at all? Read-only check so the
@@ -108,10 +147,11 @@ impl Db {
     pub fn standings(&self) -> Vec<BotRow> {
         let conn = self.conn.lock().unwrap();
         // House bots are sparring partners, not competitors — keep them off
-        // the ladder (they still carry placements for match history).
+        // the ladder (they still carry placements for match history); so
+        // are casual identities (issue #42): only rated rows stand on it.
         let mut stmt = match conn.prepare(
             "SELECT id, name, elo, wins, games FROM bots
-             WHERE name NOT LIKE 'house·%' ORDER BY elo DESC, name LIMIT 100",
+             WHERE rated=1 AND name NOT LIKE 'house·%' ORDER BY elo DESC, name LIMIT 100",
         ) {
             Ok(s) => s,
             Err(_) => return vec![],
@@ -263,13 +303,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = Db::open(&dir.path().join("t.db")).unwrap();
 
-        // Unclaimed name: open to anyone until a token is presented.
-        db.register_bot("bot", "").unwrap();
+        // Unclaimed name: only a tokenless presentation passes the door —
+        // the server issues the secret, it is never client-chosen (issue
+        // #42). An attacker presenting any token for a claimable name is
+        // refused before they could close the window.
+        db.register_bot("bot", "", true).unwrap();
         assert!(db.verify_token("bot", ""));
-        assert!(db.verify_token("bot", "anything"));
+        assert!(!db.verify_token("bot", "anything"));
 
-        // The first non-empty token claims the name…
-        db.register_bot("bot", "secret").unwrap();
+        // Enrollment closes the name…
+        db.register_bot("bot", "secret", true).unwrap();
         assert!(db.verify_token("bot", "secret"));
         assert!(!db.verify_token("bot", ""));
         assert!(!db.verify_token("bot", "wrong"));
@@ -277,16 +320,52 @@ mod tests {
         // …and no later re-registration can rotate it. (The old upsert did
         // `SET token=excluded.token` unconditionally, so a fresh connection
         // with a new token took over the name and locked out its owner.)
-        db.register_bot("bot", "evil").unwrap();
+        db.register_bot("bot", "evil", true).unwrap();
         assert!(db.verify_token("bot", "secret"));
         assert!(!db.verify_token("bot", "evil"));
+        // An unknown name lets only a tokenless presentation through.
+        assert!(db.verify_token("ghost", ""));
+        assert!(!db.verify_token("ghost", "x"));
+    }
+
+    #[test]
+    fn casual_identities_are_off_ladder_until_enrolled() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(&dir.path().join("t.db")).unwrap();
+
+        // Casual: tokenless, off-ladder, disposable — nothing worth
+        // stealing, so no secret is issued and none is needed.
+        db.register_bot("cas", "", false).unwrap();
+        assert!(!db.is_rated("cas"));
+        assert!(db.verify_token("cas", ""));
+        assert!(
+            !db.standings().iter().any(|b| b.name == "cas"),
+            "casual must not appear on the ladder"
+        );
+
+        // Enrolling issues the secret and puts the identity on the ladder —
+        // with its accumulated history intact (ELO was written all along).
+        db.register_bot("cas", "issued-1", true).unwrap();
+        assert!(db.is_rated("cas"));
+        assert!(db.verify_token("cas", "issued-1"));
+        assert!(
+            db.standings().iter().any(|b| b.name == "cas"),
+            "rated row stands on the ladder"
+        );
+
+        // A pre-existing rated row with no token yet (the upgrade edge:
+        // every pre-#42 row and every known name reconnecting) reads as
+        // rated so its owner's next reconnect enrolls and protects it.
+        db.register_bot("legacy", "", true).unwrap();
+        assert!(db.is_rated("legacy"));
+        assert!(db.verify_token("legacy", ""));
     }
 
     #[test]
     fn db_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let db = Db::open(&dir.path().join("t.db")).unwrap();
-        db.register_bot("hunter1", "").unwrap();
+        db.register_bot("hunter1", "", true).unwrap();
         assert!(db.verify_token("hunter1", ""));
         db.record_match(
             42,

@@ -1,8 +1,15 @@
 # GUNBATTE ROYALE — Architecture
 
-How your AI bot, your browser, and the GUNBATTE server talk to each other —
-and why every match is fair and hard to cheat. Getting started:
-[README.md](README.md).
+The public overview: how your AI bot, your browser, and the GUNBATTE server
+talk to each other — and why every match is fair and hard to cheat.
+Getting started: [README.md](../README.md). AI bot authoring:
+[AI-BOTS.md](AI-BOTS.md). Building on the code itself? How the system is
+built inside — and why each load-bearing decision is the way it is — lives
+in the [architecture decision record](ARCHITECTURE_DECISION_RECORD.md).
+
+**This map must stay true.** Any change that makes a sentence here false
+updates this document in the same PR (AGENTS.md makes this a rule, not a
+hope).
 
 ## The three participants
 

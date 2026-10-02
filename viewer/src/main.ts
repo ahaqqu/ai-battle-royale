@@ -703,7 +703,21 @@ async function startPlay(
       renderLobby(null, name);
       setLobbyNotice(`lobby closed — ${reason}`, true);
     },
-    onError: (msg) => setLobbyNotice(msg, true),
+    onError: (msg) => {
+      setLobbyNotice(msg, true);
+      // A "bad token" refusal is otherwise a dead end: the name is claimed
+      // and this browser holds no working secret for it (unwritable storage
+      // in private mode, or a secret that never belonged to this name). The
+      // server never re-issues one — the only way forward is another name,
+      // so surface the modal that carries the way back to the menu.
+      if (msg === "bad token") {
+        playOverShow(
+          "🔒",
+          "NAME PROTECTED",
+          "this name is claimed and this browser can't prove it's you —<br>LEAVE ARENA, then pick another name",
+        );
+      }
+    },
     onStart: (youIndex, entrants, role) => {
       playEntrants = entrants;
       playYouIndex = youIndex;
