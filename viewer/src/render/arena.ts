@@ -9,7 +9,7 @@ import { Stage } from "./stage.js";
 /** Rotating candy-block colors for the big walls. */
 const WALL_COLORS = [0xff6f91, 0xffa94d, 0x4fd0c0, 0x9d7bff];
 
-/** Tiny deterministic pseudo-random (sprinkle/cloud placement is stable). */
+/** Tiny deterministic pseudo-random (cloud placement is stable). */
 function rand(seed: number): number {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
@@ -60,24 +60,6 @@ export function drawArena(stage: Stage, map: MapData): void {
     }
   }
   bg.addChild(dots);
-
-  // Candy sprinkles scattered on the floor.
-  const sprinkles = new Graphics();
-  for (let i = 0; i < 90; i++) {
-    const x = rand(i * 5 + 11) * (size - 120) + 60;
-    const y = rand(i * 9 + 17) * (size - 120) + 60;
-    const a = rand(i * 3 + 23) * Math.PI;
-    const col = WALL_COLORS[i % WALL_COLORS.length];
-    const hw = 7, hh = 2.6;
-    const ca = Math.cos(a), sa = Math.sin(a);
-    sprinkles.moveTo(x - ca * hw, y - sa * hw)
-      .lineTo(x - sa * hh + ca * hw, y + ca * hh + sa * hw)
-      .lineTo(x + ca * hw, y + sa * hw)
-      .lineTo(x + sa * hh - ca * hw, y - ca * hh - sa * hw)
-      .closePath()
-      .fill({ color: col, alpha: 0.75 });
-  }
-  bg.addChild(sprinkles);
 
   // Island rim: chunky white border with a soft ink outline.
   const rim = new Graphics();
