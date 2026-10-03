@@ -278,7 +278,9 @@ impl Default for LootConfig {
             weight_hp: 35,
             weight_energy: 30,
             weight_mod: 15,
-            weight_weapon: 35,
+            // Roughly half the loot rolls a gun (~13 of 28 at the default
+            // count) — weapon swaps are a core loop, not a rare treat.
+            weight_weapon: 70,
             hp_kit_amount: 35.0,
             energy_pack_amount: 40.0,
             mod_cooldown_pct: 20.0,

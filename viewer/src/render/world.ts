@@ -49,12 +49,15 @@ export class ProjectileLayer {
   private sprites = new Map<number, { ball: Graphics; glow: Sprite; key: number }>();
   private glowTex: Sprite["texture"];
 
-  constructor(stage: Stage) {
+  /** `enlarge` scales bullet art (not positions): live play runs zoomed-in
+   * where bullets must read at a glance, spectator keeps stock sizes. */
+  constructor(stage: Stage, private enlarge = 1) {
     this.container = stage.projLayer;
     this.glowTex = stage.glowTex;
   }
 
-  /** Match by id across A→B and interpolate; render-only. */
+  /** Match by id across A→B and interpolate; render-only. Bullets present
+   * only in B (freshly spawned) render at their B position immediately. */
   update(
     a: Float32Array, aCount: number,
     b: Float32Array, bCount: number,
@@ -77,36 +80,18 @@ export class ProjectileLayer {
         y = ay + (b[bi * PROJ_STRIDE + P.Y] - ay) * t;
       }
       seen.add(id);
-      // Bullets are gun-colored (pea stays owner-colored) — you read the
-      // threat before you read the shooter.
-      const col = weapon === 0
-        ? parseInt(botColor(bot).slice(1), 16)
-        : parseInt(WEAPONS[weapon]?.color.slice(1) ?? "ffffff", 16);
-      const key = weapon * 1000 + bot;
-      let s = this.sprites.get(id);
-      if (!s) {
-        const ball = new Graphics();
-        const glow = new Sprite(this.glowTex);
-        glow.anchor.set(0.5);
-        glow.blendMode = "add";
-        glow.alpha = 0.4;
-        this.container.addChild(glow, ball);
-        s = { ball, glow, key: -1 };
-        this.sprites.set(id, s);
-      }
-      if (s.key !== key) {
-        s.ball.clear();
-        drawBullet(s.ball, weapon, col);
-        s.glow.tint = col;
-        s.glow.scale.set(weapon === 3 ? 0.26 : weapon === 6 ? 0.24 : weapon === 1 ? 0.12 : 0.17);
-        s.key = key;
-      }
-      s.ball.position.set(x, y);
-      s.ball.rotation = Math.atan2(vy, vx);
-      s.glow.position.set(x, y);
-      s.ball.visible = true;
-      s.glow.visible = true;
-      onTrail(x, y, col, weapon === 3 || weapon === 6);
+      this.place(id, bot, weapon, x, y, vx, vy, onTrail);
+    }
+    // B-only: spawned since A — draw at once rather than a tick late.
+    for (let i = 0; i < bCount; i++) {
+      const id = b[i * PROJ_STRIDE + P.ID];
+      if (seen.has(id)) continue;
+      seen.add(id);
+      this.place(
+        id, b[i * PROJ_STRIDE + P.BOT], b[i * PROJ_STRIDE + P.WEAPON] ?? 0,
+        b[i * PROJ_STRIDE + P.X], b[i * PROJ_STRIDE + P.Y],
+        b[i * PROJ_STRIDE + P.VX], b[i * PROJ_STRIDE + P.VY], onTrail,
+      );
     }
     // Hide vanished, show current.
     for (const [id, s] of this.sprites) {
@@ -114,6 +99,45 @@ export class ProjectileLayer {
       s.ball.visible = vis;
       s.glow.visible = vis;
     }
+  }
+
+  /** Upsert one bullet sprite and fire its trail callback. */
+  private place(
+    id: number, bot: number, weapon: number,
+    x: number, y: number, vx: number, vy: number,
+    onTrail: (x: number, y: number, color: number, intense: boolean) => void,
+  ): void {
+    // Bullets are gun-colored (pea stays owner-colored) — you read the
+    // threat before you read the shooter.
+    const col = weapon === 0
+      ? parseInt(botColor(bot).slice(1), 16)
+      : parseInt(WEAPONS[weapon]?.color.slice(1) ?? "ffffff", 16);
+    const key = weapon * 1000 + bot;
+    let s = this.sprites.get(id);
+    if (!s) {
+      const ball = new Graphics();
+      const glow = new Sprite(this.glowTex);
+      glow.anchor.set(0.5);
+      glow.blendMode = "add";
+      glow.alpha = 0.4;
+      this.container.addChild(glow, ball);
+      s = { ball, glow, key: -1 };
+      this.sprites.set(id, s);
+    }
+    if (s.key !== key) {
+      s.ball.clear();
+      drawBullet(s.ball, weapon, col);
+      s.ball.scale.set(this.enlarge);
+      s.glow.tint = col;
+      s.glow.scale.set((weapon === 3 ? 0.26 : weapon === 6 ? 0.24 : weapon === 1 ? 0.12 : 0.17) * this.enlarge);
+      s.key = key;
+    }
+    s.ball.position.set(x, y);
+    s.ball.rotation = Math.atan2(vy, vx);
+    s.glow.position.set(x, y);
+    s.ball.visible = true;
+    s.glow.visible = true;
+    onTrail(x, y, col, weapon === 3 || weapon === 6);
   }
 }
 
@@ -141,6 +165,18 @@ export class PickupLayer {
         const root = new Container();
         const isGun = kind >= 4;
         const col = parseInt((KIND_COLORS[kind] ?? "#ffffff").slice(1), 16);
+        if (isGun) {
+          // Beacon: a soft light pillar so a gun across the vision circle
+          // reads as "something is here" before the tin itself resolves.
+          const beam = new Sprite(this.stage.glowTex);
+          beam.anchor.set(0.5, 0.72);
+          beam.position.set(0, -8);
+          beam.tint = col;
+          beam.alpha = 0.4;
+          beam.blendMode = "add";
+          beam.scale.set(0.5, 2.1);
+          root.addChild(beam);
+        }
         const glow = new Sprite(this.stage.glowTex);
         glow.anchor.set(0.5);
         glow.tint = col;

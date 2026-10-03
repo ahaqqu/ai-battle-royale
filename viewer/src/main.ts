@@ -8,9 +8,9 @@
 // it must install before any renderer initializes.
 import "pixi.js/unsafe-eval";
 import { Graphics } from "pixi.js";
-import { CamMode, Frame, MapData, ReplayData, botColor, WEAPONS, weaponIdx } from "./types.js";
+import { CamMode, Frame, MapData, ReplayData, PICKUP_STRIDE, PROJ_STRIDE, WEAPONS, botColor, pickupKindIdx, weaponIdx, K, P } from "./types.js";
 import { buildPlayerCam, LoadedReplay, loadReplay } from "./sim.js";
-import { LobbyInfo, PlayClient } from "./play.js";
+import { LobbyInfo, PlayClient, PlayObs } from "./play.js";
 import { Stage } from "./render/stage.js";
 import { drawArena } from "./render/arena.js";
 import { UnitViews } from "./render/units.js";
@@ -559,7 +559,15 @@ let playUnits: UnitViews | null = null;
 let playZone: ZoneLayerView | null = null;
 let playFx: Fx | null = null;
 let playFog: FogView | null = null;
+let playProjs: ProjectileLayer | null = null;
+let playPickups: PickupLayer | null = null;
 let playLoopRunning = false;
+// Seen-projectile frames for the pellet renderer: the previous and current
+// observation packed into the shared layout, interpolated between in playLoop.
+let playProjPrev: Float32Array = new Float32Array(0);
+let playProjCur: Float32Array = new Float32Array(0);
+let playProjTick = -1;
+let playProjObsTs = 0;
 let playEntrants: string[] = [];
 let playYouIndex = 0;
 // Combat-feel state: diffs between the last two observations drive the
@@ -667,6 +675,11 @@ async function startPlay(
   playZone = new ZoneLayerView(stage);
   playFx = new Fx(stage);
   playFog = new FogView(stage);
+  // Live play shares the spectator's candy-pellet bullets (slightly enlarged)
+  // and pickup tins; both layers sit under the fog overlay and the strict
+  // observation lists keep them inside the vision hole.
+  playProjs = new ProjectileLayer(stage, 1.45);
+  playPickups = new PickupLayer(stage);
 
   if (lobby) {
     // The room screen replaces the match HUD until the match begins.
@@ -737,6 +750,8 @@ async function startPlay(
       prevHp = 100; prevEnergy = 100;
       prevMainAlive = true; prevCompAlive = true;
       prevEnemyHp = new Map(); prevProjectiles = new Map(); prevWeapon = null;
+      playProjPrev = new Float32Array(0); playProjCur = new Float32Array(0);
+      playProjTick = -1; playProjObsTs = 0;
       killProcessed = 0;
       lastSeenPos = new Map();
       prevDashOn = false; prevShieldOn = false; prevCompPos = null;
@@ -1016,6 +1031,25 @@ function playLoop(ts: number): void {
     zone: { center: obs.global.zone.center, radius: obs.global.zone.radius, next: obs.global.zone.next },
   }, playYouIndex);
 
+  // Candy-pellet projectiles + pickup tins in their own layers, interpolated
+  // between the last two observations (server obs runs at 10Hz; bullets move
+  // far per tick). A = previous obs, B = current; new-in-B bullets draw at
+  // once via the layer's B-only pass.
+  if (obs.tick !== playProjTick) {
+    playProjPrev = playProjCur;
+    playProjCur = packPlayProjs(obs);
+    playProjTick = obs.tick;
+    playProjObsTs = ts;
+  }
+  const tFrac = Math.max(0, Math.min(1, (ts - playProjObsTs) / 100));
+  playProjs!.update(
+    playProjPrev, playProjPrev.length / PROJ_STRIDE,
+    playProjCur, playProjCur.length / PROJ_STRIDE,
+    tFrac,
+    (x, y, col, intense) => playFx!.tracer(x, y, col, intense),
+  );
+  playPickups!.update(packPlayPickups(obs), obs.seen.pickups.length, obs.tick);
+
   // Camera rides the player; zoomPunch kicks in on kills/hits/dashes.
   stage.setTarget(me.pos[0], me.pos[1], 1.05 + zoomPunch);
   zoomPunch *= Math.exp(-dt * 5);
@@ -1036,9 +1070,6 @@ function playLoop(ts: number): void {
         .sort((a, b) => a.d - b.d)[0];
       if (threat) {
         showDamageArrow(Math.atan2(threat.p.pos[1] - me.pos[1], threat.p.pos[0] - me.pos[0]));
-      } else {
-        const gun = obs.heard.find((h) => h.kind === "gunshot");
-        if (gun) showDamageArrow((gun.bearing * Math.PI) / 180 - Math.PI / 2);
       }
     }
     const hpGain = me.hp - prevHp;
@@ -1080,7 +1111,7 @@ function playLoop(ts: number): void {
           me.pos[0] + Math.cos(a) * 18, me.pos[1] + Math.sin(a) * 18,
           90 - (me.facing ?? 0), pr.w, col,
         );
-        sfx.play("shot", 0, 0.5);
+        sfx.play("shot", 0, 0.95);
       } else {
         // Enemy shots flash where the bullet first appeared in view.
         playFx!.muzzleFlash(pr.x, pr.y, Math.atan2(pr.vy, pr.vx) * 180 / Math.PI, pr.w, col);
@@ -1159,13 +1190,15 @@ function playLoop(ts: number): void {
   }
   playBanner.classList.toggle("zone-warn", outside);
 
-  // Heard events → positional audio (footsteps show only as HUD wedges).
+  // Heard events → positional audio. Gunfire intel is deliberately off (the
+  // red wedge strobe + rapid pings read as noise, so no shot sound from
+  // unseen shooters); dashes keep their whoosh, footsteps stay wedge-only.
   for (const h of obs.heard) {
+    if (h.kind !== "dash") continue;
     const a = (h.bearing * Math.PI) / 180;
     const pan = Math.sin(a);
     const vol = h.band === "near" ? 0.85 : h.band === "mid" ? 0.5 : 0.26;
-    if (h.kind === "gunshot") sfx.play("shot", pan, vol);
-    else if (h.kind === "dash") sfx.play("dash", pan, vol * 0.8);
+    sfx.play("dash", pan, vol * 0.8);
   }
 
   // HUD.
@@ -1196,6 +1229,40 @@ function zonePhaseOfFloat(r: number): number {
     if (r > ladder[i] - 1) return i;
   }
   return ladder.length - 1;
+}
+
+/** Play observation → shared projectile layout for ProjectileLayer. Owner ids
+ * are 1+bot (mains) or 101+bot (companions); the layer colors by bot index. */
+function packPlayProjs(obs: PlayObs): Float32Array {
+  const list = obs.seen.projectiles;
+  const out = new Float32Array(list.length * PROJ_STRIDE);
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    const o = i * PROJ_STRIDE;
+    out[o + P.ID] = p.id;
+    out[o + P.BOT] = p.owner > 100 ? p.owner - 101 : p.owner - 1;
+    out[o + P.X] = p.pos[0];
+    out[o + P.Y] = p.pos[1];
+    out[o + P.VX] = p.vel[0];
+    out[o + P.VY] = p.vel[1];
+    out[o + P.WEAPON] = weaponIdx(p.weapon);
+  }
+  return out;
+}
+
+/** Play observation → shared pickup layout for PickupLayer. */
+function packPlayPickups(obs: PlayObs): Float32Array {
+  const list = obs.seen.pickups;
+  const out = new Float32Array(list.length * PICKUP_STRIDE);
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    const o = i * PICKUP_STRIDE;
+    out[o + K.ID] = p.id;
+    out[o + K.KIND] = pickupKindIdx(p.kind);
+    out[o + K.X] = p.pos[0];
+    out[o + K.Y] = p.pos[1];
+  }
+  return out;
 }
 
 // Keyboard shortcuts (replay mode only — play mode uses its own handlers).
