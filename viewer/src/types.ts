@@ -180,7 +180,12 @@ export function shade(col: number, f: number): number {
 }
 
 export function botColor(bot: number): string {
-  return BOT_COLORS[bot % BOT_COLORS.length];
+  // Defensive modulo: wire indices have reached here as -1 or NaN in the
+  // wild, and a crashing viewer is worse than a wrong candy color.
+  const i = Number.isFinite(bot)
+    ? ((Math.trunc(bot) % BOT_COLORS.length) + BOT_COLORS.length) % BOT_COLORS.length
+    : 0;
+  return BOT_COLORS[i];
 }
 
 export function fmtTime(seconds: number): string {
