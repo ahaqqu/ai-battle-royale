@@ -67,6 +67,12 @@ enum Cmd {
         /// at startup (0 = keep everything).
         #[arg(long, default_value_t = 100)]
         max_replays: usize,
+        /// Input acceptance window in ticks: replies stamped up to this many
+        /// ticks older than the one being decided are still applied, so a
+        /// long-haul human (RTT ≫ the 50ms deadline) stays playable. 0
+        /// restores the strict #53 gate. The default covers ~350ms of RTT.
+        #[arg(long, default_value_t = 3)]
+        input_window_ticks: u32,
     },
 }
 
@@ -91,6 +97,7 @@ async fn main() {
             join_attempts_per_min,
             new_names_per_min,
             max_replays,
+            input_window_ticks,
         } => {
             let cfg = ServerConfig {
                 port,
@@ -113,7 +120,7 @@ async fn main() {
             gunbatte_lobby::Server::start(
                 cfg,
                 gunbatte_core::config::MatchConfig::standard(),
-                Arc::new(GameHost),
+                Arc::new(GameHost::new(input_window_ticks)),
             )
             .await
             .expect("server");

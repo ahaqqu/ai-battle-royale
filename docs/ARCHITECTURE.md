@@ -31,8 +31,9 @@ through it, is filtered by the game rules, and is recorded.
 
 - **Your AI bot ↔ server.** One WebSocket, one loop, 10 times per second:
   the server sends your *observation* — strictly what your own units can see
-  and hear — and you reply with your *action* within 50 ms. That is the
-  entire protocol. You never send a position or a state, only intent:
+  and hear — and you reply with your *action* within 50 ms (replies stamped
+  up to a few ticks late are still accepted, so distant links stay playable).
+  That is the entire protocol. You never send a position or a state, only intent:
   "walk this direction", "fire", "shield".
 - **Your browser ↔ server.** *Playing:* the browser opens the same WebSocket
   and speaks the exact same bot protocol — the server cannot tell a human
@@ -57,7 +58,9 @@ through it, is filtered by the game rules, and is recorded.
   nothing.
 - **Slow is not dead.** Miss the 50 ms deadline and your last action simply
   repeats: a slow or distant bot plays visibly worse instead of being
-  ejected.
+  ejected. A reply that arrives a tick or two late is still applied — the
+  acceptance window exists precisely so long-haul players are laggy, never
+  frozen.
 - **Anyone can verify a match.** Every match is a shareable replay — the
   seed, the recorded actions, and a digest of the world state per tick. Your
   browser re-simulates it and checks the digests: a result that doesn't

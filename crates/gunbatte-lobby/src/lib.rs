@@ -360,6 +360,18 @@ fn valid_name(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ' '))
 }
 
+/// Journal-safe rendering of unvalidated wire data (a refused registration's
+/// claimed name, a join code): keep the name-like charset, drop everything a
+/// newline escape or ANSI shim would need, truncate to 32 chars.
+fn log_safe(s: &str) -> String {
+    let clean: String = s
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ' '))
+        .take(32)
+        .collect();
+    clean
+}
+
 /// 128 bits of OS randomness, hex — the secret issued to an enrolling
 /// ladder identity (issue #42). Unguessable credentials are the point, so
 /// this is a real CSPRNG: the lobby-code trick (counter + clock) would not
@@ -620,6 +632,11 @@ impl Server {
                     // join per connection otherwise lets reconnect churn
                     // brute-force the ~1M room-code space at wire speed.
                     if !self.join_bucket.lock().unwrap().take() {
+                        println!(
+                            "lobby_join_failed name={} code=\"{}\" reason=join_bucket",
+                            log_safe(&handle.name),
+                            log_safe(&code)
+                        );
                         let _ = ws_tx
                             .send(tmsg(
                                 json!({"type":"error","error":"too many join attempts, slow down"})
@@ -627,6 +644,11 @@ impl Server {
                             ))
                             .await;
                     } else {
+                        println!(
+                            "lobby_join_failed name={} code=\"{}\" reason=no_such_lobby",
+                            log_safe(&handle.name),
+                            log_safe(&code)
+                        );
                         let _ = ws_tx
                             .send(tmsg(
                                 json!({"type":"error","error":"no such lobby"}).to_string(),
@@ -643,6 +665,10 @@ impl Server {
                 if lobby.members.len() >= cap {
                     let n = lobby.members.len();
                     drop(lobbies);
+                    println!(
+                        "lobby_join_failed name={} code={} reason=lobby_full",
+                        handle.name, code
+                    );
                     let _ = ws_tx
                         .send(tmsg(
                             json!({"type":"error","error":format!("lobby is full ({n}/{cap})")})
@@ -1041,6 +1067,10 @@ async fn on_bot_socket(
         rated: false,
     });
     if !valid_name(&reg.name) {
+        println!(
+            "register_refused name=\"{}\" reason=invalid_name",
+            log_safe(&reg.name)
+        );
         let _ = ws_tx
             .send(tmsg(
                 json!({"type":"error","error":"invalid name"}).to_string(),
@@ -1054,6 +1084,7 @@ async fn on_bot_socket(
     // house bots (they register server-side) — bypass the bucket.
     let known = server.db.bot_exists(&reg.name);
     if !known && !server.new_name_bucket.lock().unwrap().take() {
+        println!("register_refused name={} reason=name_bucket", reg.name);
         let _ = ws_tx
             .send(tmsg(
                 json!({"type":"error","error":"too many new bots, slow down"}).to_string(),
@@ -1062,6 +1093,7 @@ async fn on_bot_socket(
         return;
     }
     if !server.db.verify_token(&reg.name, &reg.token) {
+        println!("register_refused name={} reason=bad_token", reg.name);
         let _ = ws_tx
             .send(tmsg(
                 json!({"type":"error","error":"bad token"}).to_string(),
@@ -1074,6 +1106,7 @@ async fn on_bot_socket(
     // would double-count the name's result. The atomic insert is the check;
     // the name frees when this socket tears down.
     if !server.live_names.lock().unwrap().insert(reg.name.clone()) {
+        println!("register_refused name={} reason=already_connected", reg.name);
         let _ = ws_tx
             .send(tmsg(
                 json!({"type":"error","error":"already connected"}).to_string(),

@@ -128,7 +128,7 @@ async fn m3_gateway_end_to_end() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -245,7 +245,7 @@ async fn solo_human_gets_house_fill() {
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 25;
     tokio::spawn(async move {
-        Server::start(cfg, match_cfg, Arc::new(GameHost)).await.expect("server");
+        Server::start(cfg, match_cfg, Arc::new(GameHost::new(3))).await.expect("server");
     });
     wait_until_bound(port).await;
 
@@ -359,7 +359,7 @@ async fn lobby_host_and_invitee_play_a_private_royale() {
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 25;
     tokio::spawn(async move {
-        Server::start(cfg, match_cfg, Arc::new(GameHost)).await.expect("server");
+        Server::start(cfg, match_cfg, Arc::new(GameHost::new(3))).await.expect("server");
     });
     tokio::time::sleep(Duration::from_millis(600)).await;
 
@@ -547,7 +547,7 @@ async fn boss_lobby_casts_a_member_as_the_boss() {
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 40;
     tokio::spawn(async move {
-        Server::start(cfg, match_cfg, Arc::new(GameHost)).await.expect("server");
+        Server::start(cfg, match_cfg, Arc::new(GameHost::new(3))).await.expect("server");
     });
     tokio::time::sleep(Duration::from_millis(600)).await;
 
@@ -720,7 +720,7 @@ async fn silent_bot_socket_is_closed_after_idle_window() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -811,7 +811,7 @@ async fn non_reading_bot_cannot_stall_the_match() {
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 20;
     tokio::spawn(async move {
-        Server::start(cfg, match_cfg, Arc::new(GameHost)).await.expect("server");
+        Server::start(cfg, match_cfg, Arc::new(GameHost::new(3))).await.expect("server");
     });
     wait_until_bound(port).await;
     let url = format!("ws://127.0.0.1:{port}/ws/bot");
@@ -884,7 +884,7 @@ async fn bots_requeue_after_a_match_and_get_drafted_again() {
     let mut match_cfg = MatchConfig::standard();
     match_cfg.match_max_s = 25;
     tokio::spawn(async move {
-        Server::start(cfg, match_cfg, Arc::new(GameHost))
+        Server::start(cfg, match_cfg, Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -966,7 +966,7 @@ async fn connection_cap_refuses_overflow_and_recovers() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -1020,7 +1020,7 @@ async fn lobby_cap_rejects_creation_beyond_max() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -1076,7 +1076,7 @@ async fn same_name_socket_cannot_start_anothers_lobby() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -1153,7 +1153,7 @@ async fn join_brute_force_is_throttled() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -1204,7 +1204,7 @@ async fn new_name_registration_is_rate_limited() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -1287,7 +1287,7 @@ async fn oversized_frame_closes_socket_and_mindcam_passes() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -1426,7 +1426,7 @@ async fn issued_token_protects_ladder_identity() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -1506,7 +1506,7 @@ async fn casual_name_is_hidden_until_enrolled() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });
@@ -1577,7 +1577,7 @@ async fn second_concurrent_socket_with_same_name_is_refused() {
         max_replays: 100,
     };
     tokio::spawn(async move {
-        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost))
+        Server::start(cfg, MatchConfig::standard(), Arc::new(GameHost::new(3)))
             .await
             .expect("server");
     });

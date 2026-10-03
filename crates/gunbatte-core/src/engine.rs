@@ -35,6 +35,9 @@ pub struct MatchEngine {
     last_mind_tick: Vec<u64>,
     /// Bot forfeited (timeout ladder) — momentum until the end.
     forfeited: Vec<bool>,
+    /// Why and when each bot forfeited, surfaced by the game role's journal
+    /// events (the engine has no names to log).
+    forfeit_info: Vec<Option<(&'static str, u64)>>,
 }
 
 impl MatchEngine {
@@ -65,6 +68,7 @@ impl MatchEngine {
             minds: BTreeMap::new(),
             last_mind_tick: vec![0; bots as usize],
             forfeited: vec![false; bots as usize],
+            forfeit_info: vec![None; bots as usize],
         }
     }
 
@@ -116,10 +120,9 @@ impl MatchEngine {
 
     pub fn forfeit(&mut self, bot: u32, reason: &'static str) {
         if !self.forfeited[bot as usize] {
-            eprintln!(
-                "bot {} forfeited at tick {}: {}",
-                bot, self.state.tick, reason
-            );
+            // The journal line lives with the game role (it owns the names);
+            // the engine only records what happened and when.
+            self.forfeit_info[bot as usize] = Some((reason, self.state.tick));
         }
         self.forfeited[bot as usize] = true;
         // A forfeited bot stops acting; its main is eliminated.
@@ -131,7 +134,12 @@ impl MatchEngine {
         }
         self.pending[bot as usize] = None;
         self.last_inputs[bot as usize] = None;
-        let _ = reason;
+    }
+
+    /// Why and when this bot forfeited, if it has. Reason strings come from
+    /// the timeout ladder ("missed deadline ladder", "disconnect grace", …).
+    pub fn forfeit_info(&self, bot: u32) -> Option<(&'static str, u64)> {
+        self.forfeit_info[bot as usize]
     }
 
     pub fn is_forfeited(&self, bot: u32) -> bool {

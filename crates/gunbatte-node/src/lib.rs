@@ -36,9 +36,12 @@ pub struct MatchEntrant {
 /// One message from an entrant inside a tick's reply window.
 pub struct BotMsg {
     /// Client-asserted tick: the tick of the observation this reply answers.
-    /// The game role drops replies stamped with any other tick; 0 (the serde
-    /// default of a client that omits the field) means "no assertion" and is
-    /// accepted.
+    /// The game role accepts a reply stamped with the tick being decided or
+    /// up to the configured window (`--input-window-ticks`, default 3) older
+    /// — distant humans cannot beat the speed of light, and the window
+    /// bounds both staleness and the replay surface; anything older or
+    /// future-stamped is dropped. 0 (the serde default of a client that
+    /// omits the field) means "no assertion" and is accepted.
     pub client_tick: u64,
     pub input: BotInput,
     pub arrived: Instant,
