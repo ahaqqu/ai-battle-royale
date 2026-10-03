@@ -23,6 +23,36 @@ assume the user knows the codebase; if a question only makes sense after
 reading the code, the fact-finding isn't done — go find the facts yourself,
 then ask the decision.
 
+## The workflow: grill → implement → PR → deploy → verify
+
+When the user asks to implement or fix something, run this full loop; don't
+stop halfway and don't skip stages unless the user explicitly waves one off.
+
+1. **Grill first (grill-me / the grilling skill).** Before writing any code,
+   load the grilling skill and work the design tree in rounds: fact-find in
+   the repo until the frontier is real decisions only, then present each
+   round — numbered questions, concrete options, recommendation first — via
+   the harness question tool, and wait. Small mechanical bug fixes with an
+   unambiguous cause are exempt; anything with a design choice is not.
+2. **Confirm, then implement.** When the frontier is empty, restate the
+   agreed plan in one block and get an explicit go — then implement.
+3. **Prove it locally before it leaves the machine.** `make test` (both
+   profiles) and `make ci` for Rust; `npm run build` (tsc + vite) for the
+   viewer; for anything the player sees or hears, drive the real client in a
+   real browser against a local server (`./start-server.sh`) and verify on
+   screen — screenshots as evidence, console clean of errors.
+4. **PR, then watch CI.** Open the PR, watch its checks to green, then ask
+   the user to review and merge — merging is the user's call; stop there.
+5. **After merge: deploy is part of the task.** Confirm CI is green on main,
+   then watch the `deploy` workflow (it fires on CI success via
+   `workflow_run`) until it succeeds — it runs `provision/vps/deploy.sh`:
+   build, rsync, restart `gunbatte.service`.
+6. **Verify the work on the live URL** ([play.gunbatte.ahaqqu.com]). CI
+   rebuilds on its own toolchain, so asset hashes differ from any local
+   build — verify by content (does the served page/bundle contain the
+   change?) and by playing the actual flow the PR was about. Report what was
+   verified and what couldn't be (e.g. audibility in a headless browser).
+
 ## The architecture docs are the map — update them in the same PR
 
 `docs/ARCHITECTURE.md` (public claims) and
