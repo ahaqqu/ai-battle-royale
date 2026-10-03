@@ -3,7 +3,28 @@ name: CI
 on:
   push:
     branches: [main]
+    # Docs/meta-only changes skip CI entirely — and because deploy fires on CI
+    # completion, they never deploy either. Deliberately a denylist: anything
+    # NOT listed still runs CI and deploys, so a future path can never
+    # silently stop shipping. Keep in sync with what provision/vps/deploy.sh
+    # actually ships (server binary, viewer bundle, website/, provision/): a
+    # path that changes those belongs OFF this list. YAML anchors are not
+    # supported here — the two lists below are duplicates; edit both.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/**'
+      - 'examples/**'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/**'
+      - 'examples/**'
+      - 'LICENSE'
+      - '.gitignore'
 
 env:
   CARGO_TERM_COLOR: always
