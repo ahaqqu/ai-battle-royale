@@ -46,7 +46,9 @@ stop halfway and don't skip stages unless the user explicitly waves one off.
 5. **After merge: deploy is part of the task.** Confirm CI is green on main,
    then watch the `deploy` workflow (it fires on CI success via
    `workflow_run`) until it succeeds — it runs `provision/vps/deploy.sh`:
-   build, rsync, restart `gunbatte.service`.
+   build, rsync, restart `gunbatte.service`. Docs/meta-only merges (the
+   `paths-ignore` list in ci.yml) start no CI run and so fire no deploy —
+   verify by absence in the Actions tab instead.
 6. **Verify the work on the live URL** ([play.gunbatte.ahaqqu.com]). CI
    rebuilds on its own toolchain, so asset hashes differ from any local
    build — verify by content (does the served page/bundle contain the

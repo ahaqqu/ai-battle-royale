@@ -5,6 +5,10 @@
 # + server, rsync to the VPS, restart gunbatte.service. One deploy path for
 # CI and humans.
 #
+# Docs/meta-only changes never get here: ci.yml's paths-ignore skips CI for
+# them, and without a completed CI run this workflow cannot fire. Manual
+# workflow_dispatch stays unconditional — explicit human intent always deploys.
+#
 # ALL configuration comes from repository VARIABLES (Settings → Secrets and
 # variables → Actions → Variables — nothing is hardcoded in this file):
 #   VPS_USER            the restricted deploy identity (e.g. kajianq-deploy)
