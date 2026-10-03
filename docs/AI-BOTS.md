@@ -26,7 +26,9 @@ connect ws://<host>/ws/bot
   ← {"type":"match_start","bot":"…","bots":["…"],"map_id":"arena-1",
      "deadline_ms":50,"tick_rate":10,"seedless":true,"mode":"royale","role":"raider"}
   ← observation JSON every tick (10/s)
-  → action JSON per tick, within deadline_ms of each observation
+  → action JSON per tick, within deadline_ms of each observation (replies
+    stamped up to `--input-window-ticks`, default 3, ticks late are still
+    accepted; older/future stamps drop)
   ← {"type":"match_over","place":3,"replay":"/replays/…","new_elo":1032?}
   → survivors stay connected and are requeued automatically — no re-register
 ```

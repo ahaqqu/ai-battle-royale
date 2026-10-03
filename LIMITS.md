@@ -19,6 +19,7 @@ nginx limits are *per IP*.
 | `--join-attempts-per-min` | 30 | wrong room-code guesses (global allowance) |
 | `--new-names-per-min` | 60 | first-time bot registrations (global allowance) |
 | `--max-replays` | 100 | replay files kept (startup sweep) |
+| `--input-window-ticks` | 3 | reply-stamp acceptance window in ticks; 0 = strict (only the exact tick accepted) |
 | HTTP request timeout | 30 s | dynamic routes (replay downloads exempt) |
 | HTTP concurrency | 256 | in-flight requests of any kind |
 | nginx `limit_conn` | 10 / IP | concurrent WS connections per IP |
@@ -85,17 +86,22 @@ if you see this, something is creating rooms without ever starting them.
 
 ## "My bot plays sluggish / its decisions seem ignored"
 
-The server only accepts a reply stamped as an answer to the game state
-currently being decided. A reply stamped with any other tick is dropped (the
-server logs the first drop per bot: `⏳ <name> answered tick X while Y was
-being decided — dropped`). A reply with **no tick field at all is accepted**.
+The server accepts a reply stamped with the tick currently being decided, or
+up to `--input-window-ticks` (default 3, ≈350 ms) ticks older — beyond that
+the reply is dropped (first drop per bot is logged: `input_dropped_stale`).
+A reply with **no tick field at all is accepted**. A late-but-in-window
+reply IS applied and only records its latency: the ladder forfeits the gone,
+not the distant — so sluggish play never comes from this gate.
 
-- Cause: the bot echoes a stale tick, or fabricates a future one — e.g.
-  replying to an observation it already replied to, or replaying old
-  decisions.
+- Cause of actual drops: the bot echoes a very stale tick, or fabricates a
+  future one — e.g. replying to an observation it already replied to, or
+  replaying old decisions.
 - Fix: always stamp the action with the tick of the **newest** observation
   received. That is what the reference bot client and the viewer do, and why
   honest clients never see this.
+- Distant-but-honest links show up as `input_late_accepted` (first per
+  entrant per match) and in the per-entrant `input_summary` at match end
+  (`avg_staleness`, `avg_latency_ms`) — tuning evidence, not refusals.
 
 ## "An old replay link 404s"
 
@@ -137,3 +143,27 @@ Raise the knobs, don't remove them: every one exists because an unbounded
 version of the same feature was the attack. `0` disables any app knob.
 Remember bots and spectators share the connection pool — a big audience can
 crowd out players, so size `--max-connections` for spectators + bots combined.
+
+---
+
+## Journal events (the ops view of every limit above)
+
+One line per event, stable token + `key=value` fields — grep-friendly under
+`journalctl -u gunbatte`. High-rate paths log state changes and per-match
+aggregates, not per-tick lines.
+
+| Event | Meaning |
+|---|---|
+| `match_started entrants=N mode=M rated=B names="…"` | a match began |
+| `input_late_accepted entrant=X staleness=S latency_ms=L` | first windowed (late-but-applied) reply of that entrant |
+| `input_dropped_stale entrant=X client_tick=T current_tick=C` | first reply dropped as too stale for that entrant |
+| `obs_stall entrant=X` | stopped reading observations; disconnect grace begins |
+| `disconnect entrant=X cause=socket_closed` | socket died; momentum, then forfeit |
+| `ladder_forfeit entrant=X bot=I tick=T reason=R` | timeout ladder forfeited the entrant |
+| `input_summary entrant=X accepted=N late=N avg_staleness=S avg_latency_ms=L max_staleness=M dropped_stale=D` | per-entrant input-path totals at match end |
+| `match_over ticks=T winner=W replay=R mode=M rated=B` | a match finished and persisted |
+| `register_refused name=X reason=invalid_name\|name_bucket\|bad_token\|already_connected` | registration refused at the door |
+| `lobby_join_failed name=X code=C reason=no_such_lobby\|join_bucket\|lobby_full` | private-room join refused |
+
+New operational behavior ships with its event and a LIMITS.md row in the
+same PR (ADR, "Journal events").

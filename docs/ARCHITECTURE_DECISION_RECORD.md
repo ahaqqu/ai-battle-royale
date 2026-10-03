@@ -47,7 +47,14 @@ the whys are the point, not the prose.
    forfeits you; stop reading observations and a disconnect grace counts
    down; a half-open socket is reaped by keepalive pings. *Why:* a slow or
    distant bot should play visibly worse — not vanish mid-match and ruin
-   it for everyone else.
+   it for everyone else. The reply stamp is enforced *windowed*
+   (`--input-window-ticks`, default 3): a reply stamped up to 3 ticks late
+   is still applied and only records its latency, so a long-haul human
+   (RTT ≫ 50 ms — the own network measures ~195 ms) plays laggy instead of
+   frozen, while only a tick with no reply at all counts toward forfeit.
+   The window is the latency-vs-integrity dial: it bounds the staleness of
+   applied inputs and keeps #53's replay surface closed. *Corollary:* the
+   ladder forfeits the gone, not the distant.
 6. **Abuse resistance at the edges.** Every refusal the server can hand out
    is a deliberate ceiling (connection pool, lobby cap, new-name and
    wrong-code buckets, per-message size caps, name rules) so one client
@@ -145,9 +152,11 @@ routing through the seam or stopping at an issue.
    after it, the match loop never asks the lobby for anything.
 4. **Play.** The game role runs the 10 Hz loop: push this tick's strict-fog
    observation to every entrant at once → collect replies until the window
-   closes (stale-tick replies are dropped) → apply momentum for misses →
+   closes (replies stamped up to `--input-window-ticks` older still apply;
+   older or future stamps are dropped) → apply momentum for misses →
    step the deterministic sim → digest the world → publish the spectator
-   frame (delayed, below). The timeout ladder records misses; forfeits are
+   frame (delayed, below). The timeout ladder records misses — a
+   late-but-accepted reply is not one; forfeits are
    deterministic in run and replay.
 5. **Settle.** Placements (dead bots ranked at death, survivors at match
    end), pairwise multiplayer ELO (K=32 rated, 0 unrated), the replay file
@@ -190,6 +199,14 @@ database interface is the migration path.
   0..=1, aim targets clamped far outside the arena (±2^40) with a
   wide-typed delta at the shot site (#40) — hostile input degrades, never
   panics, and release determinism doesn't rest on wrapping accidents.
+- **The windowed reply stamp** (`--input-window-ticks`, default 3;
+  strict-exact under #53, windowed after long-haul humans were provably
+  frozen by the 50 ms gate): a reply stamped more than the window older
+  than the tick being decided — or from the future — is dropped, so a held
+  or replayed decision can neither apply nor displace fresher input, and
+  the staleness of anything applied is bounded by the window. Acceptance
+  inside the window is *not* a ladder miss: the ladder forfeits the gone,
+  not the distant.
 - **Per-message caps** (64 KiB both WebSocket upgrades, #41): the largest
   legal message is a ~17 KiB mind-cam; axum's 64 MiB default was pure
   griefing surface that degraded *other* matches' deadlines. Oversize →
@@ -225,6 +242,21 @@ Refactoring stays bounded to the seam only if these hold:
   Live matches are never migrated.
 - SQLite holds while every process shares one machine (WAL, local disk);
   separate machines for game servers is also the move to Postgres.
+
+## Journal events (the troubleshooting contract)
+
+Every operationally important event prints one structured line to stdout
+(journald under the systemd unit): a stable snake_case event token plus
+`key=value` fields, cataloged in [LIMITS.md](../LIMITS.md). High-rate paths
+log state changes and per-match aggregates only — `input_late_accepted`
+fires on an entrant's first windowed reply, `input_summary` closes each
+match per entrant — so a busy box stays greppable without 10 Hz flooding.
+The current catalog: `match_started`, `match_over`, `input_late_accepted`,
+`input_dropped_stale`, `input_summary`, `obs_stall`, `disconnect`,
+`ladder_forfeit`, `register_refused`, `lobby_join_failed`; phase-2 grace
+re-attach adds `reattach_granted` / `reattach_expired`. New operational
+behavior ships with its event in the same PR — this is the record ops
+reconfigures from (issue #71 holds the re-attach policy).
 
 ## Known debts (deliberate; don't entrench them)
 

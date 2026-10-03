@@ -71,8 +71,9 @@ into each other:
   assembly at draft time, matchmaking and lane scheduling, ELO/standings,
   the ladder page, replay listing.
 - **Game-server role** — everything inside one match: the 10 Hz loop, fog
-  observations, the 50 ms reply deadline, stall/forfeit handling, replay
-  recording, and the results/ELO write-back at match end.
+  observations, the 50 ms reply deadline with its bounded acceptance window
+  (`--input-window-ticks`), stall/forfeit handling, replay recording, and
+  the results/ELO write-back at match end.
 - **Shared** — `crates/gunbatte-core` (engine, match config, wire types,
   replay format) and `crates/gunbatte-node` (the seam: the entrant handoff,
   per-match resources, and the ladder database). Both roles depend on the
