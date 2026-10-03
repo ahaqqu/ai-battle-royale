@@ -1065,7 +1065,7 @@ function playLoop(ts: number): void {
       // Point the damage arrow at the likeliest shooter: the closest enemy
       // projectile in flight, else the strongest recent gunshot bearing.
       const threat = obs.seen.projectiles
-        .filter((p) => p.owner !== me.id)
+        .filter((p) => p.owner !== playYouIndex)
         .map((p) => ({ p, d: Math.hypot(p.pos[0] - me.pos[0], p.pos[1] - me.pos[1]) }))
         .sort((a, b) => a.d - b.d)[0];
       if (threat) {
@@ -1097,7 +1097,9 @@ function playLoop(ts: number): void {
     for (const p of obs.seen.projectiles) {
       seenProjs.set(p.id, {
         x: p.pos[0], y: p.pos[1], vx: p.vel[0], vy: p.vel[1],
-        w: weaponIdx(p.weapon), mine: p.owner === me.id,
+        // `owner` is the 0-based bot index — `me.id` (a unit id) never
+        // matched it, so own-shot sound/FX never fired.
+        w: weaponIdx(p.weapon), mine: p.owner === playYouIndex,
       });
     }
     for (const [id, pr] of seenProjs) {
@@ -1231,8 +1233,9 @@ function zonePhaseOfFloat(r: number): number {
   return ladder.length - 1;
 }
 
-/** Play observation → shared projectile layout for ProjectileLayer. Owner ids
- * are 1+bot (mains) or 101+bot (companions); the layer colors by bot index. */
+/** Play observation → shared projectile layout for ProjectileLayer. The wire's
+ * `owner` is the 0-based bot index (mains and their companions alike), which
+ * is exactly what the layer's botColor expects. */
 function packPlayProjs(obs: PlayObs): Float32Array {
   const list = obs.seen.projectiles;
   const out = new Float32Array(list.length * PROJ_STRIDE);
@@ -1240,7 +1243,7 @@ function packPlayProjs(obs: PlayObs): Float32Array {
     const p = list[i];
     const o = i * PROJ_STRIDE;
     out[o + P.ID] = p.id;
-    out[o + P.BOT] = p.owner > 100 ? p.owner - 101 : p.owner - 1;
+    out[o + P.BOT] = typeof p.owner === "number" && p.owner >= 0 ? p.owner : 0;
     out[o + P.X] = p.pos[0];
     out[o + P.Y] = p.pos[1];
     out[o + P.VX] = p.vel[0];
